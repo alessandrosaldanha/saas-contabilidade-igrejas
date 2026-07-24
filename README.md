@@ -35,7 +35,7 @@ O diferencial da plataforma é a utilização de **Inteligência Artificial (Goo
 - **Estilização:** [Tailwind CSS](https://tailwindcss.com/), [Lucide React](https://lucide.dev/) (Ícones)
 - **Base de Dados:** [Supabase](https://supabase.com/) (PostgreSQL - Free Tier)
 - **Autenticação:** [Keycloak SSO](https://www.keycloak.org/) / [Supabase Auth](https://supabase.com/docs/guides/auth)
-- **Inteligência Artificial:** [Google Gemini API](https://ai.google.dev/) (Gemini 1.5 Flash)
+- **Inteligência Artificial:** [Google Gemini API](https://ai.google.dev/) (Gemini 3.5 Flash)
 
 ---
 
