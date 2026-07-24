@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, FileText, FileType, RotateCcw, Sheet, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, FileType, Pencil, Plus, RotateCcw, Sheet, X } from "lucide-react";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Avatar from "../components/Avatar";
@@ -8,9 +8,34 @@ import { useAuth } from "../context/AuthContext";
 import { supabase } from "../services/supabase";
 import { CATEGORY_TONE, MONTHS_FULL } from "../services/mockData";
 import { fmt, fmtPlain, brToIso } from "../utils/format";
-import type { LedgerRow, Transaction } from "../types";
+import type { LedgerRow, Transaction, TransactionType } from "../types";
 
 type ReportFormat = "pdf" | "word" | null;
+
+const TRANSACTION_CATEGORIES = [
+  "Dízimos e Ofertas",
+  "Prebenda Pastoral",
+  "Manutenção do Templo",
+  "Ação Social",
+  "Contas e Utilidades",
+  "Administrativo",
+  "Outros",
+];
+
+interface TransactionForm {
+  mode: "create" | "edit";
+  id?: string;
+  date: string; // yyyy-mm-dd, formato do <input type="date">
+  desc: string;
+  value: string;
+  type: TransactionType;
+  category: string;
+}
+
+function todayIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 function computeLedger(transactions: Transaction[], year: number, monthIdx: number) {
   const periodStart = `${year}-${String(monthIdx + 1).padStart(2, "0")}-01`;
@@ -45,6 +70,11 @@ export default function LivroCaixa() {
   const [reportModal, setReportModal] = useState<ReportFormat>(null);
   const [estornoTarget, setEstornoTarget] = useState<LedgerRow | null>(null);
   const [isEstornando, setIsEstornando] = useState(false);
+  const [formModal, setFormModal] = useState<TransactionForm | null>(null);
+  const [isSavingForm, setIsSavingForm] = useState(false);
+
+  const canManage = profile?.role === "Admin" || profile?.role === "Tesoureiro";
+  const canEstornar = profile?.role === "Admin";
 
   const confirmEstorno = async () => {
     if (!estornoTarget || isEstornando) return;
@@ -58,6 +88,53 @@ export default function LivroCaixa() {
     setEstornoTarget(null);
     await refreshTransactions();
     showToastMsg("Lançamento estornado com sucesso");
+  };
+
+  const openCreateModal = () => {
+    setFormModal({ mode: "create", date: todayIso(), desc: "", value: "", type: "entrada", category: "Dízimos e Ofertas" });
+  };
+  const openEditModal = (row: LedgerRow) => {
+    setFormModal({
+      mode: "edit",
+      id: row.id,
+      date: brToIso(row.date),
+      desc: row.desc,
+      value: Math.abs(row.value).toFixed(2),
+      type: row.type,
+      category: row.category,
+    });
+  };
+
+  const submitForm = async () => {
+    if (!formModal || !profile || isSavingForm) return;
+    const value = parseFloat(formModal.value.replace(",", "."));
+    if (!formModal.desc.trim() || !formModal.date || !(value > 0)) {
+      showToastMsg("Preencha data, descrição e um valor válido.");
+      return;
+    }
+    setIsSavingForm(true);
+    const payload = {
+      occurred_on: formModal.date,
+      description: formModal.desc.trim(),
+      value,
+      type: formModal.type,
+      category: formModal.category,
+      confidence: "alta" as const,
+    };
+
+    const { error } =
+      formModal.mode === "create"
+        ? await supabase.from("transactions").insert({ ...payload, created_by: profile.id })
+        : await supabase.from("transactions").update(payload).eq("id", formModal.id);
+
+    setIsSavingForm(false);
+    if (error) {
+      showToastMsg(`Falha ao salvar: ${error.message}`);
+      return;
+    }
+    setFormModal(null);
+    await refreshTransactions();
+    showToastMsg(formModal.mode === "create" ? "Lançamento criado com sucesso" : "Lançamento atualizado com sucesso");
   };
 
   const goPrevMonth = () => {
@@ -152,6 +229,15 @@ export default function LivroCaixa() {
           </select>
         </div>
         <div className="flex gap-2">
+          {canManage && (
+            <button
+              onClick={openCreateModal}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-md bg-orla-blue text-white text-xs font-medium hover:bg-blue-600"
+            >
+              <Plus size={14} />
+              Novo Lançamento
+            </button>
+          )}
           <button onClick={() => setReportModal("pdf")} className={exportBtnCls}>
             <FileText size={14} />
             Exportar PDF
@@ -195,7 +281,7 @@ export default function LivroCaixa() {
                 <th className="px-4.5 py-3 font-medium text-xs text-right">Valor</th>
                 <th className="px-4.5 py-3 font-medium text-xs text-right">Saldo</th>
                 <th className="px-4.5 py-3 font-medium text-xs">Registrado por</th>
-                {profile?.role === "Admin" && <th className="px-4.5 py-3 font-medium text-xs text-right">Ações</th>}
+                {(canManage || canEstornar) && <th className="px-4.5 py-3 font-medium text-xs text-right">Ações</th>}
               </tr>
             </thead>
             <tbody>
@@ -221,15 +307,28 @@ export default function LivroCaixa() {
                       <span className="text-xs text-neutral-400">{row.createdBy}</span>
                     </div>
                   </td>
-                  {profile?.role === "Admin" && (
+                  {(canManage || canEstornar) && (
                     <td className="px-4.5 py-3.5 text-right">
-                      <button
-                        onClick={() => setEstornoTarget(row)}
-                        title="Estornar / Excluir lançamento"
-                        className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 text-neutral-500 dark:text-neutral-400 hover:bg-status-error/10 hover:text-status-error hover:border-status-error"
-                      >
-                        <RotateCcw size={14} />
-                      </button>
+                      <div className="flex gap-1 justify-end">
+                        {canManage && (
+                          <button
+                            onClick={() => openEditModal(row)}
+                            title="Editar lançamento"
+                            className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                        )}
+                        {canEstornar && (
+                          <button
+                            onClick={() => setEstornoTarget(row)}
+                            title="Estornar / Excluir lançamento"
+                            className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 text-neutral-500 dark:text-neutral-400 hover:bg-status-error/10 hover:text-status-error hover:border-status-error"
+                          >
+                            <RotateCcw size={14} />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   )}
                 </tr>
@@ -357,6 +456,100 @@ export default function LivroCaixa() {
                 className="px-4 py-2 rounded-md bg-status-error text-white text-sm font-medium hover:opacity-90 disabled:opacity-70"
               >
                 {isEstornando ? "Estornando…" : "Confirmar Estorno"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {formModal && (
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-6">
+          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[440px] rounded-lg shadow-md p-8">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="font-display font-semibold text-lg m-0">
+                {formModal.mode === "create" ? "Novo Lançamento" : "Editar Lançamento"}
+              </h3>
+              <button onClick={() => setFormModal(null)} className="text-neutral-400 p-1">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-3.5">
+              <div className="flex gap-3">
+                <label className="block flex-1">
+                  <span className="block text-sm font-medium mb-1.5">Data</span>
+                  <input
+                    type="date"
+                    value={formModal.date}
+                    onChange={(e) => setFormModal({ ...formModal, date: e.target.value })}
+                    className="w-full box-border border border-neutral-300 dark:border-white/20 bg-white dark:bg-neutral-900 rounded-md px-3.5 py-2.5 text-sm outline-none"
+                  />
+                </label>
+                <label className="block flex-1">
+                  <span className="block text-sm font-medium mb-1.5">Valor (R$)</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={formModal.value}
+                    onChange={(e) => setFormModal({ ...formModal, value: e.target.value })}
+                    placeholder="0,00"
+                    className="w-full box-border border border-neutral-300 dark:border-white/20 bg-white dark:bg-neutral-900 rounded-md px-3.5 py-2.5 text-sm outline-none"
+                  />
+                </label>
+              </div>
+
+              <label className="block">
+                <span className="block text-sm font-medium mb-1.5">Descrição</span>
+                <input
+                  value={formModal.desc}
+                  onChange={(e) => setFormModal({ ...formModal, desc: e.target.value })}
+                  placeholder="ex: Dízimo João Silva"
+                  className="w-full box-border border border-neutral-300 dark:border-white/20 bg-white dark:bg-neutral-900 rounded-md px-3.5 py-2.5 text-sm outline-none"
+                />
+              </label>
+
+              <div className="flex gap-3">
+                <label className="block flex-1">
+                  <span className="block text-sm font-medium mb-1.5">Tipo</span>
+                  <select
+                    value={formModal.type}
+                    onChange={(e) => setFormModal({ ...formModal, type: e.target.value as TransactionType })}
+                    className="w-full box-border border border-neutral-300 dark:border-white/20 bg-white dark:bg-neutral-900 rounded-md px-3.5 py-2.5 text-sm outline-none"
+                  >
+                    <option value="entrada">Entrada</option>
+                    <option value="saida">Saída</option>
+                  </select>
+                </label>
+                <label className="block flex-1">
+                  <span className="block text-sm font-medium mb-1.5">Categoria</span>
+                  <select
+                    value={formModal.category}
+                    onChange={(e) => setFormModal({ ...formModal, category: e.target.value })}
+                    className="w-full box-border border border-neutral-300 dark:border-white/20 bg-white dark:bg-neutral-900 rounded-md px-3.5 py-2.5 text-sm outline-none"
+                  >
+                    {TRANSACTION_CATEGORIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2.5 mt-6.5">
+              <button
+                onClick={() => setFormModal(null)}
+                className="px-4 py-2 rounded-md border border-neutral-300 dark:border-white/20 text-sm font-medium"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={submitForm}
+                disabled={isSavingForm}
+                className="px-4 py-2 rounded-md bg-orla-blue text-white text-sm font-medium hover:bg-blue-600 disabled:opacity-70"
+              >
+                {isSavingForm ? "Salvando…" : formModal.mode === "create" ? "Criar Lançamento" : "Salvar Alterações"}
               </button>
             </div>
           </div>

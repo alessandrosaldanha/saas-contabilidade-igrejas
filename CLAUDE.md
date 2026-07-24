@@ -202,6 +202,30 @@ src/
 
 **Status do escopo original do usuário:** com esta fase, todos os pilares pedidos (RBAC/Governança, Dashboard, Livro Caixa + Importação IA, Conciliação/Estornos) estão implementados e rodando com dados reais em produção.
 
+### [2026-07-24] Deploy em produção (Vercel) + correção de roteamento SPA
+
+**O que foi feito:**
+- App publicado em `https://saas-contabilidade-igrejas.vercel.app` (Vercel conectado ao repo GitHub, deploy automático a cada push em `main`).
+- Variáveis de ambiente configuradas no Vercel: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (Production + Preview).
+- Supabase Auth (Authentication → URL Configuration): Site URL e Redirect URLs atualizados para a URL de produção do Vercel (+ `localhost:5173` mantido para dev local).
+- **`vercel.json`** (novo): rewrite `/(.*) → /index.html` — sem isso, o Vercel retornava 404 em qualquer rota que não fosse a raiz (`/login`, `/dashboard`, etc.), porque tentava servir um arquivo estático físico em vez de deixar o React Router assumir o roteamento client-side.
+- Validado com Playwright direto contra a URL de produção: login e Dashboard funcionando, sem erros de console.
+
+### [2026-07-24] Lançamento manual (criar/editar) + detecção de duplicatas na importação
+
+**O que foi feito:**
+- **`supabase/migrations/0003_manual_entry.sql`**: trigger `on_transaction_update` (AFTER UPDATE em `transactions`) loga `edicao_manual` na auditoria sempre que um lançamento é editado — mesmo padrão arquitetural dos triggers de insert/delete da Fase 4.
+- **`src/pages/LivroCaixa.tsx`**: botão "Novo Lançamento" (Admin/Tesoureiro) e botão "Editar" por linha (Admin/Tesoureiro) — modal compartilhado com campos data/valor/descrição/tipo/categoria. Antes só era possível criar lançamento via importação com IA e só era possível remover via estorno; agora dá pra lançar/corrigir manualmente também.
+- **`src/pages/ImportacaoExtrato.tsx`**: antes de salvar, compara os lançamentos extraídos contra os já existentes no Livro Caixa (mesma data + descrição + valor + tipo) e, se achar coincidência, mostra um aviso listando os possíveis duplicados antes de permitir salvar (com opção de "Salvar Mesmo Assim" para casos legítimos de coincidência).
+
+**Por que isso foi feito agora (não estava no escopo original):** durante o teste da Fase 4, descobri que os 7 lançamentos reais do usuário estavam **duplicados** no banco de produção — ele tinha reimportado o mesmo extrato duas vezes pelo site (sem perceber) e a importação não tinha nenhuma proteção contra isso. Confirmei com o usuário antes de remover o lote duplicado (mantive o lote original, removi o mais recente). Como a causa raiz era uma lacuna real de produto, implementei a detecção de duplicatas na mesma sessão em vez de só reportar o problema.
+
+**Decisões técnicas:**
+- Detecção de duplicata é uma comparação **exata** (data + descrição + valor + tipo) feita no cliente contra `transactions` já carregado — não usa fuzzy matching. Suficiente para pegar o caso real que causou o incidente (reimportar o mesmo arquivo gera exatamente os mesmos valores), mas não pega duplicatas com descrição levemente diferente entre duas extrações da IA do mesmo lançamento.
+- Categoria no formulário de lançamento manual usa a mesma lista fixa de categorias do `parse-statement` (Dízimos e Ofertas, Prebenda Pastoral, Manutenção do Templo, Ação Social, Contas e Utilidades, Administrativo, Outros) — mantém consistência com os gráficos/filtros que já dependem desses nomes exatos.
+- Confiança de lançamento manual é sempre `"alta"` (não pede o campo na UI) — o conceito de "confidence" só faz sentido para inferência da IA, não para algo que um humano digitou diretamente.
+- Testado ponta a ponta: criação, edição (com log de auditoria real gerado) e aviso de duplicata (confirmado que "Cancelar" não grava nada, testado contra os dados reais de produção).
+
 ## 🧠 7. SKILLS & PROTOCOLOS DE EXECUÇÃO
 
 O Claude Code deve ler, carregar e seguir rigorosamente as skills definidas no arquivo `SKILLS.md` (ou na pasta `.claude/skills/`).

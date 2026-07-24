@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { Upload, Loader2, Award, Send, Check } from "lucide-react";
+import { Upload, Loader2, Award, Send, Check, AlertTriangle } from "lucide-react";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import { useApp } from "../context/AppContext";
@@ -76,8 +76,13 @@ function deriveMonthLabel(items: Transaction[]): string {
   return `${MONTHS_FULL[parseInt(m, 10) - 1]} de ${y}`;
 }
 
+function findDuplicates(staged: Transaction[], existing: Transaction[]): Transaction[] {
+  const existingKeys = new Set(existing.map((t) => `${t.date}|${t.desc}|${Math.abs(t.value)}|${t.type}`));
+  return staged.filter((t) => existingKeys.has(`${t.date}|${t.desc}|${Math.abs(t.value)}|${t.type}`));
+}
+
 export default function ImportacaoExtrato() {
-  const { importHistory, refreshTransactions, refreshImportHistory, showToastMsg } = useApp();
+  const { transactions, importHistory, refreshTransactions, refreshImportHistory, showToastMsg } = useApp();
   const { profile } = useAuth();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -91,6 +96,7 @@ export default function ImportacaoExtrato() {
   const [isRefining, setIsRefining] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [duplicateWarning, setDuplicateWarning] = useState<Transaction[] | null>(null);
 
   const onFileSelected = async (file: File) => {
     setIsUploading(true);
@@ -161,8 +167,19 @@ export default function ImportacaoExtrato() {
     }
   };
 
-  const confirmSave = async () => {
+  const confirmSave = () => {
     if (isSaving || stagedTransactions.length === 0 || !profile) return;
+    const duplicates = findDuplicates(stagedTransactions, transactions);
+    if (duplicates.length > 0) {
+      setDuplicateWarning(duplicates);
+      return;
+    }
+    doSave();
+  };
+
+  const doSave = async () => {
+    if (isSaving || stagedTransactions.length === 0 || !profile) return;
+    setDuplicateWarning(null);
     setIsSaving(true);
     try {
       const rows = stagedTransactions.map((t) => ({
@@ -454,6 +471,47 @@ export default function ImportacaoExtrato() {
                 className="px-4 py-2.5 rounded-md bg-orla-blue text-white text-sm font-medium hover:bg-blue-600"
               >
                 Ver no Livro Caixa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {duplicateWarning && (
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-6">
+          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[480px] rounded-lg shadow-md p-8">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="w-10 h-10 rounded-full bg-status-warning/15 flex items-center justify-center shrink-0">
+                <AlertTriangle size={20} className="text-status-warning" />
+              </span>
+              <h3 className="font-display font-semibold text-lg m-0">Possíveis lançamentos duplicados</h3>
+            </div>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed mb-4">
+              {duplicateWarning.length} lançamento(s) deste extrato já existem no Livro Caixa (mesma data, descrição
+              e valor). Pode ser um extrato importado por engano duas vezes.
+            </p>
+            <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-white/10 rounded-md px-4 py-3 mb-6 max-h-[180px] overflow-y-auto text-sm">
+              {duplicateWarning.map((t) => (
+                <div key={t.id} className="flex justify-between py-1 border-b border-neutral-200 dark:border-white/10 last:border-0">
+                  <span className="text-neutral-400">{t.date}</span>
+                  <span className="flex-1 px-3 truncate">{t.desc}</span>
+                  <span className={t.value < 0 ? "text-orla-coral" : "text-status-success"}>{fmt(t.value)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2.5">
+              <button
+                onClick={() => setDuplicateWarning(null)}
+                className="px-4 py-2 rounded-md border border-neutral-300 dark:border-white/20 text-sm font-medium"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={doSave}
+                disabled={isSaving}
+                className="px-4 py-2 rounded-md bg-status-warning text-white text-sm font-medium hover:opacity-90 disabled:opacity-70"
+              >
+                {isSaving ? "Salvando…" : "Salvar Mesmo Assim"}
               </button>
             </div>
           </div>
