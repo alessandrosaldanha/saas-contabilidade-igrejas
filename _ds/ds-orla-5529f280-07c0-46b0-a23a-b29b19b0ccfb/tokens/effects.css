@@ -1,0 +1,37 @@
+/* ──────────────────────────────────────────────────────────────
+   Orla — Elevation, borders, motion
+   Orla's surfaces are flat and editorial. Shadows are subtle and
+   cool — used to lift cards off the page, never heavy or coloured.
+   Hairline borders (neutral-300) do most of the structural work.
+   ────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Shadows (cool, soft, low spread) ── */
+  --shadow-none: none;
+  --shadow-xs:  0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm:  0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md:  0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg:  0 12px 32px rgba(0, 0, 0, 0.10);
+  --shadow-xl:  0 24px 60px rgba(0, 0, 0, 0.12);
+  /* the brand's shadow value from Figma (rgba(0,0,0,0.24)) for strong lifts */
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.24);
+
+  /* ── Border widths ── */
+  --border-hairline: 1px;
+  --border-regular:  1.5px;
+  --border-strong-w: 2px;
+
+  /* ── Focus ── */
+  --focus-ring-width: 3px;
+  --focus-ring-offset: 2px;
+
+  /* ── Motion ──
+     Orla motion is calm and confident: short, eased, no bounce.
+     Mirrors the smooth, continuous feel of the wave mark. */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);   /* @kind other */
+  --ease-out:      cubic-bezier(0.16, 1, 0.3, 1);  /* @kind other */
+  --ease-in-out:   cubic-bezier(0.65, 0, 0.35, 1); /* @kind other */
+  --duration-fast:   120ms; /* @kind other */
+  --duration-normal: 200ms; /* @kind other */
+  --duration-slow:   360ms; /* @kind other */
+}

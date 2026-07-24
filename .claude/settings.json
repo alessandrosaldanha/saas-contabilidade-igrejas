@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm -rf src/data)",
+      "Bash(mkdir -p src/assets)",
+      "Bash(npx tsc *)"
+    ]
+  }
+}

@@ -1,0 +1,96 @@
+/* ──────────────────────────────────────────────────────────────
+   Orla — Color tokens
+   Orla's identity is fundamentally black & white. Blue (#0057FF) is
+   the single functional accent; coral/persimmon is a warmer secondary
+   brand accent used sparingly. Color values extracted from the Figma
+   file's Variable collection and the institutional site.
+   ────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Brand core ── */
+  --orla-black: #000000;
+  --orla-white: #ffffff;
+  --orla-paper: #fbfcf6;        /* warm off-white used across the site */
+  --orla-blue: #0057ff;         /* primary functional accent (orla-brand-color) */
+  --orla-blue-deep: #14237d;    /* deep navy, used in dense type / depth */
+
+  /* ── Secondary brand accent (coral / persimmon) ── */
+  --orla-coral: #ff5e40;        /* brand-primary-500 */
+  --orla-coral-soft: #fc9d80;   /* tint */
+
+  /* ── Neutral ramp (cool grey) ── */
+  --neutral-0:   #ffffff;
+  --neutral-50:  #fbfcf6;
+  --neutral-100: #f5f5f5;
+  --neutral-200: #f0f0f0;
+  --neutral-300: #dfdfe0;       /* neutrals-200 — hairline borders */
+  --neutral-400: #d7dce0;
+  --neutral-500: #aeaeb2;
+  --neutral-600: #717177;
+  --neutral-700: #474747;
+  --neutral-800: #2a2a2a;
+  --neutral-900: #141414;
+  --neutral-950: #0a0a0a;
+
+  /* ── Blue scale (functional) ── */
+  --blue-50:  #eef3ff;
+  --blue-100: #d9e4ff;
+  --blue-300: #6f9bff;
+  --blue-500: #0057ff;
+  --blue-600: #0046cc;
+  --blue-700: #14237d;
+
+  /* ── Status ── */
+  --status-success: #198f51;
+  --status-warning: #de7d02;
+  --status-error:   #d4453b;
+  --status-info:    #0057ff;
+
+  /* ── Semantic — surfaces ── */
+  --surface-page:      var(--orla-white);
+  --surface-paper:     var(--orla-paper);
+  --surface-card:      var(--orla-white);
+  --surface-raised:    var(--orla-white);
+  --surface-sunken:    var(--neutral-100);
+  --surface-inverse:   var(--orla-black);
+  --surface-accent:    var(--orla-blue);
+
+  /* ── Semantic — text ── */
+  --text-primary:    var(--orla-black);
+  --text-secondary:  var(--neutral-600);
+  --text-tertiary:   var(--neutral-500);
+  --text-inverse:    var(--orla-white);
+  --text-accent:     var(--orla-blue);
+  --text-on-accent:  var(--orla-white);
+
+  /* ── Semantic — borders / lines ── */
+  --border-subtle:  var(--neutral-300);
+  --border-default: var(--neutral-400);
+  --border-strong:  var(--orla-black);
+  --border-accent:  var(--orla-blue);
+
+  /* ── Semantic — interaction ── */
+  --focus-ring: var(--orla-blue);
+  --overlay-scrim: rgba(0, 0, 0, 0.5);
+}
+
+/* ── Dark / inverse scope ──
+   Apply [data-theme="dark"] (or .on-dark) to flip the semantic layer
+   for the brand's black surfaces (the icon badges, dark hero panels). */
+[data-theme="dark"],
+.on-dark {
+  --surface-page:    var(--orla-black);
+  --surface-card:    var(--neutral-900);
+  --surface-raised:  var(--neutral-900);
+  --surface-sunken:  var(--neutral-950);
+  --surface-inverse: var(--orla-white);
+
+  --text-primary:   var(--orla-white);
+  --text-secondary: var(--neutral-400);
+  --text-tertiary:  var(--neutral-500);
+  --text-inverse:   var(--orla-black);
+
+  --border-subtle:  rgba(255, 255, 255, 0.12);
+  --border-default: rgba(255, 255, 255, 0.22);
+  --border-strong:  var(--orla-white);
+}

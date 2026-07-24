@@ -1,0 +1,18 @@
+/* ──────────────────────────────────────────────────────────────
+   Orla — Webfonts
+   The Orla brand uses Inter Tight for display/headings and Archivo
+   for body/UI — both confirmed in the source Figma file. A monospace
+   (JetBrains Mono) is included for code specimens in documentation.
+
+   NOTE: The logo wordmark itself is set in a custom geometric face
+   (Eastman Alternate Trial) which is a licensed/trial font and is NOT
+   bundled. Use the supplied logo SVG assets for the wordmark; never
+   re-typeset "orla" in a substitute font.
+   ────────────────────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Comfortaa:wght@400;500;600;700&display=swap');
+
+/* Comfortaa is the closest free substitute for the custom geometric
+   "orla" wordmark face — rounded, monoline, single-story 'a'. It is
+   used ONLY by the Logo lockup as a fallback; prefer the official
+   logo SVG in production. */

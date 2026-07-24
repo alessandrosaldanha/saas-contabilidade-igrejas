@@ -1,0 +1,50 @@
+/* ──────────────────────────────────────────────────────────────
+   Orla — Typography tokens
+   Display & headings: Inter Tight (tight, modern, slightly condensed).
+   Body & UI: Archivo (institutional, editorial). Mono: JetBrains Mono.
+   Orla's type voice is clean, sans-serif, generously spaced and
+   editorial — large headlines, lots of breathing room.
+   ────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Families ── */
+  --font-display: "Inter Tight", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans:    "Archivo", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-wordmark: "Comfortaa", "Inter Tight", sans-serif; /* logo lockup only */
+
+  /* ── Weights ── */
+  --weight-light:    300;
+  --weight-regular:  400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+
+  /* ── Type scale (px) — editorial, large display steps ── */
+  --text-display-2xl: 96px;
+  --text-display-xl:  72px;
+  --text-display-lg:  56px;
+  --text-display-md:  44px;
+  --text-h1: 40px;
+  --text-h2: 32px;
+  --text-h3: 26px;
+  --text-h4: 22px;
+  --text-lg:   20px;
+  --text-body: 17px;
+  --text-sm:   15px;
+  --text-xs:   13px;
+  --text-2xs:  11px;
+
+  /* ── Line heights ── */
+  --leading-tight:   1.05;   /* display */
+  --leading-snug:    1.2;    /* headings */
+  --leading-normal:  1.5;    /* body */
+  --leading-relaxed: 1.65;   /* long-form */
+
+  /* ── Letter spacing ── */
+  --tracking-tighter: -0.03em;  /* big display (logo lockup is -0.03em) */
+  --tracking-tight:   -0.015em;
+  --tracking-normal:  0em;
+  --tracking-wide:    0.04em;
+  --tracking-caps:    0.12em;   /* eyebrow / overline uppercase */
+}

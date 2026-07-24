@@ -1,0 +1,12 @@
+/* ══════════════════════════════════════════════════════════════
+   ORLA DESIGN SYSTEM — global stylesheet entry point
+   Consumers link this one file. It only @imports the token layers
+   and base styles, in cascade order. No rules are declared here.
+   ══════════════════════════════════════════════════════════════ */
+
+@import "./tokens/fonts.css";
+@import "./tokens/colors.css";
+@import "./tokens/typography.css";
+@import "./tokens/spacing.css";
+@import "./tokens/effects.css";
+@import "./tokens/base.css";

@@ -1,0 +1,64 @@
+/* ──────────────────────────────────────────────────────────────
+   Orla — Base element styles & typography helpers
+   Lightweight reset + brand defaults. Sets the editorial tone:
+   Archivo body on a warm/white surface, Inter Tight headings.
+   ────────────────────────────────────────────────────────────── */
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: var(--leading-normal);
+  color: var(--text-primary);
+  background: var(--surface-page);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ── Display & heading helpers ── */
+.orla-display,
+.orla-h1, .orla-h2, .orla-h3, .orla-h4 {
+  font-family: var(--font-display);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-tight);
+  margin: 0;
+  text-wrap: balance;
+}
+.orla-display {
+  font-size: var(--text-display-xl);
+  font-weight: var(--weight-light);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tighter);
+}
+.orla-h1 { font-size: var(--text-h1); }
+.orla-h2 { font-size: var(--text-h2); }
+.orla-h3 { font-size: var(--text-h3); }
+.orla-h4 { font-size: var(--text-h4); }
+
+.orla-body { font-family: var(--font-sans); font-size: var(--text-body); line-height: var(--leading-relaxed); }
+.orla-small { font-size: var(--text-sm); }
+
+/* ── Eyebrow / overline ── */
+.orla-eyebrow {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* ── Mono ── */
+.orla-mono { font-family: var(--font-mono); font-size: var(--text-sm); }
+
+/* ── Links ── */
+a { color: var(--text-accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+::selection { background: var(--orla-blue); color: var(--orla-white); }
