@@ -289,7 +289,7 @@ export default function ImportacaoExtrato() {
         </div>
       </div>
 
-      <div className="grid gap-5" style={{ gridTemplateColumns: "1fr 1fr", minHeight: 0 }}>
+      <div className="grid gap-5 h-[560px]" style={{ gridTemplateColumns: "1fr 1fr" }}>
         <div className="flex flex-col gap-4 min-h-0">
           <input
             ref={fileInputRef}
@@ -326,10 +326,10 @@ export default function ImportacaoExtrato() {
               <h3 className="font-display font-semibold text-[15px] m-0">Pré-visualização de lançamentos</h3>
               <Badge tone="neutral">{stagedTransactions.length} lançamentos</Badge>
             </div>
-            <div className="overflow-auto">
+            <div className="flex-1 min-h-0 overflow-auto">
               <table className="w-full min-w-[760px] border-collapse text-xs">
-                <thead>
-                  <tr className="text-left text-neutral-400">
+                <thead className="sticky top-0 z-10 bg-white dark:bg-neutral-900">
+                  <tr className="text-left text-neutral-400 border-b border-neutral-200 dark:border-white/10">
                     <th className="px-3.5 py-2.5 font-medium">Data</th>
                     <th className="px-3.5 py-2.5 font-medium">Descrição</th>
                     <th className="px-3.5 py-2.5 font-medium">Valor</th>

@@ -254,6 +254,17 @@ src/
 - Sem essa mudança, o `<thead>` sticky ficaria transparente sobre as linhas roladas por baixo — por isso o `bg-white dark:bg-neutral-900` foi replicado ali (mesmo tom do `Card` que envolve a tabela).
 - Validado com `npx tsc --noEmit` e `npm run build` (sem erros). Como a página real exige login, o comportamento (altura fixa, ~15 linhas visíveis, cabeçalho fixo durante o scroll) foi confirmado com uma renderização estática isolada (mesmo CSS compilado do build) e 40 linhas fake via Playwright, incluindo screenshot antes/depois de rolar.
 
+### [2026-07-24] Altura fixa + scroll vertical nos dois painéis da tela de Importação
+
+**O que foi feito:**
+- **`src/pages/ImportacaoExtrato.tsx`**: o grid de duas colunas (Pré-visualização de lançamentos + Agente de IA/chat) ganhou altura fixa (`h-[560px]` no `div.grid`, no lugar do `style={{ minHeight: 0 }}` que não limitava nada de fato). O `div.overflow-auto` que envolve a tabela de pré-visualização virou `div.flex-1.min-h-0.overflow-auto` (faltava o `flex-1 min-h-0` para ele realmente respeitar a altura do Card pai em vez de crescer com o conteúdo) e o `<thead>` da tabela ganhou `sticky top-0 z-10 bg-white dark:bg-neutral-900`, mesmo tratamento já aplicado na tabela do Livro Caixa.
+- O painel do chat (`Agente de IA · Categorização`) já tinha `flex-1 min-h-0 overflow-y-auto` na área de mensagens — só faltava a altura fixa no grid pai para esse scroll realmente entrar em ação em vez do painel crescer junto com a tabela.
+
+**Decisões técnicas:**
+- O bug de fundo era estrutural: `flex-1`/`min-h-0`/`overflow-auto` só limitam altura de fato quando existe um ancestral com altura **determinada** — sem isso (como no `style={{ minHeight: 0 }}` anterior, que não define altura nenhuma), esses containers apenas crescem para caber o conteúdo, e a "área de scroll" nunca tem o que rolar porque nunca fica menor que o conteúdo. Colocar `h-[560px]` no grid resolveu os dois painéis de uma vez, porque ambos já dependiam (corretamente) dessa altura vir de cima.
+- `h-[560px]` foi escolhido para caber confortavelmente a pré-visualização + chat sem empurrar demais o resto da página (stats, botão de salvar, histórico de importações, que ficam abaixo do grid).
+- Validado com `npx tsc --noEmit` e `npm run build` (sem erros) e com uma renderização estática isolada (mesmo CSS compilado do build) simulando 40 lançamentos e 20 mensagens de chat via Playwright — confirmado que os dois painéis ficam com a mesma altura, cabeçalho da tabela fixo durante o scroll, e nenhum dos dois cresce além do grid.
+
 ### [2026-07-24] Deploy em produção (Vercel) + correção de roteamento SPA
 
 **O que foi feito:**
