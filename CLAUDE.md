@@ -111,12 +111,20 @@ src/
 - `Transaction`, `AuditLog` e `ImportHistoryItem` **continuam mockados** (`services/mockData.ts`) — a Fase 0 criou o schema real para essas tabelas (`transactions`, `audit_logs`, `import_history`) para quando as Fases 2/3 migrarem Dashboard/Livro Caixa/Importação para dados reais, mas o frontend dessas páginas ainda não foi religado.
 - Validado com `npx tsc --noEmit`, `npm run build` e testes de fluxo via Playwright headless (login carrega sem erros de console, acesso direto a `/dashboard` sem sessão redireciona para `/login`, submit de login com Supabase inexistente mostra erro amigável sem exceção não tratada) contra um `.env` com credenciais placeholder (removido após o teste).
 
-**Passos manuais pendentes (fora do alcance do Claude Code nesta sessão):**
-1. Criar um projeto em supabase.com.
-2. Rodar `supabase/migrations/0001_init.sql` no SQL Editor do projeto.
-3. Copiar `.env.example` para `.env` e preencher `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`.
-4. Deploy da Edge Function: `supabase functions deploy invite-user` + `supabase secrets set SUPABASE_SERVICE_ROLE_KEY=...`.
-5. Criar o primeiro usuário Admin manualmente (Supabase Dashboard → Authentication → um usuário + `update profiles set role = 'Admin' where email = '...'`), já que o primeiro usuário do sistema não tem quem o convide.
+### [2026-07-24] Setup manual do Supabase concluído — projeto real em produção
+
+**O que foi feito (com o usuário, passo a passo):**
+1. Projeto criado em supabase.com: `saas-contabilidade-igrejas` (ref `fumabywngmjfzsobmbjr`, região `ca-central-1`, plano Free).
+2. Migration `0001_init.sql` rodada com sucesso no SQL Editor — tabelas, funções e policies criadas.
+3. `.env` local criado com `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` reais (não commitado, está no `.gitignore`).
+4. Supabase CLI instalada via Scoop (`npm install -g supabase` não é mais suportado), `supabase login` feito via device-code flow, `supabase link --project-ref fumabywngmjfzsobmbjr` e `supabase functions deploy invite-user` executados com sucesso.
+5. Primeiro usuário Admin criado via Admin API (`/auth/v1/admin/users`) com `user_metadata: { role: "Admin" }` — o trigger `handle_new_user` criou o profile automaticamente já com a role correta. Senha definida diretamente via Admin API (o link de recuperação por e-mail falhou com `otp_expired`, causado por scanners de segurança do provedor de e-mail — Gmail/Outlook — que "pré-visitam" o link de recovery e consomem o token antes do clique real do usuário; workaround documentado abaixo).
+6. Login validado no app rodando localmente: RBAC reconheceu o usuário como Admin (menu "Governança e Usuários" visível).
+
+**Decisões técnicas / correções feitas durante o setup:**
+- `SUPABASE_SERVICE_ROLE_KEY` **não deve** ser configurada via `supabase secrets set` — o runtime de toda Edge Function já injeta `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY` automaticamente; nomes de secret começando com `SUPABASE_` são bloqueados pela CLI. Comentário desatualizado removido de `supabase/functions/invite-user/index.ts`.
+- **Links de recovery/convite por e-mail podem falhar com `otp_expired`** por causa de link-scanning dos provedores de e-mail. Para o bootstrap do primeiro Admin, a senha foi definida diretamente via `PUT /auth/v1/admin/users/{id}` (Admin API) em vez de depender do link por e-mail. Vale considerar isso ao testar o fluxo de convite da Fase 1 em produção — se usuários convidados relatarem o mesmo erro, a mitigação é a mesma (definir/resetar senha via Admin API, ou orientar a abrir o link em modo anônimo/outro navegador para evitar o pré-fetch).
+- Chave de API do projeto está no formato novo da Supabase (`sb_publishable_...`/`sb_secret_...` em vez do JWT legado `eyJ...` — neste projeto especificamente veio o formato JWT legado para a anon key e o formato novo `sb_secret_...` para a service role, ambos funcionam normalmente com `@supabase/supabase-js`).
 
 **Próximos passos sugeridos (Fase 2 e 3):** religar `Dashboard.tsx` às agregações reais de `transactions`; implementar parsing real de OFX/CSV/PDF e `services/gemini.ts` para a categorização de `ImportacaoExtrato.tsx`.
 

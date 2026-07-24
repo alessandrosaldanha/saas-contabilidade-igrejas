@@ -1,8 +1,8 @@
 // Edge Function: convida um novo usuário (Auth) e já grava name/role no profile.
 // Precisa de service-role key — por isso roda aqui, nunca no frontend.
 // Deploy: supabase functions deploy invite-user
-// Secrets: supabase secrets set SUPABASE_SERVICE_ROLE_KEY=... (URL e ANON_KEY já
-// existem por padrão no runtime das Edge Functions).
+// SUPABASE_URL, SUPABASE_ANON_KEY e SUPABASE_SERVICE_ROLE_KEY já existem por
+// padrão no runtime de toda Edge Function (não precisam ser configuradas como secret).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 Deno.serve(async (req) => {
