@@ -265,6 +265,18 @@ src/
 - `h-[560px]` foi escolhido para caber confortavelmente a pré-visualização + chat sem empurrar demais o resto da página (stats, botão de salvar, histórico de importações, que ficam abaixo do grid).
 - Validado com `npx tsc --noEmit` e `npm run build` (sem erros) e com uma renderização estática isolada (mesmo CSS compilado do build) simulando 40 lançamentos e 20 mensagens de chat via Playwright — confirmado que os dois painéis ficam com a mesma altura, cabeçalho da tabela fixo durante o scroll, e nenhum dos dois cresce além do grid.
 
+### [2026-07-24] Exclusão de importação agora remove os lançamentos vinculados no Livro Caixa
+
+**O que foi feito:**
+- **`supabase/migrations/0005_link_transactions_to_import.sql`** (nova, aplicada via `supabase db query --linked --file` direto na produção): adiciona a coluna `transactions.import_id` (uuid, nullable, `references import_history(id) on delete cascade`). Antes disso, `import_history` era só um registro de auditoria do lote (arquivo/mês/contagem) **sem nenhum vínculo real** com as linhas de `transactions` que ela representava (decisão explícita da Fase de "Ações no histórico de importação", agora revertida a pedido do usuário).
+- **`src/pages/ImportacaoExtrato.tsx`**: `doSave` agora insere o `import_history` **primeiro** (com `.select("id").single()` para capturar o id gerado) e só depois insere as `transactions`, cada uma já com `import_id` apontando para esse registro. `confirmHistoryDelete` passou a chamar `refreshTransactions()` além de `refreshImportHistory()` após excluir (para o Livro Caixa refletir a remoção em cascata sem precisar recarregar a página). O modal de confirmação de exclusão foi reescrito para avisar que os lançamentos vinculados também serão apagados do Livro Caixa (em vez do texto anterior, que dizia o oposto).
+
+**Decisões técnicas:**
+- A exclusão em cascata é feita **via `ON DELETE CASCADE` do Postgres**, não por uma segunda chamada `DELETE` no frontend — mesma filosofia arquitetural já usada no projeto (regra de negócio garantida pelo banco, não pela lembrança do código cliente). O trigger `on_transaction_delete` já existente (Fase 4) dispara normalmente para cada linha removida em cascata, então cada lançamento apagado continua gerando seu próprio log de auditoria (`estorno`), sem trigger adicional necessário.
+- **Limitação conhecida:** lançamentos e registros de `import_history` criados **antes** desta migration não têm `import_id` (não há como reconstruir retroativamente qual lote originou quais linhas) — excluir um registro de importação antigo (pré-migration) não vai remover nenhum lançamento, mesmo que a contagem exibida no modal sugira que sim. Só extratos importados a partir de agora têm o vínculo real.
+- A ordem de escrita foi invertida (`import_history` antes de `transactions`) porque o `import_id` das transações depende do id gerado pelo insert do histórico — não há transação atômica entre as duas chamadas (Supabase JS client não expõe transações multi-tabela sem uma RPC dedicada), então uma falha no insert de `transactions` após o `import_history` já ter sido criado deixa um registro de histórico "órfão" (sem lançamentos); não foi implementado rollback automático para esse caso por não ter sido pedido e por adicionar complexidade desproporcional ao risco.
+- Validado com `npx tsc --noEmit`, `npm run build` (sem erros) e uma consulta direta ao `information_schema.columns` em produção confirmando que a coluna `import_id` foi criada como `uuid`/nullable. Teste end-to-end (upload real → exclusão → sumiço no Livro Caixa) não foi executado nesta sessão por falta de credenciais de teste.
+
 ### [2026-07-24] Deploy em produção (Vercel) + correção de roteamento SPA
 
 **O que foi feito:**
@@ -288,6 +300,24 @@ src/
 - Categoria no formulário de lançamento manual usa a mesma lista fixa de categorias do `parse-statement` (Dízimos e Ofertas, Prebenda Pastoral, Manutenção do Templo, Ação Social, Contas e Utilidades, Administrativo, Outros) — mantém consistência com os gráficos/filtros que já dependem desses nomes exatos.
 - Confiança de lançamento manual é sempre `"alta"` (não pede o campo na UI) — o conceito de "confidence" só faz sentido para inferência da IA, não para algo que um humano digitou diretamente.
 - Testado ponta a ponta: criação, edição (com log de auditoria real gerado) e aviso de duplicata (confirmado que "Cancelar" não grava nada, testado contra os dados reais de produção).
+
+### [2026-07-24] Diagnóstico + correção: "Falha ao processar extrato: Edge Function returned a non-2xx status code"
+
+**O que foi investigado:**
+- Confirmado via `supabase functions list --project-ref fumabywngmjfzsobmbjr` que `parse-statement` está `ACTIVE` e implantada; `supabase secrets list` confirmou que `GEMINI_API_KEY` está configurada (não removida/expirada).
+- Testado o endpoint diretamente com `curl` usando a `anon key` (`VITE_SUPABASE_ANON_KEY`, chave pública, segura para usar em teste) como Bearer: o gateway aceitou o JWT normalmente e a função respondeu `401 Não autenticado` (nosso próprio código, não um erro de gateway/CORS) — descarta rotação de chaves de assinatura JWT do projeto como causa.
+- **Causa raiz identificada:** a mensagem "Edge Function returned a non-2xx status code" **não é o erro real** — é o texto genérico que `@supabase/supabase-js` (`FunctionsHttpError`) usa para `error.message` sempre que a função retorna qualquer status não-2xx. O corpo de resposta de verdade (onde `parse-statement` coloca a mensagem útil, ex.: `"GEMINI_API_KEY não configurada"`, `"Gemini API error (404): ..."`, `"Resposta vazia do Gemini"`) só existe em `error.context` (um `Response` cru) e nunca era lido pelo frontend — por isso qualquer falha real na função (Gemini fora do ar, modelo aposentado, JSON inválido, profile/role) sempre aparecia disfarçada atrás da mesma frase genérica, não importa a causa nem o formato do arquivo.
+
+**O que foi corrigido:**
+- **`src/services/supabase.ts`**: novo helper `getFunctionErrorMessage(error)` — se o erro for `FunctionsHttpError`, lê `error.context.clone().text()` para extrair o corpo real da resposta; senão cai para `error.message`.
+- **`src/pages/ImportacaoExtrato.tsx`** (`onFileSelected` e `sendMessage`) e **`src/pages/Usuarios.tsx`** (`submitInvite`): as 3 chamadas a `supabase.functions.invoke(...)` do projeto agora usam `await getFunctionErrorMessage(error)` em vez de `error.message` — os toasts passam a mostrar a causa real (status HTTP + texto) em vez do genérico.
+- **`supabase/functions/parse-statement/index.ts`**: `console.error` em cada ponto de falha (falha de rede ao chamar o Gemini, status não-2xx do Gemini — logando status e corpo —, resposta sem texto — logando `finishReason`, útil quando a IA para por `SAFETY`/`MAX_TOKENS` —, JSON inválido do Gemini, falha ao buscar `profile`, erro não tratado no catch geral) e `console.log` no início de cada requisição (`mode`, `caller`, `filename`) para aparecer no Log Explorer do Supabase; mensagens de erro para o Gemini agora incluem qual modelo (`GEMINI_MODEL`) foi usado, para facilitar detectar se `gemini-flash-latest` voltar a apontar para um modelo indisponível (mesmo problema já documentado na Fase 3).
+- Deploy publicado via `supabase functions deploy parse-statement --project-ref fumabywngmjfzsobmbjr`.
+
+**Decisões técnicas:**
+- Não foi possível reproduzir a chamada real de extração/Gemini nesta sessão (exige um usuário Admin/Tesoureiro autenticado de verdade, sem credenciais disponíveis) nem ler os logs de execução passados (a versão instalada do Supabase CLI, `2.109.1`, não tem subcomando `functions logs`; acesso só pelo Log Explorer do dashboard). Por isso a causa raiz *específica* de por que o Gemini/gateway está retornando não-2xx nas tentativas do usuário não pôde ser confirmada diretamente — a correção prioritária foi eliminar o mascaramento do erro, que é a causa raiz do sintoma relatado ("não dá pra saber por que falhou") e pré-requisito para diagnosticar qualquer causa de fundo.
+- **Próximo passo recomendado:** o usuário deve tentar importar um extrato novamente — o toast agora vai mostrar a mensagem real (ex. `"Gemini API error (404)..."`, `"GEMINI_API_KEY não configurada"`, `"Apenas Admin/Tesoureiro podem importar extratos"`, etc.), o que aponta diretamente a causa. Alternativamente, consultar Log Explorer em `https://supabase.com/dashboard/project/fumabywngmjfzsobmbjr/functions` (função `parse-statement`) para ver os novos logs estruturados.
+- Validado com `npx tsc --noEmit` e `npm run build` (sem erros). Teste end-to-end real não executado nesta sessão (sem credenciais de usuário Admin/Tesoureiro).
 
 ## 🧠 7. SKILLS & PROTOCOLOS DE EXECUÇÃO
 

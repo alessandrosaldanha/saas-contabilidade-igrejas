@@ -46,7 +46,27 @@
       "Bash(git commit -m ' *)",
       "Bash(git fetch *)",
       "Bash(git push *)",
-      "Bash(gh auth *)"
+      "Bash(gh auth *)",
+      "PowerShell(& \"$env:USERPROFILE\\\\scoop\\\\shims\\\\supabase.exe\" db query --linked --file \"supabase/migrations/0005_link_transactions_to_import.sql\" 2>&1 | Select-Object -Last 60)",
+      "Bash(supabase --version)",
+      "Bash(supabase status *)",
+      "Bash(supabase projects *)",
+      "Bash(supabase secrets *)",
+      "PowerShell(& \"$env:USERPROFILE\\\\scoop\\\\shims\\\\supabase.exe\" --version)",
+      "PowerShell(cd \"c:\\\\Users\\\\Alessandro\\\\Downloads\\\\SaaS contabilidade para igrejas\"; & \"$env:USERPROFILE\\\\scoop\\\\shims\\\\supabase.exe\" projects list)",
+      "PowerShell(cd \"c:\\\\Users\\\\Alessandro\\\\Downloads\\\\SaaS contabilidade para igrejas\"; & \"$env:USERPROFILE\\\\scoop\\\\shims\\\\supabase.exe\" functions logs parse-statement --project-ref fumabywngmjfzsobmbjr 2>&1 | Select-Object -Last 100)",
+      "PowerShell(cd \"c:\\\\Users\\\\Alessandro\\\\Downloads\\\\SaaS contabilidade para igrejas\"; & \"$env:USERPROFILE\\\\scoop\\\\shims\\\\supabase.exe\" --help 2>&1 | Select-String -Pattern \"log\" -Context 0,0)",
+      "PowerShell(cd \"c:\\\\Users\\\\Alessandro\\\\Downloads\\\\SaaS contabilidade para igrejas\"; & \"$env:USERPROFILE\\\\scoop\\\\shims\\\\supabase.exe\" functions list --project-ref fumabywngmjfzsobmbjr 2>&1)",
+      "PowerShell(& \"$env:USERPROFILE\\\\scoop\\\\shims\\\\supabase.exe\" db query --linked --file \"C:\\\\Users\\\\ALESSA~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-Alessandro-Downloads-SaaS-contabilidade-para-igrejas\\\\4b26b82b-3746-4682-8769-88c1fc581dd7\\\\scratchpad\\\\check_column.sql\" 2>&1 | Select-Object -Last 30)",
+      "PowerShell(cd \"c:\\\\Users\\\\Alessandro\\\\Downloads\\\\SaaS contabilidade para igrejas\"; & \"$env:USERPROFILE\\\\scoop\\\\shims\\\\supabase.exe\" secrets list --project-ref fumabywngmjfzsobmbjr 2>&1)",
+      "PowerShell(cd \"c:\\\\Users\\\\Alessandro\\\\Downloads\\\\SaaS contabilidade para igrejas\"; & \"$env:USERPROFILE\\\\scoop\\\\shims\\\\supabase.exe\" --help 2>&1)",
+      "Bash(find / -iname \"*supabase*\" -maxdepth 6 2>/dev/null | grep -iv \"Downloads/SaaS\" | grep -Ei \"config|token|credential\" | head -30)",
+      "Read(//c//**)",
+      "PowerShell(cd \"c:\\\\Users\\\\Alessandro\\\\Downloads\\\\SaaS contabilidade para igrejas\"; & \"$env:USERPROFILE\\\\scoop\\\\shims\\\\supabase.exe\" inspect --help 2>&1)",
+      "Bash(ls -la \"/c/Users/Alessandro/.supabase\" 2>&1)",
+      "Read(//c/Users/Alessandro/.supabase/**)",
+      "Bash(node -e \"const pkg=require\\('@supabase/supabase-js/package.json'\\); console.log\\(pkg.version\\)\")",
+      "PowerShell(cd \"c:\\\\Users\\\\Alessandro\\\\Downloads\\\\SaaS contabilidade para igrejas\"; & \"$env:USERPROFILE\\\\scoop\\\\shims\\\\supabase.exe\" functions deploy parse-statement --project-ref fumabywngmjfzsobmbjr 2>&1)"
     ]
   }
 }

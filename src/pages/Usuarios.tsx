@@ -4,7 +4,7 @@ import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Avatar from "../components/Avatar";
 import { useApp } from "../context/AppContext";
-import { supabase } from "../services/supabase";
+import { getFunctionErrorMessage, supabase } from "../services/supabase";
 import type { ChurchUser, UserRole, UserStatus } from "../types";
 
 const ROLE_TONE: Record<UserRole, "purple" | "info" | "warning" | "neutral"> = {
@@ -67,7 +67,7 @@ export default function Usuarios() {
     });
     setIsInviting(false);
     if (error) {
-      showToastMsg(`Falha ao convidar: ${error.message}`);
+      showToastMsg(`Falha ao convidar: ${await getFunctionErrorMessage(error)}`);
       return;
     }
     await refreshUsers();

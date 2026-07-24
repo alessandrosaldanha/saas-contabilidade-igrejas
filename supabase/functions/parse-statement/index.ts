@@ -57,26 +57,45 @@ async function callGemini(contents: unknown[], schema: unknown) {
   const apiKey = Deno.env.get("GEMINI_API_KEY");
   if (!apiKey) throw new Error("GEMINI_API_KEY não configurada");
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents,
-        generationConfig: { responseMimeType: "application/json", responseSchema: schema },
-      }),
-    },
-  );
+  let res: Response;
+  try {
+    res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents,
+          generationConfig: { responseMimeType: "application/json", responseSchema: schema },
+        }),
+      },
+    );
+  } catch (err) {
+    console.error("[parse-statement] falha de rede ao chamar Gemini:", err);
+    throw new Error(`Falha de rede ao chamar o Gemini: ${err instanceof Error ? err.message : String(err)}`);
+  }
 
   if (!res.ok) {
-    throw new Error(`Gemini API error (${res.status}): ${await res.text()}`);
+    const bodyText = await res.text();
+    console.error(`[parse-statement] Gemini retornou ${res.status} (modelo ${GEMINI_MODEL}):`, bodyText);
+    throw new Error(`Gemini API error (${res.status}) usando modelo "${GEMINI_MODEL}": ${bodyText}`);
   }
 
   const data = await res.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error("Resposta vazia do Gemini");
-  return JSON.parse(text);
+  const candidate = data.candidates?.[0];
+  const text = candidate?.content?.parts?.[0]?.text;
+  if (!text) {
+    console.error("[parse-statement] Gemini não retornou texto. finishReason:", candidate?.finishReason, "payload:", JSON.stringify(data));
+    const reason = candidate?.finishReason ? ` (finishReason: ${candidate.finishReason})` : "";
+    throw new Error(`Resposta vazia do Gemini${reason}`);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    console.error("[parse-statement] Gemini retornou JSON inválido:", text);
+    throw new Error(`Gemini retornou um JSON inválido: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
 Deno.serve(async (req) => {
@@ -93,20 +112,30 @@ Deno.serve(async (req) => {
 
     const {
       data: { user: caller },
+      error: getUserError,
     } = await callerClient.auth.getUser();
-    if (!caller) return new Response("Não autenticado", { status: 401, headers: CORS_HEADERS });
+    if (!caller) {
+      console.error("[parse-statement] auth.getUser() falhou:", getUserError?.message);
+      return new Response("Não autenticado", { status: 401, headers: CORS_HEADERS });
+    }
 
-    const { data: profile } = await callerClient
+    const { data: profile, error: profileError } = await callerClient
       .from("profiles")
       .select("role")
       .eq("id", caller.id)
       .single();
+
+    if (profileError) {
+      console.error(`[parse-statement] falha ao buscar profile de ${caller.id}:`, profileError.message);
+      return new Response(`Falha ao verificar permissões: ${profileError.message}`, { status: 500, headers: CORS_HEADERS });
+    }
 
     if (!profile || !["Admin", "Tesoureiro"].includes(profile.role)) {
       return new Response("Apenas Admin/Tesoureiro podem importar extratos", { status: 403, headers: CORS_HEADERS });
     }
 
     const body = await req.json();
+    console.log(`[parse-statement] mode=${body.mode} caller=${caller.id} filename=${body.filename ?? "-"}`);
 
     if (body.mode === "extract") {
       const { filename, mimeType, contentBase64 } = body;
@@ -146,6 +175,7 @@ Categorias válidas: ${CATEGORIES.join(", ")}.`;
 
     return new Response("Campo 'mode' deve ser 'extract' ou 'refine'", { status: 400, headers: CORS_HEADERS });
   } catch (err) {
+    console.error("[parse-statement] erro não tratado:", err);
     return new Response(err instanceof Error ? err.message : String(err), { status: 500, headers: CORS_HEADERS });
   }
 });

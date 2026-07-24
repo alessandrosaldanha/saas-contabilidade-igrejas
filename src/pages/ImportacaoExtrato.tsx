@@ -6,7 +6,7 @@ import Card from "../components/Card";
 import Badge from "../components/Badge";
 import { useApp } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
-import { supabase } from "../services/supabase";
+import { getFunctionErrorMessage, supabase } from "../services/supabase";
 import { CATEGORY_TONE, CONF_LABEL, CONF_TONE, MONTHS_FULL } from "../services/mockData";
 import { fmt, isoToBr, brToIso } from "../utils/format";
 import type { ChatMessage, Confidence, ImportHistoryItem, Transaction, TransactionType } from "../types";
@@ -148,8 +148,8 @@ export default function ImportacaoExtrato() {
       return;
     }
     setHistoryDeleteTarget(null);
-    await refreshImportHistory();
-    showToastMsg("Registro de importação excluído com sucesso");
+    await Promise.all([refreshImportHistory(), refreshTransactions()]);
+    showToastMsg("Registro de importação e lançamentos vinculados excluídos com sucesso");
   };
 
   const onFileSelected = async (file: File) => {
@@ -160,7 +160,7 @@ export default function ImportacaoExtrato() {
       const { data, error } = await supabase.functions.invoke("parse-statement", {
         body: { mode: "extract", filename: file.name, mimeType, contentBase64 },
       });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(await getFunctionErrorMessage(error));
 
       const items = (data.transactions as ExtractedItem[]) ?? [];
       setStagedTransactions(items.map(itemToStaged));
@@ -206,7 +206,7 @@ export default function ImportacaoExtrato() {
           instruction: text,
         },
       });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(await getFunctionErrorMessage(error));
 
       const items = (data.transactions as ExtractedItem[]) ?? [];
       setStagedTransactions(items.map(itemToStaged));
@@ -236,6 +236,18 @@ export default function ImportacaoExtrato() {
     setDuplicateWarning(null);
     setIsSaving(true);
     try {
+      const { data: historyRow, error: historyError } = await supabase
+        .from("import_history")
+        .insert({
+          filename,
+          month_label: deriveMonthLabel(stagedTransactions),
+          count: stagedTransactions.length,
+          imported_by: profile.id,
+        })
+        .select("id")
+        .single();
+      if (historyError) throw new Error(historyError.message);
+
       const rows = stagedTransactions.map((t) => ({
         occurred_on: brToIso(t.date),
         description: t.desc,
@@ -244,18 +256,11 @@ export default function ImportacaoExtrato() {
         category: t.category,
         confidence: t.confidence,
         created_by: profile.id,
+        import_id: historyRow.id,
       }));
 
       const { error: txError } = await supabase.from("transactions").insert(rows);
       if (txError) throw new Error(txError.message);
-
-      const { error: historyError } = await supabase.from("import_history").insert({
-        filename,
-        month_label: deriveMonthLabel(stagedTransactions),
-        count: stagedTransactions.length,
-        imported_by: profile.id,
-      });
-      if (historyError) throw new Error(historyError.message);
 
       await Promise.all([refreshTransactions(), refreshImportHistory()]);
       setShowSuccessModal(true);
@@ -671,13 +676,15 @@ export default function ImportacaoExtrato() {
               </button>
             </div>
             <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed mb-4">
-              Isso remove apenas o registro do histórico de importação (não afeta os lançamentos já salvos no Livro
-              Caixa). É registrado de forma imutável na Trilha de Auditoria.
+              Isso exclui o registro do histórico de importação <strong>e todos os lançamentos deste extrato que
+              ainda estejam vinculados no Livro Caixa</strong>. É registrado de forma imutável na Trilha de
+              Auditoria.
             </p>
             <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-white/10 rounded-md px-4 py-3.5 mb-6 text-sm">
               <div className="font-medium">{historyDeleteTarget.filename}</div>
               <div className="text-xs text-neutral-400 mt-1">
-                {historyDeleteTarget.monthLabel} · {historyDeleteTarget.count} lançamentos
+                {historyDeleteTarget.monthLabel} · {historyDeleteTarget.count} lançamentos serão excluídos do Livro
+                Caixa
               </div>
             </div>
             <div className="flex justify-end gap-2.5">
