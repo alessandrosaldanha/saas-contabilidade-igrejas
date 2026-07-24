@@ -4,18 +4,61 @@ import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Avatar from "../components/Avatar";
 import { useApp } from "../context/AppContext";
-import { CATEGORY_TONE, CURRENT_MONTH_INDEX, MONTHS_FULL, computeLedger } from "../services/mockData";
-import { fmt, fmtPlain } from "../utils/format";
+import { CATEGORY_TONE, MONTHS_FULL } from "../services/mockData";
+import { fmt, fmtPlain, brToIso } from "../utils/format";
+import type { LedgerRow, Transaction } from "../types";
 
 type ReportFormat = "pdf" | "word" | null;
 
+function computeLedger(transactions: Transaction[], year: number, monthIdx: number) {
+  const periodStart = `${year}-${String(monthIdx + 1).padStart(2, "0")}-01`;
+  const periodEnd =
+    monthIdx === 11 ? `${year + 1}-01-01` : `${year}-${String(monthIdx + 2).padStart(2, "0")}-01`;
+
+  let opening = 0;
+  const txsInMonth: Transaction[] = [];
+  for (const t of transactions) {
+    const iso = brToIso(t.date);
+    if (iso < periodStart) opening += t.value;
+    else if (iso < periodEnd) txsInMonth.push(t);
+  }
+
+  let balance = opening;
+  const rows: LedgerRow[] = txsInMonth.map((t) => {
+    balance += t.value;
+    return { ...t, balance };
+  });
+  const entradasTotal = txsInMonth.filter((t) => t.type === "entrada").reduce((s, t) => s + t.value, 0);
+  const saidasTotal = txsInMonth.filter((t) => t.type === "saida").reduce((s, t) => s + t.value, 0);
+  return { rows, opening, entradasTotal, saidasTotal, saldoFinal: opening + entradasTotal + saidasTotal };
+}
+
 export default function LivroCaixa() {
   const { transactions } = useApp();
-  const [month, setMonth] = useState(CURRENT_MONTH_INDEX);
+  const today = new Date();
+  const [year, setYear] = useState(today.getFullYear());
+  const [month, setMonth] = useState(today.getMonth());
   const [search, setSearch] = useState("");
   const [reportModal, setReportModal] = useState<ReportFormat>(null);
 
-  const ledger = useMemo(() => computeLedger(month, transactions), [month, transactions]);
+  const goPrevMonth = () => {
+    if (month === 0) {
+      setYear((y) => y - 1);
+      setMonth(11);
+    } else {
+      setMonth((m) => m - 1);
+    }
+  };
+  const goNextMonth = () => {
+    if (month === 11) {
+      setYear((y) => y + 1);
+      setMonth(0);
+    } else {
+      setMonth((m) => m + 1);
+    }
+  };
+
+  const ledger = useMemo(() => computeLedger(transactions, year, month), [transactions, year, month]);
 
   const filteredRows = useMemo(
     () =>
@@ -41,7 +84,7 @@ export default function LivroCaixa() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `livro_caixa_${MONTHS_FULL[month].toLowerCase()}_2026.csv`;
+    a.download = `livro_caixa_${MONTHS_FULL[month].toLowerCase()}_${year}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -63,19 +106,17 @@ export default function LivroCaixa() {
       <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setMonth((m) => Math.max(0, m - 1))}
-            disabled={month === 0}
-            className="w-8 h-8 flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 disabled:opacity-40"
+            onClick={goPrevMonth}
+            className="w-8 h-8 flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20"
           >
             <ChevronLeft size={15} />
           </button>
           <span className="font-display font-semibold text-sm min-w-[150px] text-center">
-            {MONTHS_FULL[month]} de 2026
+            {MONTHS_FULL[month]} de {year}
           </span>
           <button
-            onClick={() => setMonth((m) => Math.min(11, m + 1))}
-            disabled={month === 11}
-            className="w-8 h-8 flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 disabled:opacity-40"
+            onClick={goNextMonth}
+            className="w-8 h-8 flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20"
           >
             <ChevronRight size={15} />
           </button>
@@ -188,7 +229,7 @@ export default function LivroCaixa() {
                 CNPJ 12.345.678/0001-90 · Relatório Contábil — Livro Caixa
               </div>
               <div className="flex gap-5 mt-2.5 text-xs text-neutral-400">
-                <span>Período: {MONTHS_FULL[month]} de 2026</span>
+                <span>Período: {MONTHS_FULL[month]} de {year}</span>
                 <span>Emitido em: {new Date().toLocaleDateString("pt-BR")}</span>
               </div>
             </div>

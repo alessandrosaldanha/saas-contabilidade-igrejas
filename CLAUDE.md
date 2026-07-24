@@ -108,7 +108,7 @@ src/
 - IA de categorização (Fase 3, ainda não implementada): decidido usar **Gemini 1.5/2.0 Flash**.
 - Convite de usuário via Edge Function (não via update direto de tabela) porque `auth.admin.inviteUserByEmail` exige a service-role key, que não pode rodar no browser.
 - Alteração de role/status feita só por RPC `SECURITY DEFINER` (e não por policy de `UPDATE` direta) porque o Postgres não diferencia "admin" de "usuário comum" a nível de `GRANT` de coluna — todos os usuários logados executam como o mesmo role `authenticated` no Postgres; a checagem de "é Admin?" precisa acontecer dentro da função.
-- `Transaction`, `AuditLog` e `ImportHistoryItem` **continuam mockados** (`services/mockData.ts`) — a Fase 0 criou o schema real para essas tabelas (`transactions`, `audit_logs`, `import_history`) para quando as Fases 2/3 migrarem Dashboard/Livro Caixa/Importação para dados reais, mas o frontend dessas páginas ainda não foi religado.
+- `Transaction`, `AuditLog` e `ImportHistoryItem` **continuavam mockados neste ponto** (`services/mockData.ts`) — a Fase 0 já criou o schema real para essas tabelas (`transactions`, `audit_logs`, `import_history`); `Transaction`/`ImportHistoryItem` foram religados à Fase 3 (ver entrada abaixo), `AuditLog` segue mockado (Fase 4).
 - Validado com `npx tsc --noEmit`, `npm run build` e testes de fluxo via Playwright headless (login carrega sem erros de console, acesso direto a `/dashboard` sem sessão redireciona para `/login`, submit de login com Supabase inexistente mostra erro amigável sem exceção não tratada) contra um `.env` com credenciais placeholder (removido após o teste).
 
 ### [2026-07-24] Setup manual do Supabase concluído — projeto real em produção
@@ -127,6 +127,29 @@ src/
 - Chave de API do projeto está no formato novo da Supabase (`sb_publishable_...`/`sb_secret_...` em vez do JWT legado `eyJ...` — neste projeto especificamente veio o formato JWT legado para a anon key e o formato novo `sb_secret_...` para a service role, ambos funcionam normalmente com `@supabase/supabase-js`).
 
 **Próximos passos sugeridos (Fase 2 e 3):** religar `Dashboard.tsx` às agregações reais de `transactions`; implementar parsing real de OFX/CSV/PDF e `services/gemini.ts` para a categorização de `ImportacaoExtrato.tsx`.
+
+### [2026-07-24] Fase 3: Livro Caixa real + Importação de Extrato com IA (Gemini)
+
+**O que foi feito:**
+- **`supabase/functions/parse-statement/index.ts`** (nova Edge Function): dois modos —
+  - `mode: "extract"`: recebe `{filename, mimeType, contentBase64}`, envia o arquivo (PDF nativo ou texto para OFX/CSV) para o Gemini com `responseSchema` estrito, devolve `{transactions: [...]}` já categorizados (`Dízimos e Ofertas`, `Prebenda Pastoral`, `Manutenção do Templo`, `Ação Social`, `Contas e Utilidades`, `Administrativo`, `Outros`).
+  - `mode: "refine"`: recebe `{transactions, instruction}` (chat em linguagem natural) e devolve a lista atualizada + um resumo do que foi alterado — substitui o antigo `if/else` de string matching por categorização real via IA, nos dois sentidos (extração inicial e ajuste conversacional).
+  - Checa `has_role(['Admin','Tesoureiro'])` antes de aceitar a requisição (mesmo padrão de `invite-user`).
+- **`src/context/AppContext.tsx`**: `transactions`/`importHistory` agora vêm do Supabase (`refreshTransactions`/`refreshImportHistory`), com `created_by`/`imported_by` (uuid) resolvidos para nome via `usersList`. Removidos os setters diretos (`setTransactions`/`setImportHistory`) e todo o gerador procedural de histórico fake (`genMonthTransactions`, `monthTransactions`, `computeLedger`, `DEFAULT_TRANSACTIONS`, `DEFAULT_IMPORT_HISTORY`) de `services/mockData.ts`.
+- **`src/pages/LivroCaixa.tsx`**: ledger calculado de verdade a partir das transações reais (navegação por mês **e ano**, não só mês fixo em 2026); saldo de abertura = soma real de tudo antes do período (sem mais "saldo base" hardcoded de R$ 40.000).
+- **`src/pages/ImportacaoExtrato.tsx`**: upload real de arquivo (PDF/OFX/CSV, `<input type="file">` de verdade em vez do dropzone simulado), extração via `parse-statement`, chat de refinamento via IA de verdade, e "Confirmar e Salvar" grava de fato em `transactions` + `import_history` (antes só simulava com `setTimeout`).
+- **`src/utils/format.ts`**: helpers `isoToBr`/`brToIso` para converter entre o formato de data do Postgres (`YYYY-MM-DD`) e o formato usado na UI (`DD/MM/YYYY`).
+- **`src/types/index.ts`**: `ImportHistoryItem.id` mudou de `number` para `string` (UUID real).
+- CORS adicionado em **ambas** as Edge Functions (`parse-statement` e `invite-user`) — faltava no deploy inicial de `invite-user` também (só não tinha sido pego porque nunca foi exercitado pelo navegador antes desta fase); sem isso, toda chamada via `supabase.functions.invoke` do frontend falha silenciosamente com erro de CORS no preflight `OPTIONS`.
+
+**Decisões técnicas:**
+- **Gemini faz o parsing E a categorização em uma única chamada** (em vez de uma lib de parsing de OFX/CSV/PDF + um segundo passo de categorização) — o Gemini lê PDF nativamente (multimodal) e texto puro para OFX/CSV, com `responseSchema` garantindo JSON estruturado. Mais simples de manter que parsers dedicados para os formatos bancários reais (que variam muito) e é literalmente o que o produto já promete ("IA lê o extrato").
+- **Modelo: alias `gemini-flash-latest`**, não uma versão fixa. Motivo: `gemini-2.5-flash` (definido inicialmente) retornou 404 "no longer available to new users" ao testar com a chave real — o Google aposenta modelos para chaves novas rápido. O alias sempre aponta para o Flash atual (hoje resolve para `gemini-3.6-flash`); reavaliar se `gemini-flash-latest` for descontinuado no futuro.
+- **Chat de refinamento não preserva IDs entre chamadas** — cada resposta do Gemini é uma lista nova (sem tracking de diff/highlight como no mock antigo). Trade-off aceito: o resumo em texto (`summary`) explica o que mudou, evitando a complexidade de casar IDs num conteúdo que a IA pode reordenar/mesclar livremente.
+- **`created_by`/`imported_by`** guardam o UUID do usuário (não o nome) — nome é resolvido no client via join com `usersList` já carregado no `AppContext`. Evita duplicar dados e mantém a trilha de auditoria referenciando o usuário real.
+- Testado ponta a ponta em produção (projeto Supabase real) via Playwright: upload de CSV real → Gemini extraiu e categorizou corretamente (inclusive "Leroy Merlin" → Manutenção do Templo, sem precisar de correção manual) → chat de refinamento aplicou a instrução ("recategorize para Contas e Utilidades, reduza confiança para média") → salvo com sucesso → apareceu no Livro Caixa com saldo calculado corretamente e "Registrado por" com o nome real. Dados de teste removidos do banco depois.
+
+**Ainda mockado (fora do escopo desta fase):** `Dashboard.tsx` (Fase 2) e `Auditoria.tsx` (Fase 4).
 
 ## 🧠 7. SKILLS & PROTOCOLOS DE EXECUÇÃO
 

@@ -16,3 +16,13 @@ export function fmtK(v: number): string {
 export function fmtBRLFull(v: number): string {
   return "R$ " + (v * 1000).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+
+export function isoToBr(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+export function brToIso(br: string): string {
+  const [d, m, y] = br.split("/");
+  return `${y}-${m}-${d}`;
+}

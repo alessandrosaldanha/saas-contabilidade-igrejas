@@ -15,7 +15,31 @@
       "Bash(curl -s http://localhost:5173)",
       "Bash(curl -s http://localhost:5174)",
       "Bash(rm -f .env)",
-      "Bash(lsof -ti:5174 -sTCP:LISTEN)"
+      "Bash(lsof -ti:5174 -sTCP:LISTEN)",
+      "PowerShell(cmdkey /delete:LegacyGeneric:target=git:https://github.com)",
+      "Bash(claude mcp *)",
+      "PowerShell(Get-Command claude -ErrorAction SilentlyContinue)",
+      "PowerShell($paths = @\\(\"$env:APPDATA\\\\npm\\\\claude.cmd\",\"$env:LOCALAPPDATA\\\\Programs\\\\claude\\\\claude.exe\",\"$env:USERPROFILE\\\\.claude\\\\local\\\\claude.exe\"\\); foreach \\($p in $paths\\) { Test-Path $p })",
+      "PowerShell(supabase --version)",
+      "PowerShell(supabase projects list 2>&1)",
+      "PowerShell(Test-Path \"$env:USERPROFILE\\\\scoop\\\\shims\\\\supabase.exe\"; Test-Path \"$env:USERPROFILE\\\\scoop\\\\apps\\\\supabase\"; $env:PATH -split ';' | Select-String -Pattern \"scoop\")",
+      "PowerShell($env:PATH = \"$env:USERPROFILE\\\\scoop\\\\shims;$env:PATH\"; supabase --version; supabase projects list 2>&1)",
+      "PowerShell(Get-ChildItem \"$env:APPDATA\\\\supabase\" -ErrorAction SilentlyContinue; Get-ChildItem \"$env:USERPROFILE\\\\.supabase\" -ErrorAction SilentlyContinue; Get-ChildItem \"$env:LOCALAPPDATA\\\\supabase\" -ErrorAction SilentlyContinue)",
+      "PowerShell($env:PATH = \"$env:USERPROFILE\\\\scoop\\\\shims;$env:PATH\"; supabase projects list 2>&1)",
+      "PowerShell($env:PATH = \"$env:USERPROFILE\\\\scoop\\\\shims;$env:PATH\"; cd \"c:\\\\Users\\\\Alessandro\\\\Downloads\\\\SaaS contabilidade para igrejas\"; supabase link --project-ref fumabywngmjfzsobmbjr 2>&1)",
+      "PowerShell($env:PATH = \"$env:USERPROFILE\\\\scoop\\\\shims;$env:PATH\"; cd \"c:\\\\Users\\\\Alessandro\\\\Downloads\\\\SaaS contabilidade para igrejas\"; supabase functions deploy invite-user 2>&1)",
+      "PowerShell($env:PATH = \"$env:USERPROFILE\\\\scoop\\\\shims;$env:PATH\"; cd \"c:\\\\Users\\\\Alessandro\\\\Downloads\\\\SaaS contabilidade para igrejas\"; supabase secrets set SUPABASE_SERVICE_ROLE_KEY=*)",
+      "Bash(openssl rand *)",
+      "Bash(node -e \"console.log\\(require\\('crypto'\\).randomBytes\\(24\\).toString\\('base64'\\)\\)\")",
+      "Bash(unset SERVICE_KEY TMP_PW)",
+      "Bash(unset SERVICE_KEY)",
+      "Bash(unset ANON_KEY)",
+      "Bash(node -e \"console.log\\(require\\('crypto'\\).randomBytes\\(6\\).toString\\('hex'\\)\\)\")",
+      "PowerShell($env:PATH = \"$env:USERPROFILE\\\\scoop\\\\shims;$env:PATH\"; cd \"c:\\\\Users\\\\Alessandro\\\\Downloads\\\\SaaS contabilidade para igrejas\"; supabase secrets set GEMINI_API_KEY=*)",
+      "PowerShell($env:PATH = \"$env:USERPROFILE\\\\scoop\\\\shims;$env:PATH\"; cd \"c:\\\\Users\\\\Alessandro\\\\Downloads\\\\SaaS contabilidade para igrejas\"; supabase functions deploy parse-statement 2>&1)",
+      "Bash(node -e ' *)",
+      "PowerShell($env:PATH = \"$env:USERPROFILE\\\\scoop\\\\shims;$env:PATH\"; cd \"c:\\\\Users\\\\Alessandro\\\\Downloads\\\\SaaS contabilidade para igrejas\"; supabase functions deploy parse-statement 2>&1; supabase functions deploy invite-user 2>&1)",
+      "Bash(grep -v \"^\\\\./\\\\.git/\")"
     ]
   }
 }

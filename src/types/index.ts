@@ -58,7 +58,7 @@ export interface ChatMessage {
 }
 
 export interface ImportHistoryItem {
-  id: number;
+  id: string;
   filename: string;
   monthLabel: string;
   count: number;

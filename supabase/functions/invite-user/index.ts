@@ -5,7 +5,15 @@
 // padrão no runtime de toda Edge Function (não precisam ser configuradas como secret).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
+
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -19,7 +27,7 @@ Deno.serve(async (req) => {
       data: { user: caller },
     } = await callerClient.auth.getUser();
     if (!caller) {
-      return new Response("Não autenticado", { status: 401 });
+      return new Response("Não autenticado", { status: 401, headers: CORS_HEADERS });
     }
 
     const { data: callerProfile } = await callerClient
@@ -29,12 +37,12 @@ Deno.serve(async (req) => {
       .single();
 
     if (callerProfile?.role !== "Admin") {
-      return new Response("Apenas administradores podem convidar usuários", { status: 403 });
+      return new Response("Apenas administradores podem convidar usuários", { status: 403, headers: CORS_HEADERS });
     }
 
     const { email, name, role } = await req.json();
     if (!email || !name || !role) {
-      return new Response("Campos obrigatórios: email, name, role", { status: 400 });
+      return new Response("Campos obrigatórios: email, name, role", { status: 400, headers: CORS_HEADERS });
     }
 
     const adminClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -43,13 +51,13 @@ Deno.serve(async (req) => {
     });
 
     if (error) {
-      return new Response(error.message, { status: 400 });
+      return new Response(error.message, { status: 400, headers: CORS_HEADERS });
     }
 
     return new Response(JSON.stringify({ userId: data.user?.id }), {
-      headers: { "Content-Type": "application/json" },
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   } catch (err) {
-    return new Response(err instanceof Error ? err.message : String(err), { status: 500 });
+    return new Response(err instanceof Error ? err.message : String(err), { status: 500, headers: CORS_HEADERS });
   }
 });

@@ -1,8 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { ChurchUser, ImportHistoryItem, Transaction } from "../types";
-import { DEFAULT_IMPORT_HISTORY, DEFAULT_TRANSACTIONS } from "../services/mockData";
 import { supabase } from "../services/supabase";
+import { isoToBr } from "../utils/format";
 import { useAuth } from "./AuthContext";
 
 interface AppContextValue {
@@ -23,10 +23,10 @@ interface AppContextValue {
   showToastMsg: (text: string) => void;
 
   transactions: Transaction[];
-  setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
+  refreshTransactions: () => Promise<void>;
 
   importHistory: ImportHistoryItem[];
-  setImportHistory: React.Dispatch<React.SetStateAction<ImportHistoryItem[]>>;
+  refreshImportHistory: () => Promise<void>;
 
   usersList: ChurchUser[];
   refreshUsers: () => Promise<void>;
@@ -49,6 +49,52 @@ function mapProfileRow(row: {
     role: row.role,
     status: row.status,
     lastAccess: row.last_access ? new Date(row.last_access).toLocaleString("pt-BR") : "—",
+  };
+}
+
+function mapTransactionRow(
+  row: {
+    id: string;
+    occurred_on: string;
+    description: string;
+    value: number;
+    type: Transaction["type"];
+    category: string;
+    confidence: Transaction["confidence"];
+    created_by: string | null;
+  },
+  usersById: Map<string, string>,
+): Transaction {
+  return {
+    id: row.id,
+    date: isoToBr(row.occurred_on),
+    desc: row.description,
+    value: row.type === "saida" ? -Math.abs(row.value) : Math.abs(row.value),
+    type: row.type,
+    category: row.category,
+    confidence: row.confidence,
+    createdBy: (row.created_by && usersById.get(row.created_by)) || "—",
+  };
+}
+
+function mapImportHistoryRow(
+  row: {
+    id: string;
+    filename: string;
+    month_label: string;
+    count: number;
+    imported_by: string | null;
+    imported_at: string;
+  },
+  usersById: Map<string, string>,
+): ImportHistoryItem {
+  return {
+    id: row.id,
+    filename: row.filename,
+    monthLabel: row.month_label,
+    count: row.count,
+    importedAt: new Date(row.imported_at).toLocaleDateString("pt-BR"),
+    importedBy: (row.imported_by && usersById.get(row.imported_by)) || "—",
   };
 }
 
@@ -111,11 +157,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toastTimer.current = setTimeout(() => setShowToast(false), 3500);
   }, []);
 
-  const [transactions, setTransactions] = useState<Transaction[]>(DEFAULT_TRANSACTIONS);
-  const [importHistory, setImportHistory] = useState<ImportHistoryItem[]>(DEFAULT_IMPORT_HISTORY);
+  const [transactions, setTransactionsState] = useState<Transaction[]>([]);
+  const [importHistory, setImportHistoryState] = useState<ImportHistoryItem[]>([]);
   const [usersList, setUsersList] = useState<ChurchUser[]>([]);
 
   const { session, profile } = useAuth();
+
+  const usersById = useMemo(() => new Map(usersList.map((u) => [u.id, u.name])), [usersList]);
 
   const refreshUsers = useCallback(async () => {
     const { data, error } = await supabase
@@ -125,10 +173,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!error && data) setUsersList(data.map(mapProfileRow));
   }, []);
 
+  const refreshTransactions = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("transactions")
+      .select("id, occurred_on, description, value, type, category, confidence, created_by")
+      .order("occurred_on");
+    if (!error && data) setTransactionsState(data.map((row) => mapTransactionRow(row, usersById)));
+  }, [usersById]);
+
+  const refreshImportHistory = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("import_history")
+      .select("id, filename, month_label, count, imported_by, imported_at")
+      .order("imported_at", { ascending: false });
+    if (!error && data) setImportHistoryState(data.map((row) => mapImportHistoryRow(row, usersById)));
+  }, [usersById]);
+
   useEffect(() => {
     if (session) refreshUsers();
     else setUsersList([]);
   }, [session, refreshUsers]);
+
+  useEffect(() => {
+    if (session) {
+      refreshTransactions();
+      refreshImportHistory();
+    } else {
+      setTransactionsState([]);
+      setImportHistoryState([]);
+    }
+  }, [session, refreshTransactions, refreshImportHistory]);
 
   const value: AppContextValue = {
     theme,
@@ -144,9 +218,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     showToast,
     showToastMsg,
     transactions,
-    setTransactions,
+    refreshTransactions,
     importHistory,
-    setImportHistory,
+    refreshImportHistory,
     usersList,
     refreshUsers,
     currentUser: profile

@@ -2,13 +2,7 @@
 // (tabelas transactions/audit_logs/users) e da API do Gemini (categorização).
 // Ao integrar o backend real, substitua as implementações abaixo mantendo a mesma
 // assinatura de exports para não quebrar os componentes que os consomem.
-import type {
-  Transaction,
-  AuditLog,
-  AuditActionKey,
-  ChatMessage,
-  ImportHistoryItem,
-} from "../types";
+import type { AuditLog, AuditActionKey } from "../types";
 
 export const MONTHS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 export const MONTHS_FULL = [
@@ -33,82 +27,10 @@ export const CONF_TONE: Record<string, "success" | "warning" | "error"> = {
 };
 export const CONF_LABEL: Record<string, string> = { alta: "Alta", media: "Média", baixa: "Baixa" };
 
-const PEOPLE = ["Ana Ferreira", "Roberto Alves", "Carlos Mendes"];
-
 // Gerador pseudo-aleatório determinístico (mesma semente => mesmo resultado)
 function seedRand(seed: number): number {
   return Math.abs(Math.sin(seed * 12.9898) * 43758.5453) % 1;
 }
-
-export function genMonthTransactions(monthIdx: number): Transaction[] {
-  const count = 5 + Math.floor(seedRand(monthIdx + 1) * 3);
-  const list: Transaction[] = [];
-  const categories = ["Prebenda Pastoral", "Manutenção do Templo", "Ação Social", "Contas e Utilidades", "Administrativo"];
-  for (let i = 0; i < count; i++) {
-    const seed = (monthIdx + 1) * 100 + i;
-    const day = 3 + Math.floor(seedRand(seed) * 24);
-    const isEntrada = seedRand(seed + 0.5) > 0.45;
-    const cat = isEntrada ? "Dízimos e Ofertas" : categories[Math.floor(seedRand(seed + 0.7) * categories.length)];
-    const value = Math.round(300 + seedRand(seed + 0.3) * 3500) * (isEntrada ? 1 : -1);
-    list.push({
-      id: `g-${monthIdx}-${i}`,
-      date: `${String(day).padStart(2, "0")}/${String(monthIdx + 1).padStart(2, "0")}/2026`,
-      desc: isEntrada ? "PIX/TED — Dízimos e Ofertas" : `Pagamento — ${cat}`,
-      value,
-      type: isEntrada ? "entrada" : "saida",
-      category: isEntrada ? "Dízimos e Ofertas" : cat,
-      confidence: "alta",
-      createdBy: PEOPLE[i % PEOPLE.length],
-    });
-  }
-  return list.sort((a, b) => parseInt(a.date.slice(0, 2), 10) - parseInt(b.date.slice(0, 2), 10));
-}
-
-export const LEDGER_BASE_OPENING = 40000;
-
-export const DEFAULT_TRANSACTIONS: Transaction[] = [
-  { id: "t1", date: "03/07/2026", desc: "PIX RECEBIDO - DÍZIMO JOÃO SILVA", value: 850.0, type: "entrada", category: "Dízimos e Ofertas", confidence: "alta", createdBy: "Ana Ferreira" },
-  { id: "t2", date: "05/07/2026", desc: "TED - AJUDA MENSAL MEMBRO", value: 1200.0, type: "entrada", category: "Dízimos e Ofertas", confidence: "alta", createdBy: "Ana Ferreira" },
-  { id: "lm1", date: "07/07/2026", desc: "LEROY MERLIN MATERIAIS LTDA", value: -430.5, type: "saida", category: "Administrativo", confidence: "baixa", createdBy: "Roberto Alves" },
-  { id: "t4", date: "09/07/2026", desc: "ENERGISA DISTRIBUIDORA", value: -215.9, type: "saida", category: "Contas e Utilidades", confidence: "alta", createdBy: "Ana Ferreira" },
-  { id: "t5", date: "12/07/2026", desc: "REPASSE PRÓ-LABORE PASTOR", value: -4500.0, type: "saida", category: "Prebenda Pastoral", confidence: "alta", createdBy: "Carlos Mendes" },
-  { id: "lm2", date: "14/07/2026", desc: "LEROY MERLIN MATERIAIS LTDA", value: -128.0, type: "saida", category: "Administrativo", confidence: "baixa", createdBy: "Roberto Alves" },
-  { id: "t7", date: "18/07/2026", desc: "DOAÇÃO CESTAS BÁSICAS - AÇÃO SOCIAL", value: -900.0, type: "saida", category: "Ação Social", confidence: "media", createdBy: "Ana Ferreira" },
-  { id: "t8", date: "20/07/2026", desc: "OFERTA CULTO DOMINGO", value: 2340.0, type: "entrada", category: "Dízimos e Ofertas", confidence: "alta", createdBy: "Ana Ferreira" },
-];
-
-export function monthTransactions(monthIdx: number, currentMonthTx: Transaction[]): Transaction[] {
-  return monthIdx === CURRENT_MONTH_INDEX ? currentMonthTx : genMonthTransactions(monthIdx);
-}
-
-export function computeLedger(monthIdx: number, currentMonthTx: Transaction[]) {
-  let opening = LEDGER_BASE_OPENING;
-  for (let m = 0; m < monthIdx; m++) {
-    opening += monthTransactions(m, currentMonthTx).reduce((sum, t) => sum + t.value, 0);
-  }
-  const txs = monthTransactions(monthIdx, currentMonthTx);
-  let balance = opening;
-  const rows = txs.map((t) => {
-    balance += t.value;
-    return { ...t, balance };
-  });
-  const entradasTotal = txs.filter((t) => t.type === "entrada").reduce((s, t) => s + t.value, 0);
-  const saidasTotal = txs.filter((t) => t.type === "saida").reduce((s, t) => s + t.value, 0);
-  return { rows, opening, entradasTotal, saidasTotal, saldoFinal: opening + entradasTotal + saidasTotal };
-}
-
-export const DEFAULT_CHAT_MESSAGES: ChatMessage[] = [
-  {
-    id: 1,
-    from: "ai",
-    text: 'Olá! Encontrei 8 lançamentos no extrato. Posso ajustar categorias — é só me dizer em linguagem natural, por exemplo: "ajuste as saídas da Leroy Merlin para Manutenção do Templo".',
-  },
-];
-
-export const DEFAULT_IMPORT_HISTORY: ImportHistoryItem[] = [
-  { id: 1, filename: "extrato_junho_2026.ofx", monthLabel: "Junho de 2026", count: 6, importedAt: "05/07/2026", importedBy: "Ana Ferreira" },
-  { id: 2, filename: "extrato_maio_2026.pdf", monthLabel: "Maio de 2026", count: 7, importedAt: "03/06/2026", importedBy: "Roberto Alves" },
-];
 
 // ── Auditoria ──────────────────────────────────────────────────────
 const AUDIT_USERS = [

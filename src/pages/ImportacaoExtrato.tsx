@@ -1,89 +1,211 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import type { ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Upload, Loader2, Award, Send, Check } from "lucide-react";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import { useApp } from "../context/AppContext";
-import { CATEGORY_TONE, CONF_LABEL, CONF_TONE } from "../services/mockData";
-import { fmt } from "../utils/format";
-import type { ChatMessage } from "../types";
+import { useAuth } from "../context/AuthContext";
+import { supabase } from "../services/supabase";
+import { CATEGORY_TONE, CONF_LABEL, CONF_TONE, MONTHS_FULL } from "../services/mockData";
+import { fmt, isoToBr, brToIso } from "../utils/format";
+import type { ChatMessage, Confidence, Transaction, TransactionType } from "../types";
+
+interface ExtractedItem {
+  date: string;
+  description: string;
+  value: number;
+  type: TransactionType;
+  category: string;
+  confidence: Confidence;
+}
+
+function detectMimeType(filename: string): string {
+  return filename.toLowerCase().endsWith(".pdf") ? "application/pdf" : "text/plain";
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(",")[1] ?? "");
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+function itemToStaged(item: ExtractedItem): Transaction {
+  return {
+    id: crypto.randomUUID(),
+    date: isoToBr(item.date),
+    desc: item.description,
+    value: item.type === "saida" ? -Math.abs(item.value) : Math.abs(item.value),
+    type: item.type,
+    category: item.category,
+    confidence: item.confidence,
+    createdBy: "",
+  };
+}
+
+function stagedToApiItem(t: Transaction): ExtractedItem {
+  return {
+    date: brToIso(t.date),
+    description: t.desc,
+    value: Math.abs(t.value),
+    type: t.type,
+    category: t.category,
+    confidence: t.confidence,
+  };
+}
+
+function deriveMonthLabel(items: Transaction[]): string {
+  const counts = new Map<string, number>();
+  for (const t of items) {
+    const [, m, y] = t.date.split("/");
+    const key = `${y}-${m}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  let bestKey = "";
+  let bestCount = -1;
+  for (const [key, count] of counts) {
+    if (count > bestCount) {
+      bestKey = key;
+      bestCount = count;
+    }
+  }
+  const [y, m] = bestKey.split("-");
+  return `${MONTHS_FULL[parseInt(m, 10) - 1]} de ${y}`;
+}
 
 export default function ImportacaoExtrato() {
-  const { transactions, setTransactions, importHistory, setImportHistory, showToastMsg } = useApp();
+  const { importHistory, refreshTransactions, refreshImportHistory, showToastMsg } = useApp();
+  const { profile } = useAuth();
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [hasUploaded, setHasUploaded] = useState(true);
+  const [hasUploaded, setHasUploaded] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [highlightIds, setHighlightIds] = useState<string[]>([]);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    {
-      id: 1,
-      from: "ai",
-      text: 'Olá! Encontrei 8 lançamentos no extrato. Posso ajustar categorias — é só me dizer em linguagem natural, por exemplo: "ajuste as saídas da Leroy Merlin para Manutenção do Templo".',
-    },
-  ]);
+  const [filename, setFilename] = useState("");
+  const [stagedTransactions, setStagedTransactions] = useState<Transaction[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
+  const [isRefining, setIsRefining] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
+  const onFileSelected = async (file: File) => {
+    setIsUploading(true);
+    try {
+      const contentBase64 = await fileToBase64(file);
+      const mimeType = detectMimeType(file.name);
+      const { data, error } = await supabase.functions.invoke("parse-statement", {
+        body: { mode: "extract", filename: file.name, mimeType, contentBase64 },
+      });
+      if (error) throw new Error(error.message);
+
+      const items = (data.transactions as ExtractedItem[]) ?? [];
+      setStagedTransactions(items.map(itemToStaged));
+      setFilename(file.name);
+      setHasUploaded(true);
+      setChatMessages([
+        {
+          id: Date.now(),
+          from: "ai",
+          text: `Encontrei ${items.length} lançamento(s) em "${file.name}". Posso ajustar categorias — é só me dizer em linguagem natural, por exemplo: "recategorize os pagamentos de energia para Contas e Utilidades".`,
+        },
+      ]);
+    } catch (err) {
+      showToastMsg(`Falha ao processar extrato: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const onDropzoneClick = () => {
     if (isUploading) return;
-    setIsUploading(true);
-    setTimeout(() => {
-      setIsUploading(false);
-      setHasUploaded(true);
-    }, 900);
+    fileInputRef.current?.click();
   };
 
-  const sendMessage = () => {
+  const onInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (file) onFileSelected(file);
+  };
+
+  const sendMessage = async () => {
     const text = chatInput.trim();
-    if (!text || !hasUploaded) return;
-    const lower = text.toLowerCase();
+    if (!text || !hasUploaded || isRefining) return;
     const userMsg: ChatMessage = { id: Date.now(), from: "user", text };
-    let aiText =
-      "Entendido — ainda não sei aplicar essa instrução automaticamente, mas registrei seu pedido para revisão manual.";
-    let nextTransactions = transactions;
-    let nextHighlight: string[] = [];
-
-    if (lower.includes("leroy merlin")) {
-      const matches = transactions.filter((t) => t.desc.toLowerCase().includes("leroy merlin"));
-      nextTransactions = transactions.map((t) =>
-        t.desc.toLowerCase().includes("leroy merlin") ? { ...t, category: "Manutenção do Templo", confidence: "alta" } : t
-      );
-      nextHighlight = matches.map((t) => t.id);
-      aiText = `Ajustei ${matches.length} lançamento(s) da Leroy Merlin para "Manutenção do Templo" e elevei a confiança para Alta.`;
-    } else if (lower.includes("ação social") || lower.includes("acao social")) {
-      aiText = "As despesas de Ação Social já estão corretamente categorizadas nesta importação.";
-    }
-
-    setTransactions(nextTransactions);
-    setHighlightIds(nextHighlight);
-    setChatMessages((msgs) => [...msgs, userMsg, { id: Date.now() + 1, from: "ai", text: aiText }]);
+    setChatMessages((msgs) => [...msgs, userMsg]);
     setChatInput("");
+    setIsRefining(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("parse-statement", {
+        body: {
+          mode: "refine",
+          transactions: stagedTransactions.map(stagedToApiItem),
+          instruction: text,
+        },
+      });
+      if (error) throw new Error(error.message);
+
+      const items = (data.transactions as ExtractedItem[]) ?? [];
+      setStagedTransactions(items.map(itemToStaged));
+      setChatMessages((msgs) => [...msgs, { id: Date.now() + 1, from: "ai", text: data.summary || "Lançamentos atualizados." }]);
+    } catch (err) {
+      setChatMessages((msgs) => [
+        ...msgs,
+        { id: Date.now() + 1, from: "ai", text: `Não consegui aplicar essa instrução: ${err instanceof Error ? err.message : String(err)}` },
+      ]);
+    } finally {
+      setIsRefining(false);
+    }
   };
 
-  const confirmSave = () => {
-    if (isSaving) return;
+  const confirmSave = async () => {
+    if (isSaving || stagedTransactions.length === 0 || !profile) return;
     setIsSaving(true);
-    setTimeout(() => {
-      const rec = {
-        id: Date.now(),
-        filename: "extrato_julho_2026.ofx",
-        monthLabel: "Julho de 2026",
-        count: transactions.length,
-        importedAt: "24/07/2026",
-        importedBy: "Carlos Mendes",
-      };
-      setIsSaving(false);
+    try {
+      const rows = stagedTransactions.map((t) => ({
+        occurred_on: brToIso(t.date),
+        description: t.desc,
+        value: Math.abs(t.value),
+        type: t.type,
+        category: t.category,
+        confidence: t.confidence,
+        created_by: profile.id,
+      }));
+
+      const { error: txError } = await supabase.from("transactions").insert(rows);
+      if (txError) throw new Error(txError.message);
+
+      const { error: historyError } = await supabase.from("import_history").insert({
+        filename,
+        month_label: deriveMonthLabel(stagedTransactions),
+        count: stagedTransactions.length,
+        imported_by: profile.id,
+      });
+      if (historyError) throw new Error(historyError.message);
+
+      await Promise.all([refreshTransactions(), refreshImportHistory()]);
       setShowSuccessModal(true);
-      setImportHistory((h) => [rec, ...h]);
-      showToastMsg("Extrato salvo por Carlos Mendes");
-    }, 1200);
+      showToastMsg(`Extrato salvo por ${profile.name}`);
+    } catch (err) {
+      showToastMsg(`Falha ao salvar lançamentos: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const totalCount = transactions.length;
-  const entradasSum = transactions.filter((t) => t.type === "entrada").reduce((s, t) => s + t.value, 0);
-  const saidasSum = transactions.filter((t) => t.type === "saida").reduce((s, t) => s + t.value, 0);
+  const resetImport = () => {
+    setHasUploaded(false);
+    setStagedTransactions([]);
+    setFilename("");
+    setChatMessages([]);
+  };
+
+  const totalCount = stagedTransactions.length;
+  const entradasSum = stagedTransactions.filter((t) => t.type === "entrada").reduce((s, t) => s + t.value, 0);
+  const saidasSum = stagedTransactions.filter((t) => t.type === "saida").reduce((s, t) => s + t.value, 0);
 
   return (
     <div>
@@ -98,6 +220,13 @@ export default function ImportacaoExtrato() {
 
       <div className="grid gap-5" style={{ gridTemplateColumns: "1fr 1fr", minHeight: 0 }}>
         <div className="flex flex-col gap-4 min-h-0">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.ofx,.qfx,.csv"
+            onChange={onInputChange}
+            className="hidden"
+          />
           <div
             onClick={onDropzoneClick}
             className="border-[1.5px] border-dashed border-neutral-300 dark:border-white/20 rounded-lg text-center cursor-pointer bg-black/[0.02] dark:bg-white/[0.02] hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors"
@@ -115,7 +244,7 @@ export default function ImportacaoExtrato() {
                   <div className="text-sm font-medium">
                     {hasUploaded ? "Enviar outro extrato bancário" : "Arraste o extrato ou clique para enviar"}
                   </div>
-                  <div className="text-xs text-neutral-400 mt-0.5">PDF ou OFX, até 10MB</div>
+                  <div className="text-xs text-neutral-400 mt-0.5">PDF, OFX ou CSV, até 10MB</div>
                 </div>
               </div>
             )}
@@ -124,7 +253,7 @@ export default function ImportacaoExtrato() {
           <Card padding="none" className="flex-1 flex flex-col min-h-0">
             <div className="flex items-center justify-between px-4.5 py-4 border-b border-neutral-200 dark:border-white/10">
               <h3 className="font-display font-semibold text-[15px] m-0">Pré-visualização de lançamentos</h3>
-              <Badge tone="neutral">{transactions.length} lançamentos</Badge>
+              <Badge tone="neutral">{stagedTransactions.length} lançamentos</Badge>
             </div>
             <div className="overflow-auto">
               <table className="w-full min-w-[760px] border-collapse text-xs">
@@ -139,13 +268,8 @@ export default function ImportacaoExtrato() {
                   </tr>
                 </thead>
                 <tbody>
-                  {transactions.map((row) => (
-                    <tr
-                      key={row.id}
-                      className={`border-t border-neutral-200 dark:border-white/10 ${
-                        highlightIds.includes(row.id) ? "bg-orla-blue/10" : ""
-                      }`}
-                    >
+                  {stagedTransactions.map((row) => (
+                    <tr key={row.id} className="border-t border-neutral-200 dark:border-white/10">
                       <td className="px-3.5 py-2.5 text-neutral-500 dark:text-neutral-400 whitespace-nowrap">{row.date}</td>
                       <td className="px-3.5 py-2.5">{row.desc}</td>
                       <td className={`px-3.5 py-2.5 whitespace-nowrap ${row.value < 0 ? "text-orla-coral" : "text-status-success"}`}>
@@ -168,6 +292,11 @@ export default function ImportacaoExtrato() {
                   ))}
                 </tbody>
               </table>
+              {stagedTransactions.length === 0 && (
+                <div className="p-8 text-center text-neutral-400 text-sm">
+                  {hasUploaded ? "Nenhum lançamento encontrado neste extrato." : "Envie um extrato para ver a pré-visualização."}
+                </div>
+              )}
             </div>
           </Card>
         </div>
@@ -195,6 +324,13 @@ export default function ImportacaoExtrato() {
                 </div>
               </div>
             ))}
+            {isRefining && (
+              <div className="flex justify-start">
+                <div className="max-w-[82%] px-3.5 py-2.5 rounded-2xl text-sm bg-neutral-100 dark:bg-neutral-950 flex items-center gap-2">
+                  <Loader2 size={13} className="animate-spin" /> Ajustando lançamentos…
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-2 px-4 py-3.5 border-t border-neutral-200 dark:border-white/10">
@@ -202,13 +338,13 @@ export default function ImportacaoExtrato() {
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-              disabled={!hasUploaded}
-              placeholder={hasUploaded ? "ex: ajuste as saídas da Leroy Merlin…" : "Envie um extrato primeiro"}
+              disabled={!hasUploaded || isRefining}
+              placeholder={hasUploaded ? "ex: recategorize os pagamentos de energia…" : "Envie um extrato primeiro"}
               className="flex-1 bg-neutral-100 dark:bg-neutral-950 border-[1.5px] border-neutral-300 dark:border-white/10 rounded-md px-3.5 py-2.5 text-sm outline-none disabled:opacity-60"
             />
             <button
               onClick={sendMessage}
-              disabled={!hasUploaded}
+              disabled={!hasUploaded || isRefining}
               className="w-10 h-10 flex items-center justify-center rounded-md bg-orla-blue text-white disabled:opacity-50 shrink-0"
             >
               <Send size={16} />
@@ -234,7 +370,7 @@ export default function ImportacaoExtrato() {
         </div>
         <button
           onClick={confirmSave}
-          disabled={isSaving}
+          disabled={isSaving || totalCount === 0}
           className="flex items-center gap-2 px-5 py-3 rounded-md bg-orla-blue text-white text-sm font-medium hover:bg-blue-600 disabled:opacity-70"
         >
           {isSaving ? (
@@ -283,6 +419,9 @@ export default function ImportacaoExtrato() {
                 ))}
               </tbody>
             </table>
+            {importHistory.length === 0 && (
+              <div className="p-6 text-center text-neutral-400 text-sm">Nenhuma importação registrada ainda.</div>
+            )}
           </div>
         </Card>
       </div>
@@ -295,14 +434,13 @@ export default function ImportacaoExtrato() {
             </div>
             <h3 className="font-display font-semibold text-lg mb-2.5">Lançamentos Efetivados com Sucesso!</h3>
             <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed mb-6.5">
-              O extrato foi registrado e vinculado ao mês correspondente no Livro Caixa. A ação foi gravada na Trilha
-              de Auditoria.
+              O extrato foi registrado e vinculado ao mês correspondente no Livro Caixa.
             </p>
             <div className="flex gap-2.5 justify-center">
               <button
                 onClick={() => {
                   setShowSuccessModal(false);
-                  setHasUploaded(false);
+                  resetImport();
                 }}
                 className="px-4 py-2.5 rounded-md border border-neutral-300 dark:border-white/20 text-sm font-medium"
               >
