@@ -202,6 +202,17 @@ src/
 
 **Status do escopo original do usuário:** com esta fase, todos os pilares pedidos (RBAC/Governança, Dashboard, Livro Caixa + Importação IA, Conciliação/Estornos) estão implementados e rodando com dados reais em produção.
 
+### [2026-07-24] Ações no histórico de importação (editar/excluir registro)
+
+**O que foi feito:**
+- **`supabase/migrations/0004_import_history_manage.sql`** (nova, aplicada via `supabase db query --linked --file` direto na produção): policies `import_history_update_treasury` (Admin/Tesoureiro) e `import_history_delete_admin` (Admin) — antes `import_history` só tinha policy de `select`/`insert`, então UPDATE/DELETE eram negados por padrão. Triggers `on_import_history_update`/`on_import_history_delete` logam `edicao_manual` na auditoria (before/after com filename/mês/contagem), mesmo padrão arquitetural já usado em `transactions` (Fase 3/4).
+- **`src/pages/ImportacaoExtrato.tsx`**: nova coluna "Ações" na tabela "Extratos Processados Recentemente" (dentro da `div.mt-6.5`) — botão de editar (Admin/Tesoureiro, abre modal para alterar nome do arquivo, mês/ano de referência e quantidade de transações) e botão de excluir (Admin, modal de confirmação, `DELETE` real em `import_history`).
+
+**Decisões técnicas:**
+- `import_history` **não tem vínculo (FK) com as linhas de `transactions`** que ela representa — é só um registro de auditoria do lote importado (arquivo, mês, contagem). Por isso "editar/excluir o registro de importação" só altera/remove essa linha de histórico; não apaga nem religa os lançamentos já salvos no Livro Caixa (esses continuam sendo geridos via estorno/edição em `LivroCaixa.tsx`, Fase 4/lançamento manual). O modal de exclusão deixa isso explícito no texto de confirmação.
+- Permissões espelham o padrão já usado em `transactions`: editar (Admin+Tesoureiro, mesmos papéis que podem inserir um import) e excluir (só Admin, mesmo padrão de `transactions_delete_admin`).
+- Validado com `npx tsc --noEmit` e `npm run build` (sem erros). Teste end-to-end na UI (login real) não foi executado nesta sessão por não haver credenciais de teste disponíveis — recomenda-se validar manualmente os botões de editar/excluir antes de considerar encerrado.
+
 ### [2026-07-24] Deploy em produção (Vercel) + correção de roteamento SPA
 
 **O que foi feito:**

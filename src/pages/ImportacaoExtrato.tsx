@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { Upload, Loader2, Award, Send, Check, AlertTriangle } from "lucide-react";
+import { Upload, Loader2, Award, Send, Check, AlertTriangle, Pencil, Trash2, X } from "lucide-react";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import { useApp } from "../context/AppContext";
@@ -9,7 +9,7 @@ import { useAuth } from "../context/AuthContext";
 import { supabase } from "../services/supabase";
 import { CATEGORY_TONE, CONF_LABEL, CONF_TONE, MONTHS_FULL } from "../services/mockData";
 import { fmt, isoToBr, brToIso } from "../utils/format";
-import type { ChatMessage, Confidence, Transaction, TransactionType } from "../types";
+import type { ChatMessage, Confidence, ImportHistoryItem, Transaction, TransactionType } from "../types";
 
 interface ExtractedItem {
   date: string;
@@ -76,6 +76,13 @@ function deriveMonthLabel(items: Transaction[]): string {
   return `${MONTHS_FULL[parseInt(m, 10) - 1]} de ${y}`;
 }
 
+interface HistoryEditForm {
+  id: string;
+  filename: string;
+  monthLabel: string;
+  count: string;
+}
+
 function findDuplicates(staged: Transaction[], existing: Transaction[]): Transaction[] {
   const existingKeys = new Set(existing.map((t) => `${t.date}|${t.desc}|${Math.abs(t.value)}|${t.type}`));
   return staged.filter((t) => existingKeys.has(`${t.date}|${t.desc}|${Math.abs(t.value)}|${t.type}`));
@@ -97,6 +104,53 @@ export default function ImportacaoExtrato() {
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState<Transaction[] | null>(null);
+  const [historyEdit, setHistoryEdit] = useState<HistoryEditForm | null>(null);
+  const [isSavingHistoryEdit, setIsSavingHistoryEdit] = useState(false);
+  const [historyDeleteTarget, setHistoryDeleteTarget] = useState<ImportHistoryItem | null>(null);
+  const [isDeletingHistory, setIsDeletingHistory] = useState(false);
+
+  const canEditHistory = profile?.role === "Admin" || profile?.role === "Tesoureiro";
+  const canDeleteHistory = profile?.role === "Admin";
+
+  const openHistoryEdit = (item: ImportHistoryItem) => {
+    setHistoryEdit({ id: item.id, filename: item.filename, monthLabel: item.monthLabel, count: String(item.count) });
+  };
+
+  const submitHistoryEdit = async () => {
+    if (!historyEdit || isSavingHistoryEdit) return;
+    const count = parseInt(historyEdit.count, 10);
+    if (!historyEdit.filename.trim() || !historyEdit.monthLabel.trim() || !(count >= 0)) {
+      showToastMsg("Preencha nome do arquivo, mês/ano e uma quantidade válida.");
+      return;
+    }
+    setIsSavingHistoryEdit(true);
+    const { error } = await supabase
+      .from("import_history")
+      .update({ filename: historyEdit.filename.trim(), month_label: historyEdit.monthLabel.trim(), count })
+      .eq("id", historyEdit.id);
+    setIsSavingHistoryEdit(false);
+    if (error) {
+      showToastMsg(`Falha ao salvar: ${error.message}`);
+      return;
+    }
+    setHistoryEdit(null);
+    await refreshImportHistory();
+    showToastMsg("Registro de importação atualizado com sucesso");
+  };
+
+  const confirmHistoryDelete = async () => {
+    if (!historyDeleteTarget || isDeletingHistory) return;
+    setIsDeletingHistory(true);
+    const { error } = await supabase.from("import_history").delete().eq("id", historyDeleteTarget.id);
+    setIsDeletingHistory(false);
+    if (error) {
+      showToastMsg(`Falha ao excluir: ${error.message}`);
+      return;
+    }
+    setHistoryDeleteTarget(null);
+    await refreshImportHistory();
+    showToastMsg("Registro de importação excluído com sucesso");
+  };
 
   const onFileSelected = async (file: File) => {
     setIsUploading(true);
@@ -417,6 +471,9 @@ export default function ImportacaoExtrato() {
                   <th className="px-3.5 py-2.5 font-medium">Data de Importação</th>
                   <th className="px-3.5 py-2.5 font-medium">Importado por</th>
                   <th className="px-3.5 py-2.5 font-medium">Status</th>
+                  {(canEditHistory || canDeleteHistory) && (
+                    <th className="px-3.5 py-2.5 font-medium text-right">Ações</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -432,6 +489,30 @@ export default function ImportacaoExtrato() {
                         Salvo / Registrado
                       </Badge>
                     </td>
+                    {(canEditHistory || canDeleteHistory) && (
+                      <td className="px-3.5 py-2.5 text-right">
+                        <div className="flex gap-1 justify-end">
+                          {canEditHistory && (
+                            <button
+                              onClick={() => openHistoryEdit(h)}
+                              title="Editar registro de importação"
+                              className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                          )}
+                          {canDeleteHistory && (
+                            <button
+                              onClick={() => setHistoryDeleteTarget(h)}
+                              title="Excluir registro de importação"
+                              className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 text-neutral-500 dark:text-neutral-400 hover:bg-status-error/10 hover:text-status-error hover:border-status-error"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -512,6 +593,106 @@ export default function ImportacaoExtrato() {
                 className="px-4 py-2 rounded-md bg-status-warning text-white text-sm font-medium hover:opacity-90 disabled:opacity-70"
               >
                 {isSaving ? "Salvando…" : "Salvar Mesmo Assim"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {historyEdit && (
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-6">
+          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[440px] rounded-lg shadow-md p-8">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="font-display font-semibold text-lg m-0">Editar Registro de Importação</h3>
+              <button onClick={() => setHistoryEdit(null)} className="text-neutral-400 p-1">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-3.5">
+              <label className="block">
+                <span className="block text-sm font-medium mb-1.5">Nome do Arquivo</span>
+                <input
+                  value={historyEdit.filename}
+                  onChange={(e) => setHistoryEdit({ ...historyEdit, filename: e.target.value })}
+                  className="w-full box-border border border-neutral-300 dark:border-white/20 bg-white dark:bg-neutral-900 rounded-md px-3.5 py-2.5 text-sm outline-none"
+                />
+              </label>
+
+              <div className="flex gap-3">
+                <label className="block flex-1">
+                  <span className="block text-sm font-medium mb-1.5">Mês/Ano de Referência</span>
+                  <input
+                    value={historyEdit.monthLabel}
+                    onChange={(e) => setHistoryEdit({ ...historyEdit, monthLabel: e.target.value })}
+                    placeholder="ex: Julho de 2026"
+                    className="w-full box-border border border-neutral-300 dark:border-white/20 bg-white dark:bg-neutral-900 rounded-md px-3.5 py-2.5 text-sm outline-none"
+                  />
+                </label>
+                <label className="block w-[140px]">
+                  <span className="block text-sm font-medium mb-1.5">Qtd. Transações</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={historyEdit.count}
+                    onChange={(e) => setHistoryEdit({ ...historyEdit, count: e.target.value })}
+                    className="w-full box-border border border-neutral-300 dark:border-white/20 bg-white dark:bg-neutral-900 rounded-md px-3.5 py-2.5 text-sm outline-none"
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2.5 mt-6.5">
+              <button
+                onClick={() => setHistoryEdit(null)}
+                className="px-4 py-2 rounded-md border border-neutral-300 dark:border-white/20 text-sm font-medium"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={submitHistoryEdit}
+                disabled={isSavingHistoryEdit}
+                className="px-4 py-2 rounded-md bg-orla-blue text-white text-sm font-medium hover:bg-blue-600 disabled:opacity-70"
+              >
+                {isSavingHistoryEdit ? "Salvando…" : "Salvar Alterações"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {historyDeleteTarget && (
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-6">
+          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[440px] rounded-lg shadow-md p-8">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="font-display font-semibold text-lg m-0">Excluir Registro de Importação</h3>
+              <button onClick={() => setHistoryDeleteTarget(null)} className="text-neutral-400 p-1">
+                <X size={18} />
+              </button>
+            </div>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed mb-4">
+              Isso remove apenas o registro do histórico de importação (não afeta os lançamentos já salvos no Livro
+              Caixa). É registrado de forma imutável na Trilha de Auditoria.
+            </p>
+            <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-white/10 rounded-md px-4 py-3.5 mb-6 text-sm">
+              <div className="font-medium">{historyDeleteTarget.filename}</div>
+              <div className="text-xs text-neutral-400 mt-1">
+                {historyDeleteTarget.monthLabel} · {historyDeleteTarget.count} lançamentos
+              </div>
+            </div>
+            <div className="flex justify-end gap-2.5">
+              <button
+                onClick={() => setHistoryDeleteTarget(null)}
+                className="px-4 py-2 rounded-md border border-neutral-300 dark:border-white/20 text-sm font-medium"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmHistoryDelete}
+                disabled={isDeletingHistory}
+                className="px-4 py-2 rounded-md bg-status-error text-white text-sm font-medium hover:opacity-90 disabled:opacity-70"
+              >
+                {isDeletingHistory ? "Excluindo…" : "Confirmar Exclusão"}
               </button>
             </div>
           </div>
