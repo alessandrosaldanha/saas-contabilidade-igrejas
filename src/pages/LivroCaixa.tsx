@@ -304,10 +304,10 @@ export default function LivroCaixa() {
       />
 
       <Card padding="none">
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[780px]">
           <table className="w-full min-w-[920px] border-collapse text-sm">
-            <thead>
-              <tr className="text-left text-neutral-400">
+            <thead className="sticky top-0 z-10 bg-white dark:bg-neutral-900">
+              <tr className="text-left text-neutral-400 border-b border-neutral-200 dark:border-white/10">
                 <th className="px-4.5 py-3 font-medium text-xs">Data</th>
                 <th className="px-4.5 py-3 font-medium text-xs">Descrição</th>
                 <th className="px-4.5 py-3 font-medium text-xs">Categoria</th>

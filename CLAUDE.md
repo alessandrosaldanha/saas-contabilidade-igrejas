@@ -244,6 +244,16 @@ src/
 - Nenhuma mudança de dados/lógica de agregação — o popover só chama os mesmos `setMonth`/`setYear` que já existiam.
 - Validado com `npx tsc --noEmit` e `npm run build` (sem erros). Como `/livro-caixa` exige login e não há credenciais nesta sessão, o layout do popover foi conferido visualmente via uma renderização estática isolada (mesmo CSS compilado do build, fora do repositório, em pasta temporária) com Playwright — confirmado que o popover abre, o mês atual fica destacado em azul e o texto/ícones ficam legíveis sobre o fundo escuro.
 
+### [2026-07-24] Altura fixa + scroll vertical na tabela do Livro Caixa
+
+**O que foi feito:**
+- **`src/pages/LivroCaixa.tsx`**: o `div.overflow-x-auto` que envolve a tabela de lançamentos virou `div.overflow-auto.max-h-[780px]` — a tabela agora tem altura fixa (~15 linhas visíveis) com scroll vertical próprio, em vez de a página inteira crescer sem limite quando o mês tem muitos lançamentos. O `<thead>` ganhou `sticky top-0 z-10` (+ fundo `bg-white dark:bg-neutral-900` e uma borda inferior) para o cabeçalho continuar visível enquanto as linhas rolam por baixo.
+
+**Decisões técnicas:**
+- `max-h-[780px]` foi calculado a partir da altura real de cada linha (padding `py-3.5` + texto `text-sm`, ~50px/linha) para caber ~15 lançamentos antes de precisar rolar, conforme pedido.
+- Sem essa mudança, o `<thead>` sticky ficaria transparente sobre as linhas roladas por baixo — por isso o `bg-white dark:bg-neutral-900` foi replicado ali (mesmo tom do `Card` que envolve a tabela).
+- Validado com `npx tsc --noEmit` e `npm run build` (sem erros). Como a página real exige login, o comportamento (altura fixa, ~15 linhas visíveis, cabeçalho fixo durante o scroll) foi confirmado com uma renderização estática isolada (mesmo CSS compilado do build) e 40 linhas fake via Playwright, incluindo screenshot antes/depois de rolar.
+
 ### [2026-07-24] Deploy em produção (Vercel) + correção de roteamento SPA
 
 **O que foi feito:**
