@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutGrid,
   FileText,
@@ -28,15 +28,15 @@ const NAV_ITEMS = [
 ];
 
 export default function Sidebar() {
-  const { sidebarCollapsed, toggleSidebar, isDark, toggleTheme, currentUser } = useApp();
+  const { sidebarCollapsed, toggleSidebar, isDark, toggleTheme, currentUser, guardedNavigate } = useApp();
   const { profile, signOut } = useAuth();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const expanded = !sidebarCollapsed;
   const navItems = NAV_ITEMS.filter((item) => !item.adminOnly || currentUser.role === "Admin");
 
-  const logout = async () => {
-    setShowProfileMenu(false);
+  const performLogout = async () => {
     if (profile) {
       await supabase.from("audit_logs").insert({
         user_id: profile.id,
@@ -49,6 +49,11 @@ export default function Sidebar() {
     }
     await signOut();
     navigate("/login");
+  };
+
+  const logout = () => {
+    setShowProfileMenu(false);
+    guardedNavigate(performLogout);
   };
 
   return (
@@ -92,6 +97,11 @@ export default function Sidebar() {
           <NavLink
             key={item.to}
             to={item.to}
+            onClick={(e) => {
+              if (item.to === location.pathname) return;
+              e.preventDefault();
+              guardedNavigate(() => navigate(item.to));
+            }}
             className={({ isActive }) =>
               `flex items-center gap-2.5 rounded-r-sm border-l-[2.5px] px-3 py-2.5 text-sm transition-colors ${
                 isActive

@@ -32,6 +32,20 @@ interface AppContextValue {
   refreshUsers: () => Promise<void>;
 
   currentUser: { name: string; email: string; role: string };
+
+  registerUnsavedGuard: (guard: UnsavedGuard | null) => void;
+  guardedNavigate: (proceed: () => void) => void;
+  pendingUnsavedPrompt: boolean;
+  isResolvingUnsavedPrompt: boolean;
+  resolveUnsavedPrompt: (choice: "cancel" | "discard" | "save") => void;
+}
+
+// Permite que uma página (hoje só a Importação de Extrato) registre uma verificação
+// de "há algo não salvo?" — usada pelo Sidebar/logout antes de navegar para fora
+// dessa página, para não deixar a pessoa perder um extrato importado sem querer.
+interface UnsavedGuard {
+  hasUnsaved: () => boolean;
+  onSave: () => Promise<boolean>;
 }
 
 function mapProfileRow(row: {
@@ -204,6 +218,60 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [session, refreshTransactions, refreshImportHistory]);
 
+  const unsavedGuardRef = useRef<UnsavedGuard | null>(null);
+  const pendingProceedRef = useRef<(() => void) | null>(null);
+  const [pendingUnsavedPrompt, setPendingUnsavedPrompt] = useState(false);
+  const [isResolvingUnsavedPrompt, setIsResolvingUnsavedPrompt] = useState(false);
+
+  const registerUnsavedGuard = useCallback((guard: UnsavedGuard | null) => {
+    unsavedGuardRef.current = guard;
+  }, []);
+
+  const guardedNavigate = useCallback((proceed: () => void) => {
+    if (unsavedGuardRef.current?.hasUnsaved()) {
+      pendingProceedRef.current = proceed;
+      setPendingUnsavedPrompt(true);
+    } else {
+      proceed();
+    }
+  }, []);
+
+  const resolveUnsavedPrompt = useCallback(async (choice: "cancel" | "discard" | "save") => {
+    const proceed = pendingProceedRef.current;
+
+    if (choice === "cancel") {
+      setPendingUnsavedPrompt(false);
+      pendingProceedRef.current = null;
+      return;
+    }
+
+    if (choice === "discard") {
+      pendingProceedRef.current = null;
+      setPendingUnsavedPrompt(false);
+      proceed?.();
+      return;
+    }
+
+    const guard = unsavedGuardRef.current;
+    if (!guard || !proceed) {
+      setPendingUnsavedPrompt(false);
+      return;
+    }
+    setIsResolvingUnsavedPrompt(true);
+    const ok = await guard.onSave();
+    setIsResolvingUnsavedPrompt(false);
+    if (ok) {
+      pendingProceedRef.current = null;
+      setPendingUnsavedPrompt(false);
+      proceed();
+    }
+    // se falhou (ou havia duplicata a resolver), deixa o aviso fechar mas sem navegar —
+    // a própria página já mostrou o toast/modal de erro relevante.
+    else {
+      setPendingUnsavedPrompt(false);
+    }
+  }, []);
+
   const value: AppContextValue = {
     theme,
     isDark: theme === "dark",
@@ -226,6 +294,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     currentUser: profile
       ? { name: profile.name, email: profile.email, role: profile.role }
       : { name: "—", email: "—", role: "—" },
+    registerUnsavedGuard,
+    guardedNavigate,
+    pendingUnsavedPrompt,
+    isResolvingUnsavedPrompt,
+    resolveUnsavedPrompt,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

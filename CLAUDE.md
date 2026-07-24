@@ -319,6 +319,44 @@ src/
 - **Próximo passo recomendado:** o usuário deve tentar importar um extrato novamente — o toast agora vai mostrar a mensagem real (ex. `"Gemini API error (404)..."`, `"GEMINI_API_KEY não configurada"`, `"Apenas Admin/Tesoureiro podem importar extratos"`, etc.), o que aponta diretamente a causa. Alternativamente, consultar Log Explorer em `https://supabase.com/dashboard/project/fumabywngmjfzsobmbjr/functions` (função `parse-statement`) para ver os novos logs estruturados.
 - Validado com `npx tsc --noEmit` e `npm run build` (sem erros). Teste end-to-end real não executado nesta sessão (sem credenciais de usuário Admin/Tesoureiro).
 
+### [2026-07-24] Aviso de lançamentos não salvos ao sair da tela de Importação
+
+**O que foi feito:**
+- **`src/context/AppContext.tsx`**: novo mecanismo genérico de "guarda de navegação" —
+  - `registerUnsavedGuard(guard | null)`: uma página registra `{ hasUnsaved(): boolean, onSave(): Promise<boolean> }` (guardado em `useRef`, não dispara re-render).
+  - `guardedNavigate(proceed)`: chamado no lugar de `navigate(...)` direto; se `hasUnsaved()` for `true`, guarda o `proceed` pendente e abre o aviso (`pendingUnsavedPrompt`); senão executa `proceed()` na hora.
+  - `resolveUnsavedPrompt("cancel" | "discard" | "save")`: trata os 3 botões do aviso — cancelar fecha sem navegar; descartar chama `proceed()` direto; salvar chama `guard.onSave()` e só navega (`proceed()`) se a Promise resolver `true`.
+- **`src/components/UnsavedChangesPrompt.tsx`** (novo): modal com os 3 botões ("Continuar editando" / "Sair sem salvar" / "Salvar e sair"), renderizado em **`src/components/Layout.tsx`** (sempre montado nas rotas protegidas, ao lado do `Toast`).
+- **`src/components/Sidebar.tsx`**: cada item do menu (`NavLink`) e o logout agora passam por `guardedNavigate(...)` em vez de navegar direto — clicar num item para uma rota diferente da atual intercepta a navegação (`preventDefault` + `guardedNavigate`); clicar no item da rota atual navega normalmente (sem checagem, já que não é uma saída de verdade).
+- **`src/pages/ImportacaoExtrato.tsx`**:
+  - `doSave` passou a devolver `Promise<boolean>` (sucesso/falha), reaproveitado tanto pelo botão "Confirmar e Salvar" quanto pelo novo fluxo de saída.
+  - Nova `trySaveForUnsavedGuard`: mesma checagem de duplicata do botão normal — se achar duplicata, abre o aviso de duplicata (já existente) em vez de salvar direto, e devolve `false` (a pessoa resolve a duplicata e tenta sair de novo depois).
+  - `hasUnsavedImport = hasUploaded && stagedTransactions.length > 0 && !showSuccessModal` registrado via `registerUnsavedGuard` em um `useEffect` **sem array de dependências** (roda a cada render de propósito, para o guard nunca ficar com uma versão antiga de `stagedTransactions`/`profile` depois de um ajuste via chat de IA).
+  - Novo `useEffect` com `window.addEventListener("beforeunload", ...)` — mesma checagem, mas para fechar/recarregar a aba do navegador (não interceptável pelo React Router; usa a confirmação nativa do navegador).
+
+**Decisões técnicas:**
+- Projeto usa `<BrowserRouter>` (não um data router via `createRouterProvider`), então o `useBlocker`/`unstable_useBlocker` do React Router v6 **não está disponível** (exige data router) — por isso a solução foi um mecanismo próprio via Context, interceptando cliques de navegação manualmente em vez de um blocker nativo do router.
+- O guard é genérico (`registerUnsavedGuard`) para poder ser reaproveitado por outras páginas no futuro, mas hoje só `ImportacaoExtrato.tsx` o usa.
+- **Escopo:** cobre navegação pelo menu lateral (todas as "abas"/rotas), logout e fechar/recarregar a aba do navegador. **Não cobre** o botão Voltar/Avançar do navegador (`popstate`) — interceptar isso de forma confiável sem um data router exigiria manipular o histórico do navegador diretamente, adicionando fragilidade desproporcional ao pedido original ("mudar de aba").
+- `AppContext` fica **fora** do `<BrowserRouter>` em `App.tsx` — por isso não pode chamar `useNavigate()` diretamente; a navegação de fato (`navigate(...)`) é sempre passada de fora como a função `proceed`, vinda de um componente que já está dentro do Router (`Sidebar.tsx`).
+- Validado com `npx tsc --noEmit` e `npm run build` (sem erros). Teste end-to-end real (upload → tentar trocar de aba → ver o aviso → cada um dos 3 botões) **não foi executado nesta sessão** por não haver credenciais de um usuário Admin/Tesoureiro disponíveis — recomenda-se validar manualmente antes de considerar encerrado.
+
+### [2026-07-24] Investigação: "Saldo de Abertura" não zerava após excluir importação
+
+**O que foi relatado:** ao excluir um extrato importado, Entradas/Saídas do mês voltavam a R$ 0,00, mas o "Saldo de Abertura" (e o Saldo Final) continuavam em R$ 124,32.
+
+**O que foi investigado:** `LivroCaixa.tsx` não tem nenhuma tabela/coluna separada de "saldo inicial" — `computeLedger()` calcula `opening` 100% em runtime, somando `transactions` (vindo do `AppContext`) com data anterior ao mês exibido. Consultei a produção direto via `supabase db query --linked --file` (somente leitura):
+- `import_history` estava com **0 linhas** — a exclusão do extrato removeu o registro e a cascata `ON DELETE CASCADE` (migration 0005) removeu corretamente **todos** os lançamentos vinculados a ele.
+- Restavam **5 lançamentos** em `transactions`, todos com `import_id = null`, datados de 26–30/06/2026, somando exatamente R$ 124,32 (débitos e Pix reais). Esses são os "7 lançamentos reais do usuário" mencionados nas entradas antigas do log (Fase 2/Fase 3), hoje reduzidos a 5 após a limpeza de duplicata daquela época — importados **antes** de existir a coluna `import_id` (migration 0005), portanto nunca vinculados a nenhum registro de importação.
+
+**Conclusão:** não havia bug no fluxo de exclusão/cascata — ele removeu exatamente o que estava vinculado ao extrato apagado. O "Saldo de Abertura" preso era matematicamente correto: refletia 5 lançamentos reais e distintos que **nunca fizeram parte do extrato excluído** e que, por serem anteriores à migration 0005, não têm `import_id` para nenhuma cascata alcançar (limitação já documentada explicitamente na própria migration 0005).
+
+**Ação tomada (confirmada explicitamente pelo usuário antes de executar):** os 5 lançamentos órfãos foram removidos direto do banco de produção via `DELETE ... WHERE id IN (...)` (mesma tabela/trigger que a exclusão pela UI usa — `on_transaction_delete` disparou normalmente e gravou os 5 logs de `estorno` na auditoria; `user_id` ficou nulo e `role` como fallback `'Sistema'`, já que a conexão foi direta ao Postgres via CLI, sem contexto de sessão HTTP/JWT de um usuário logado). Verificado depois: `transactions` com 0 linhas, 5 novos registros de auditoria `estorno` criados.
+
+**Decisões técnicas:**
+- Nenhuma alteração de código foi necessária — o comportamento de `computeLedger`/cascata está correto. Registrando aqui para não reabrir essa investigação à toa numa sessão futura caso o mesmo tipo de dúvida apareça de novo com outro conjunto de dados.
+- **Nota para o futuro:** qualquer lançamento criado manualmente (botão "Novo Lançamento" no Livro Caixa) também tem `import_id = null` por definição — isso é esperado e correto (não pertence a nenhum lote de importação), mas significa que "excluir um registro de importação" nunca vai remover lançamentos manuais nem, como visto aqui, lançamentos de antes da migration 0005. Se isso confundir usuários no futuro, a solução de produto seria a tela de Livro Caixa deixar mais explícito quais lançamentos têm origem manual vs. importada (hoje não há essa distinção visual).
+
 ## 🧠 7. SKILLS & PROTOCOLOS DE EXECUÇÃO
 
 O Claude Code deve ler, carregar e seguir rigorosamente as skills definidas no arquivo `SKILLS.md` (ou na pasta `.claude/skills/`).

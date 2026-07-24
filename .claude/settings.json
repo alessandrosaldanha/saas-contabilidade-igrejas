@@ -66,7 +66,11 @@
       "Bash(ls -la \"/c/Users/Alessandro/.supabase\" 2>&1)",
       "Read(//c/Users/Alessandro/.supabase/**)",
       "Bash(node -e \"const pkg=require\\('@supabase/supabase-js/package.json'\\); console.log\\(pkg.version\\)\")",
-      "PowerShell(cd \"c:\\\\Users\\\\Alessandro\\\\Downloads\\\\SaaS contabilidade para igrejas\"; & \"$env:USERPROFILE\\\\scoop\\\\shims\\\\supabase.exe\" functions deploy parse-statement --project-ref fumabywngmjfzsobmbjr 2>&1)"
+      "PowerShell(cd \"c:\\\\Users\\\\Alessandro\\\\Downloads\\\\SaaS contabilidade para igrejas\"; & \"$env:USERPROFILE\\\\scoop\\\\shims\\\\supabase.exe\" functions deploy parse-statement --project-ref fumabywngmjfzsobmbjr 2>&1)",
+      "Bash(node -e \"console.log\\(require\\('react-router-dom/package.json'\\).version\\)\")",
+      "PowerShell(cd \"c:\\\\Users\\\\Alessandro\\\\Downloads\\\\SaaS contabilidade para igrejas\"; & \"$env:USERPROFILE\\\\scoop\\\\shims\\\\supabase.exe\" db query --linked --file \".tmp_debug/inspect.sql\" 2>&1 | Select-Object -Last 60)",
+      "PowerShell(cd \"c:\\\\Users\\\\Alessandro\\\\Downloads\\\\SaaS contabilidade para igrejas\"; & \"$env:USERPROFILE\\\\scoop\\\\shims\\\\supabase.exe\" db query --linked --file \".tmp_debug/inspect2.sql\" 2>&1 | Select-Object -Last 60)",
+      "PowerShell(cd \"c:\\\\Users\\\\Alessandro\\\\Downloads\\\\SaaS contabilidade para igrejas\"; & \"$env:USERPROFILE\\\\scoop\\\\shims\\\\supabase.exe\" db query --linked --file \".tmp_debug/delete_orphans.sql\" 2>&1 | Select-Object -Last 60)"
     ]
   }
 }

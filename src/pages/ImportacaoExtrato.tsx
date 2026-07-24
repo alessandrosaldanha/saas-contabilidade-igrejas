@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Upload, Loader2, Award, Send, Check, AlertTriangle, Pencil, Trash2, X } from "lucide-react";
@@ -89,7 +89,8 @@ function findDuplicates(staged: Transaction[], existing: Transaction[]): Transac
 }
 
 export default function ImportacaoExtrato() {
-  const { transactions, importHistory, refreshTransactions, refreshImportHistory, showToastMsg } = useApp();
+  const { transactions, importHistory, refreshTransactions, refreshImportHistory, showToastMsg, registerUnsavedGuard } =
+    useApp();
   const { profile } = useAuth();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -231,8 +232,10 @@ export default function ImportacaoExtrato() {
     doSave();
   };
 
-  const doSave = async () => {
-    if (isSaving || stagedTransactions.length === 0 || !profile) return;
+  // Usado tanto pelo botão "Confirmar e Salvar" quanto pelo aviso de navegação com
+  // lançamentos não salvos — por isso devolve se o salvamento teve sucesso ou não.
+  const doSave = async (): Promise<boolean> => {
+    if (isSaving || stagedTransactions.length === 0 || !profile) return false;
     setDuplicateWarning(null);
     setIsSaving(true);
     try {
@@ -265,11 +268,26 @@ export default function ImportacaoExtrato() {
       await Promise.all([refreshTransactions(), refreshImportHistory()]);
       setShowSuccessModal(true);
       showToastMsg(`Extrato salvo por ${profile.name}`);
+      return true;
     } catch (err) {
       showToastMsg(`Falha ao salvar lançamentos: ${err instanceof Error ? err.message : String(err)}`);
+      return false;
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Chamado quando a pessoa tenta sair da tela (menu lateral, logout) com um extrato
+  // importado e ainda não salvo. Se houver duplicatas, interrompe e mostra o aviso de
+  // duplicata em vez de sair — a pessoa resolve isso e tenta sair de novo.
+  const trySaveForUnsavedGuard = async (): Promise<boolean> => {
+    if (stagedTransactions.length === 0 || !profile) return false;
+    const duplicates = findDuplicates(stagedTransactions, transactions);
+    if (duplicates.length > 0) {
+      setDuplicateWarning(duplicates);
+      return false;
+    }
+    return doSave();
   };
 
   const resetImport = () => {
@@ -278,6 +296,33 @@ export default function ImportacaoExtrato() {
     setFilename("");
     setChatMessages([]);
   };
+
+  const hasUnsavedImport = hasUploaded && stagedTransactions.length > 0 && !showSuccessModal;
+
+  // Avisa antes de sair da tela (menu lateral, logout) enquanto houver um extrato
+  // importado e não salvo — a checagem some sozinha quando o extrato é salvo
+  // (showSuccessModal vira true) ou o import é resetado/reenviado. Sem array de
+  // dependências de propósito: registra de novo a cada render para o guard nunca
+  // ficar com uma versão desatualizada de `stagedTransactions`/`profile`.
+  useEffect(() => {
+    registerUnsavedGuard({
+      hasUnsaved: () => hasUnsavedImport,
+      onSave: trySaveForUnsavedGuard,
+    });
+    return () => registerUnsavedGuard(null);
+  });
+
+  // Mesma checagem para fechar/recarregar a aba do navegador — não é interceptável
+  // pelo React Router, então precisa do evento nativo `beforeunload`.
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (!hasUnsavedImport) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [hasUnsavedImport]);
 
   const totalCount = stagedTransactions.length;
   const entradasSum = stagedTransactions.filter((t) => t.type === "entrada").reduce((s, t) => s + t.value, 0);

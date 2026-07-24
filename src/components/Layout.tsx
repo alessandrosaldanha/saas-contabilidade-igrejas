@@ -2,6 +2,7 @@ import { Outlet } from "react-router-dom";
 import { X } from "lucide-react";
 import Sidebar from "./Sidebar";
 import Toast from "./Toast";
+import UnsavedChangesPrompt from "./UnsavedChangesPrompt";
 import { useApp } from "../context/AppContext";
 
 export default function Layout() {
@@ -25,6 +26,7 @@ export default function Layout() {
       </main>
 
       <Toast />
+      <UnsavedChangesPrompt />
     </div>
   );
 }
