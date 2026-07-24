@@ -213,6 +213,17 @@ src/
 - Permissões espelham o padrão já usado em `transactions`: editar (Admin+Tesoureiro, mesmos papéis que podem inserir um import) e excluir (só Admin, mesmo padrão de `transactions_delete_admin`).
 - Validado com `npx tsc --noEmit` e `npm run build` (sem erros). Teste end-to-end na UI (login real) não foi executado nesta sessão por não haver credenciais de teste disponíveis — recomenda-se validar manualmente os botões de editar/excluir antes de considerar encerrado.
 
+### [2026-07-24] Ilustração no painel esquerdo da tela de Login
+
+**O que foi feito:**
+- **`src/assets/chapel-illustration.svg`** (nova): ilustração vetorial original (não é foto/stock) de uma capela minimalista em line-art, com halo/cruz no topo, janela rosácea, duas janelas laterais com brilho nas cores da marca (`orla-blue`/`orla-coral`) e um céu estrelado — tudo em tons de branco translúcido sobre fundo transparente, pensado para compor com o painel preto já existente.
+- **`src/pages/Login.tsx`**: a `div.absolute.inset-0.opacity-[0.08].bg-[radial-gradient(...)]` (efeito de luz já existente no painel esquerdo) passou a ficar dentro de um wrapper `div.absolute.inset-0.overflow-hidden` que também contém a nova `<img>` (a ilustração), posicionada atrás do gradiente. A ilustração usa `opacity-70` própria — manter a opacidade de 0.08 no *container* (em vez de só no gradiente) deixaria a imagem praticamente invisível, então essa foi movida para ficar restrita à camada do gradiente, preservando o efeito de brilho original por cima da imagem.
+
+**Decisões técnicas:**
+- Não há nenhum asset de imagem (foto, logo, ilustração) no repositório (`src/assets` só tinha um `.gitkeep`) nem uma ferramenta de geração de imagem disponível nesta sessão — por isso optei por um SVG desenhado à mão (formas geométricas simples: retângulos, polígonos, círculos e curvas), em vez de uma foto de banco de imagens (evita depender de URL externa adivinhada/hotlink e mantém o bundle 100% offline/self-contained).
+- Cores do brilho (`glowBlue`/`glowCoral`) usam os hex exatos de `orla-blue`/`orla-coral` do `tailwind.config.js`, para a ilustração conversar com a paleta da marca em vez de introduzir cores novas.
+- Validado visualmente: subiu o dev server localmente, tirou screenshot da `/login` via Playwright (Chromium já cacheado localmente em `%LOCALAPPDATA%\ms-playwright`) e confirmou sem erros de console — a ilustração fica legível atrás do texto branco (`z-10`) sem competir com a leitura.
+
 ### [2026-07-24] Deploy em produção (Vercel) + correção de roteamento SPA
 
 **O que foi feito:**

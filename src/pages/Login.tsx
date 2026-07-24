@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import ThemeToggle from "../components/ThemeToggle";
 import { useAuth } from "../context/AuthContext";
+import chapelIllustration from "../assets/chapel-illustration.svg";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -42,7 +43,15 @@ export default function Login() {
   return (
     <div className="flex h-screen w-full font-sans overflow-hidden bg-white dark:bg-black text-black dark:text-white">
       <div className="hidden md:flex flex-[1_1_46%] min-w-[360px] relative bg-black text-white flex-col justify-between p-12 overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.08] bg-[radial-gradient(circle_at_30%_20%,white,transparent_60%)]" />
+        <div className="absolute inset-0 overflow-hidden">
+          <img
+            src={chapelIllustration}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 w-full h-full object-cover opacity-70"
+          />
+          <div className="absolute inset-0 opacity-[0.08] bg-[radial-gradient(circle_at_30%_20%,white,transparent_60%)]" />
+        </div>
         <div className="relative z-10 flex items-center gap-3">
           <span className="inline-flex items-center justify-center w-[26px] h-[18px]">
             <LogIn size={22} />
