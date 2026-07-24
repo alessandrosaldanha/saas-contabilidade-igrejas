@@ -224,6 +224,26 @@ src/
 - Cores do brilho (`glowBlue`/`glowCoral`) usam os hex exatos de `orla-blue`/`orla-coral` do `tailwind.config.js`, para a ilustração conversar com a paleta da marca em vez de introduzir cores novas.
 - Validado visualmente: subiu o dev server localmente, tirou screenshot da `/login` via Playwright (Chromium já cacheado localmente em `%LOCALAPPDATA%\ms-playwright`) e confirmou sem erros de console — a ilustração fica legível atrás do texto branco (`z-10`) sem competir com a leitura.
 
+### [2026-07-24] Troca do botão "Estornar" por "Excluir" no Livro Caixa
+
+**O que foi feito:**
+- **`src/pages/LivroCaixa.tsx`**: o botão de ação restrito a Admin (ícone `RotateCcw`, rótulo "Estornar/Excluir") foi renomeado para um botão de exclusão direto (ícone `Trash2`, rótulo "Excluir lançamento"). Estados/handlers renomeados (`estornoTarget`→`deleteTarget`, `isEstornando`→`isDeleting`, `canEstornar`→`canDelete`, `confirmEstorno`→`confirmDelete`); modal de confirmação, textos de toast ("Falha ao excluir"/"Lançamento excluído com sucesso") e o modal em si ("Excluir Lançamento" / "Confirmar Exclusão") atualizados para o mesmo vocabulário. A coluna "Ações" agora tem só dois botões: Editar (Admin/Tesoureiro) e Excluir (Admin).
+
+**Decisões técnicas:**
+- A operação em si **não mudou** — já era um `DELETE` real na tabela `transactions` (o "estorno" nunca foi um estorno contábil/lançamento de reversão, sempre foi uma exclusão de linha). A mudança é só de nomenclatura/ícone na UI para refletir isso com mais clareza, a pedido do usuário.
+- **Nenhuma migration foi necessária**: o trigger `on_transaction_delete` (Fase 4) já grava o log de auditoria com `action_key = 'estorno'` e `action_label = 'Estorno/Exclusão'` — esse rótulo já contemplava "exclusão" desde a Fase 4, então a Trilha de Auditoria não precisa de nenhum ajuste.
+- Validado com `npx tsc --noEmit` e `npm run build` (sem erros). Teste visual na UI não foi executado nesta sessão porque `/livro-caixa` fica atrás de login (`ProtectedRoute`) e não há credenciais de teste disponíveis nesta sessão.
+
+### [2026-07-24] Seletor de mês/ano (calendário) no Livro Caixa
+
+**O que foi feito:**
+- **`src/pages/LivroCaixa.tsx`**: a `div.flex.items-center.gap-2` da navegação de período ganhou um popover de calendário — clicar no texto "Mês de Ano" (antes só um `<span>` estático) abre um painel com um stepper de ano (‹ 2026 ›) e uma grade com os 12 meses; clicar em um mês seleciona e fecha o popover. O `<select>` de mês que existia ao lado (redundante com a nova grade) foi removido, já que o popover cobre o mesmo caso de uso e adiciona controle de ano, que antes só existia indiretamente (via `goPrevMonth`/`goNextMonth` cruzando a virada do ano).
+- Novo estado `periodPickerOpen`; segue o mesmo padrão de popover já usado no dropdown de perfil do `Sidebar.tsx` (toggle simples no clique do gatilho, sem listener de clique-fora).
+
+**Decisões técnicas:**
+- Nenhuma mudança de dados/lógica de agregação — o popover só chama os mesmos `setMonth`/`setYear` que já existiam.
+- Validado com `npx tsc --noEmit` e `npm run build` (sem erros). Como `/livro-caixa` exige login e não há credenciais nesta sessão, o layout do popover foi conferido visualmente via uma renderização estática isolada (mesmo CSS compilado do build, fora do repositório, em pasta temporária) com Playwright — confirmado que o popover abre, o mês atual fica destacado em azul e o texto/ícones ficam legíveis sobre o fundo escuro.
+
 ### [2026-07-24] Deploy em produção (Vercel) + correção de roteamento SPA
 
 **O que foi feito:**

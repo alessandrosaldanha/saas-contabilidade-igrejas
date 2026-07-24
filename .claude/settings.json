@@ -42,7 +42,11 @@
       "Bash(grep -v \"^\\\\./\\\\.git/\")",
       "Bash(unset SERVICE_KEY USER_ID)",
       "Bash(netstat -ano)",
-      "Bash(taskkill //PID 23596 //F)"
+      "Bash(taskkill //PID 23596 //F)",
+      "Bash(git commit -m ' *)",
+      "Bash(git fetch *)",
+      "Bash(git push *)",
+      "Bash(gh auth *)"
     ]
   }
 }
