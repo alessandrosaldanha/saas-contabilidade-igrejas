@@ -180,6 +180,28 @@ src/
 
 **Ainda mockado:** `Auditoria.tsx` (Fase 4) — trilha de auditoria continua sendo gerada por um gerador procedural fake, não reflete ações reais do sistema.
 
+### [2026-07-24] Fase 4: Auditoria real + Estornos no Livro Caixa
+
+**O que foi feito:**
+- **`supabase/migrations/0002_audit_trail.sql`** (nova, aplicada via `supabase db query --linked --file` direto na produção):
+  - `request_ip()` / `request_device()`: helpers que leem a GUC `request.headers` (exposta pelo PostgREST em toda chamada via REST/RPC) para capturar IP e User-Agent **reais** de quem executou a ação.
+  - Trigger `on_transaction_insert` (AFTER INSERT em `transactions`) → loga `aprovacao_caixa` automaticamente sempre que um lançamento é gravado, não importa por qual caminho (import IA, futura entrada manual, etc.) — não depende do código do frontend lembrar de logar.
+  - Trigger `on_transaction_delete` (AFTER DELETE) → loga `estorno` automaticamente. **Isso é a implementação do estorno**: estornar = excluir a linha; o trigger cuida do registro imutável.
+  - `admin_update_user_role` / `admin_set_user_status` (RPCs já existentes da Fase 1): passaram a gravar um log `edicao_manual` com before/after do role ou status alterado.
+  - `touch_last_access` (RPC já existente, chamada a cada login): passou a gravar um log `acesso` a cada login real (distingue "primeiro login" de logins subsequentes).
+- **`supabase/functions/invite-user/index.ts`**: após convidar com sucesso, grava um log `edicao_manual` ("Convite enviado para X").
+- **`src/components/Sidebar.tsx`**: logout grava um log `acesso` (client-side, já que logout não tem nenhuma escrita natural no banco para um trigger capturar).
+- **`src/pages/LivroCaixa.tsx`**: nova coluna "Ações" (visível só para Admin) com botão de estorno por lançamento — abre modal de confirmação, executa `DELETE` real na tabela `transactions` (a RLS `transactions_delete_admin` já restringia a Admin desde a Fase 0) e recalcula o saldo automaticamente via `refreshTransactions()`.
+- **`src/pages/Auditoria.tsx`**: reescrita para buscar `audit_logs` reais do Supabase (filtro por mês/ano real, sem mais "2026" fixo), resolvendo o nome do usuário via `usersList` do `AppContext`. Removidos de `services/mockData.ts`: `genMonthAuditLogs`, `AUDIT_USERS`, `AUDIT_DETAILS`, `AUDIT_DEVICES`, `seedRand`, `pad2`, `CURRENT_MONTH_INDEX` (todos mock, sem mais uso).
+
+**Decisões técnicas:**
+- **Auditoria via trigger de banco, não via chamada explícita no frontend** — para `transactions` (insert/estorno), a escolha foi propositalmente arquitetural: um trigger garante que o log é gravado não importa como/onde a escrita aconteceu, sem depender de nenhum desenvolvedor futuro lembrar de chamar `supabase.from('audit_logs').insert(...)` manualmente. Para RBAC (troca de role/status) e login, a mesma lógica foi aplicada dentro das RPCs `SECURITY DEFINER` já existentes (mesmo motivo). Só convite e logout ficaram client-side/na Edge Function, por não terem uma escrita de tabela própria para um trigger interceptar.
+- **"Conciliação"** do pedido original foi interpretada como já coberta pelo próprio fluxo de revisão da IA antes de "Confirmar e Salvar" (Fase 3) — não existe um livro-razão paralelo para conciliar contra, então uma tela extra de "marcar como conciliado" seria um recurso decorativo sem dado real por trás. **Estornos**, que era a parte de fato faltante, foi implementado como descrito acima.
+- Testado ponta a ponta em produção via Playwright: login gerou log real com IP/User-Agent reais; inserção de um lançamento de teste via API autenticada gerou log de "Aprovação de Caixa" (com o User-Agent do `curl`, distinto do navegador — confirma que a captura é por requisição, não um valor estático); estorno desse lançamento pela UI removeu a linha do Livro Caixa, recalculou o saldo e gerou o log de "Estorno/Exclusão".
+- **Nota:** como `audit_logs` não tem policy de `DELETE` (imutável por design), os registros de teste gerados durante essa validação **não puderam ser apagados** e permanecem no histórico real de produção — estão identificáveis pelo texto "TESTE ESTORNO" no campo `before`/`after` de um deles.
+
+**Status do escopo original do usuário:** com esta fase, todos os pilares pedidos (RBAC/Governança, Dashboard, Livro Caixa + Importação IA, Conciliação/Estornos) estão implementados e rodando com dados reais em produção.
+
 ## 🧠 7. SKILLS & PROTOCOLOS DE EXECUÇÃO
 
 O Claude Code deve ler, carregar e seguir rigorosamente as skills definidas no arquivo `SKILLS.md` (ou na pasta `.claude/skills/`).

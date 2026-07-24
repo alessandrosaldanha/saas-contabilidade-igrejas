@@ -54,6 +54,15 @@ Deno.serve(async (req) => {
       return new Response(error.message, { status: 400, headers: CORS_HEADERS });
     }
 
+    await callerClient.from("audit_logs").insert({
+      user_id: caller.id,
+      role: callerProfile.role,
+      action_key: "edicao_manual",
+      action_label: "Edição Manual",
+      before: "—",
+      after: `Convite enviado para ${email} (${role})`,
+    });
+
     return new Response(JSON.stringify({ userId: data.user?.id }), {
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });

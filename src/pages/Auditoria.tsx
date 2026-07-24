@@ -1,24 +1,103 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, FileDown } from "lucide-react";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Avatar from "../components/Avatar";
-import { ACTION_TYPES, AUDIT_PAGE_SIZE, CURRENT_MONTH_INDEX, MONTHS_FULL, genMonthAuditLogs } from "../services/mockData";
-import type { AuditActionKey } from "../types";
+import { useApp } from "../context/AppContext";
+import { supabase } from "../services/supabase";
+import { ACTION_TYPES, AUDIT_PAGE_SIZE, MONTHS_FULL } from "../services/mockData";
+import type { AuditActionKey, AuditLog } from "../types";
 
 const ACTION_FILTERS: Array<{ id: AuditActionKey | "all"; label: string }> = [
   { id: "all", label: "Todas as ações" },
   ...(Object.keys(ACTION_TYPES) as AuditActionKey[]).map((k) => ({ id: k, label: ACTION_TYPES[k].label })),
 ];
 
+interface AuditLogRow {
+  id: string;
+  occurred_at: string;
+  user_id: string | null;
+  role: string;
+  action_key: AuditActionKey;
+  action_label: string;
+  before: string | null;
+  after: string | null;
+  ip: string | null;
+  device: string | null;
+}
+
+function mapRow(row: AuditLogRow, usersById: Map<string, string>): AuditLog {
+  const dt = new Date(row.occurred_at);
+  return {
+    id: row.id,
+    day: dt.getDate(),
+    time: dt.toLocaleTimeString("pt-BR"),
+    sortKey: dt.getTime(),
+    datetime: dt.toLocaleString("pt-BR"),
+    user: (row.user_id && usersById.get(row.user_id)) || "Sistema",
+    role: row.role,
+    actionKey: row.action_key,
+    actionLabel: row.action_label,
+    before: row.before ?? "—",
+    after: row.after ?? "—",
+    ip: row.ip ?? "—",
+    device: row.device ?? "—",
+  };
+}
+
 export default function Auditoria() {
-  const [month, setMonth] = useState(CURRENT_MONTH_INDEX);
+  const { usersList } = useApp();
+  const today = new Date();
+  const [year, setYear] = useState(today.getFullYear());
+  const [month, setMonth] = useState(today.getMonth());
   const [search, setSearch] = useState("");
   const [userFilter, setUserFilter] = useState("all");
   const [actionFilter, setActionFilter] = useState<AuditActionKey | "all">("all");
   const [page, setPage] = useState(1);
+  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const logs = useMemo(() => genMonthAuditLogs(month), [month]);
+  const usersById = useMemo(() => new Map(usersList.map((u) => [u.id, u.name])), [usersList]);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    const start = new Date(year, month, 1).toISOString();
+    const end = new Date(year, month + 1, 1).toISOString();
+    supabase
+      .from("audit_logs")
+      .select("id, occurred_at, user_id, role, action_key, action_label, before, after, ip, device")
+      .gte("occurred_at", start)
+      .lt("occurred_at", end)
+      .order("occurred_at", { ascending: false })
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (!error && data) setLogs(data.map((row) => mapRow(row, usersById)));
+        setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [year, month, usersById]);
+
+  const goPrevMonth = () => {
+    if (month === 0) {
+      setYear((y) => y - 1);
+      setMonth(11);
+    } else {
+      setMonth((m) => m - 1);
+    }
+    setPage(1);
+  };
+  const goNextMonth = () => {
+    if (month === 11) {
+      setYear((y) => y + 1);
+      setMonth(0);
+    } else {
+      setMonth((m) => m + 1);
+    }
+    setPage(1);
+  };
 
   const userOptions = useMemo(() => Array.from(new Set(logs.map((l) => l.user))).sort(), [logs]);
 
@@ -57,7 +136,7 @@ export default function Auditoria() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `auditoria_${MONTHS_FULL[month].toLowerCase()}_2026.csv`;
+    a.download = `auditoria_${MONTHS_FULL[month].toLowerCase()}_${year}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -78,17 +157,17 @@ export default function Auditoria() {
 
       <div className="flex items-center gap-2 mb-4">
         <button
-          onClick={() => changeFilters(() => setMonth((m) => Math.max(0, m - 1)))}
-          disabled={month === 0}
-          className="w-8 h-8 flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 disabled:opacity-40"
+          onClick={goPrevMonth}
+          className="w-8 h-8 flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20"
         >
           <ChevronLeft size={15} />
         </button>
-        <span className="font-display font-semibold text-sm min-w-[150px] text-center">{MONTHS_FULL[month]} de 2026</span>
+        <span className="font-display font-semibold text-sm min-w-[150px] text-center">
+          {MONTHS_FULL[month]} de {year}
+        </span>
         <button
-          onClick={() => changeFilters(() => setMonth((m) => Math.min(11, m + 1)))}
-          disabled={month === 11}
-          className="w-8 h-8 flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 disabled:opacity-40"
+          onClick={goNextMonth}
+          className="w-8 h-8 flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20"
         >
           <ChevronRight size={15} />
         </button>
@@ -160,7 +239,7 @@ export default function Auditoria() {
           <div className="font-display font-semibold text-xl text-orla-blue">{kpiIa}</div>
         </div>
         <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-white/10 rounded-md px-4 py-3.5">
-          <div className="text-[11px] text-neutral-400 mb-1">Ajustes Manuais do Tesoureiro</div>
+          <div className="text-[11px] text-neutral-400 mb-1">Ajustes Manuais / RBAC</div>
           <div className="font-display font-semibold text-xl">{kpiManual}</div>
         </div>
         <div className="bg-status-error/10 border border-status-error rounded-md px-4 py-3.5">
@@ -210,9 +289,10 @@ export default function Auditoria() {
             </tbody>
           </table>
         </div>
-        {pageRows.length === 0 && (
+        {!loading && pageRows.length === 0 && (
           <div className="p-8 text-center text-neutral-400 text-sm">Nenhum log encontrado para este filtro.</div>
         )}
+        {loading && <div className="p-8 text-center text-neutral-400 text-sm">Carregando…</div>}
         <div className="flex items-center justify-between px-4.5 py-3.5 border-t border-neutral-200 dark:border-white/10 text-xs text-neutral-400">
           <span>
             Página {pageClamped} de {totalPages} · {filtered.length} registros

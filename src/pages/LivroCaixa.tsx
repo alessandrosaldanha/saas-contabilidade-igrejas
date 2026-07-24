@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, FileText, FileType, Sheet, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, FileType, RotateCcw, Sheet, X } from "lucide-react";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Avatar from "../components/Avatar";
 import { useApp } from "../context/AppContext";
+import { useAuth } from "../context/AuthContext";
+import { supabase } from "../services/supabase";
 import { CATEGORY_TONE, MONTHS_FULL } from "../services/mockData";
 import { fmt, fmtPlain, brToIso } from "../utils/format";
 import type { LedgerRow, Transaction } from "../types";
@@ -34,12 +36,29 @@ function computeLedger(transactions: Transaction[], year: number, monthIdx: numb
 }
 
 export default function LivroCaixa() {
-  const { transactions } = useApp();
+  const { transactions, refreshTransactions, showToastMsg } = useApp();
+  const { profile } = useAuth();
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [search, setSearch] = useState("");
   const [reportModal, setReportModal] = useState<ReportFormat>(null);
+  const [estornoTarget, setEstornoTarget] = useState<LedgerRow | null>(null);
+  const [isEstornando, setIsEstornando] = useState(false);
+
+  const confirmEstorno = async () => {
+    if (!estornoTarget || isEstornando) return;
+    setIsEstornando(true);
+    const { error } = await supabase.from("transactions").delete().eq("id", estornoTarget.id);
+    setIsEstornando(false);
+    if (error) {
+      showToastMsg(`Falha ao estornar: ${error.message}`);
+      return;
+    }
+    setEstornoTarget(null);
+    await refreshTransactions();
+    showToastMsg("Lançamento estornado com sucesso");
+  };
 
   const goPrevMonth = () => {
     if (month === 0) {
@@ -176,6 +195,7 @@ export default function LivroCaixa() {
                 <th className="px-4.5 py-3 font-medium text-xs text-right">Valor</th>
                 <th className="px-4.5 py-3 font-medium text-xs text-right">Saldo</th>
                 <th className="px-4.5 py-3 font-medium text-xs">Registrado por</th>
+                {profile?.role === "Admin" && <th className="px-4.5 py-3 font-medium text-xs text-right">Ações</th>}
               </tr>
             </thead>
             <tbody>
@@ -201,6 +221,17 @@ export default function LivroCaixa() {
                       <span className="text-xs text-neutral-400">{row.createdBy}</span>
                     </div>
                   </td>
+                  {profile?.role === "Admin" && (
+                    <td className="px-4.5 py-3.5 text-right">
+                      <button
+                        onClick={() => setEstornoTarget(row)}
+                        title="Estornar / Excluir lançamento"
+                        className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 text-neutral-500 dark:text-neutral-400 hover:bg-status-error/10 hover:text-status-error hover:border-status-error"
+                      >
+                        <RotateCcw size={14} />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -286,6 +317,46 @@ export default function LivroCaixa() {
                 className="px-4 py-2 rounded-md bg-orla-blue text-white text-sm font-medium hover:bg-blue-600"
               >
                 Imprimir / Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {estornoTarget && (
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-6">
+          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[440px] rounded-lg shadow-md p-8">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="font-display font-semibold text-lg m-0">Estornar Lançamento</h3>
+              <button onClick={() => setEstornoTarget(null)} className="text-neutral-400 p-1">
+                <X size={18} />
+              </button>
+            </div>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed mb-4">
+              Esta ação remove o lançamento do Livro Caixa e recalcula o saldo. É registrada de forma imutável na
+              Trilha de Auditoria.
+            </p>
+            <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-white/10 rounded-md px-4 py-3.5 mb-6 text-sm">
+              <div className="flex justify-between mb-1">
+                <span className="text-neutral-400">{estornoTarget.date}</span>
+                <span className={estornoTarget.value < 0 ? "text-orla-coral" : "text-status-success"}>{fmt(estornoTarget.value)}</span>
+              </div>
+              <div>{estornoTarget.desc}</div>
+              <div className="text-xs text-neutral-400 mt-1">{estornoTarget.category}</div>
+            </div>
+            <div className="flex justify-end gap-2.5">
+              <button
+                onClick={() => setEstornoTarget(null)}
+                className="px-4 py-2 rounded-md border border-neutral-300 dark:border-white/20 text-sm font-medium"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmEstorno}
+                disabled={isEstornando}
+                className="px-4 py-2 rounded-md bg-status-error text-white text-sm font-medium hover:opacity-90 disabled:opacity-70"
+              >
+                {isEstornando ? "Estornando…" : "Confirmar Estorno"}
               </button>
             </div>
           </div>

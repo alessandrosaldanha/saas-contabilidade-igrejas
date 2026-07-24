@@ -17,6 +17,7 @@ import Avatar from "./Avatar";
 import Badge from "./Badge";
 import { useApp } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
+import { supabase } from "../services/supabase";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard Executivo", icon: LayoutGrid },
@@ -28,7 +29,7 @@ const NAV_ITEMS = [
 
 export default function Sidebar() {
   const { sidebarCollapsed, toggleSidebar, isDark, toggleTheme, currentUser } = useApp();
-  const { signOut } = useAuth();
+  const { profile, signOut } = useAuth();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const navigate = useNavigate();
   const expanded = !sidebarCollapsed;
@@ -36,6 +37,16 @@ export default function Sidebar() {
 
   const logout = async () => {
     setShowProfileMenu(false);
+    if (profile) {
+      await supabase.from("audit_logs").insert({
+        user_id: profile.id,
+        role: profile.role,
+        action_key: "acesso",
+        action_label: "Acesso/Login",
+        before: "Sessão ativa",
+        after: "Logout",
+      });
+    }
     await signOut();
     navigate("/login");
   };
