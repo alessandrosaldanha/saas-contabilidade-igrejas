@@ -20,7 +20,7 @@ export type UserRole = "Admin" | "Tesoureiro" | "Auditor" | "Conselho Fiscal";
 export type UserStatus = "Ativo" | "Inativo" | "Convite Pendente";
 
 export interface ChurchUser {
-  id: number;
+  id: string;
   name: string;
   email: string;
   role: UserRole;

@@ -70,6 +70,56 @@ src/
 
 **Próximos passos sugeridos:** criar camada `services/supabase.ts` e `services/gemini.ts` quando a integração real for iniciada, mantendo as mesmas assinaturas hoje expostas por `services/mockData.ts`.
 
+### [2026-07-24] Correção do remote Git e push inicial para GitHub pessoal
+
+**O que foi feito:**
+- `origin` estava apontando para uma URL divergente (`SaaS-contabilidade-para-igrejas-.git`, inexistente/privada); corrigido via `git remote set-url` para `https://github.com/alessandrosaldanha/saas-contabilidade-igrejas.git` (repositório confirmado existente via `git ls-remote`).
+- Push inicial de `main` (commit único `56ffb9b`) realizado com sucesso via PAT temporário (header `Authorization` passado apenas no comando `git -c http.extraheader=...`, nunca persistido no remote nem no `.git/config`).
+- Branch `main` configurada com tracking para `origin/main`.
+
+**Decisões técnicas:**
+- Ambiente usa `credential.helper=manager` (Git Credential Manager) em nível de sistema, mas essa sessão do Claude Code é não-interativa (sem navegador para o fluxo OAuth do GCM) — por isso o push foi autenticado via PAT pontual em vez de depender do GCM.
+- Nenhuma credencial do GitHub estava em cache no Windows Credential Manager (`cmdkey /list`) no momento — sem risco de conflito com conta corporativa.
+
+**Próximos passos:** para pushes futuros feitos diretamente pelo usuário no terminal local (fora desta sessão), o GCM deve funcionar normalmente via navegador.
+
+### [2026-07-24] Fase 0 + Fase 1: Fundação Supabase e RBAC real
+
+**O que foi feito:**
+- **Dependência:** `@supabase/supabase-js` instalada.
+- **Schema real** em `supabase/migrations/0001_init.sql`: tabelas `profiles` (estende `auth.users` com `role`/`status` do RBAC), `transactions`, `audit_logs` (append-only) e `import_history`, todas com RLS habilitada.
+  - Funções `has_role()`/`is_admin()` (SECURITY DEFINER) usadas nas policies.
+  - Trigger `handle_new_user` cria o `profile` automaticamente quando um usuário é criado no Supabase Auth (via convite).
+  - RPCs `admin_update_user_role`, `admin_set_user_status` e `touch_last_access` — únicas formas de alterar role/status/último acesso; qualquer update direto na tabela `profiles` por um usuário comum é bloqueado (sem policy de UPDATE liberada para o client).
+- **Edge Function** `supabase/functions/invite-user/index.ts`: usa a service-role key (nunca exposta no frontend) para chamar `auth.admin.inviteUserByEmail`, verificando antes que quem chama é Admin.
+- **`src/services/supabase.ts`**: client criado a partir de `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` (`.env.example` adicionado; `.env` no `.gitignore`).
+- **`src/context/AuthContext.tsx`** (novo): sessão real do Supabase Auth + perfil (`profiles`), `signIn`/`signOut`.
+- **`src/components/ProtectedRoute.tsx`** (novo): guard de rota — sem sessão ou com `status = "Inativo"` redireciona para `/login`; suporta `allowedRoles` para restringir por papel.
+- **`src/App.tsx`**: `AuthProvider` envolvendo `AppProvider`; todas as rotas do `Layout` protegidas; `/usuarios` restrita a `allowedRoles={["Admin"]}`.
+- **`src/pages/Login.tsx`**: autenticação real via `signIn` (Supabase Auth), removida a simulação com `setTimeout`/checagem de senha fake e as referências a "Keycloak".
+- **`src/pages/Usuarios.tsx`**: convite real (chama a Edge Function `invite-user`), troca de role via RPC `admin_update_user_role`, ativar/bloquear acesso via RPC `admin_set_user_status`, reset de senha via `supabase.auth.resetPasswordForEmail`. Lista de usuários (`usersList`) agora vem de `AppContext.refreshUsers()`, que lê a tabela `profiles`.
+- **`src/context/AppContext.tsx`**: `currentUser` passou a vir do perfil autenticado (`useAuth`); `usersList` é buscado do Supabase (removido o mock `DEFAULT_USERS`, que foi apagado de `src/services/mockData.ts`).
+- **`src/components/Sidebar.tsx`**: item "Governança e Usuários" só aparece para `role === "Admin"`; logout chama `supabase.auth.signOut()`.
+- **`src/types/index.ts`**: `ChurchUser.id` mudou de `number` para `string` (UUID do Supabase Auth).
+- **`src/vite-env.d.ts`** (novo): tipagem de `import.meta.env` para as variáveis `VITE_SUPABASE_*`.
+
+**Decisões técnicas:**
+- Autenticação: **Supabase Auth** (não Keycloak) — evita integrar um segundo sistema, mantém tudo no free tier do Supabase.
+- IA de categorização (Fase 3, ainda não implementada): decidido usar **Gemini 1.5/2.0 Flash**.
+- Convite de usuário via Edge Function (não via update direto de tabela) porque `auth.admin.inviteUserByEmail` exige a service-role key, que não pode rodar no browser.
+- Alteração de role/status feita só por RPC `SECURITY DEFINER` (e não por policy de `UPDATE` direta) porque o Postgres não diferencia "admin" de "usuário comum" a nível de `GRANT` de coluna — todos os usuários logados executam como o mesmo role `authenticated` no Postgres; a checagem de "é Admin?" precisa acontecer dentro da função.
+- `Transaction`, `AuditLog` e `ImportHistoryItem` **continuam mockados** (`services/mockData.ts`) — a Fase 0 criou o schema real para essas tabelas (`transactions`, `audit_logs`, `import_history`) para quando as Fases 2/3 migrarem Dashboard/Livro Caixa/Importação para dados reais, mas o frontend dessas páginas ainda não foi religado.
+- Validado com `npx tsc --noEmit`, `npm run build` e testes de fluxo via Playwright headless (login carrega sem erros de console, acesso direto a `/dashboard` sem sessão redireciona para `/login`, submit de login com Supabase inexistente mostra erro amigável sem exceção não tratada) contra um `.env` com credenciais placeholder (removido após o teste).
+
+**Passos manuais pendentes (fora do alcance do Claude Code nesta sessão):**
+1. Criar um projeto em supabase.com.
+2. Rodar `supabase/migrations/0001_init.sql` no SQL Editor do projeto.
+3. Copiar `.env.example` para `.env` e preencher `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`.
+4. Deploy da Edge Function: `supabase functions deploy invite-user` + `supabase secrets set SUPABASE_SERVICE_ROLE_KEY=...`.
+5. Criar o primeiro usuário Admin manualmente (Supabase Dashboard → Authentication → um usuário + `update profiles set role = 'Admin' where email = '...'`), já que o primeiro usuário do sistema não tem quem o convide.
+
+**Próximos passos sugeridos (Fase 2 e 3):** religar `Dashboard.tsx` às agregações reais de `transactions`; implementar parsing real de OFX/CSV/PDF e `services/gemini.ts` para a categorização de `ImportacaoExtrato.tsx`.
+
 ## 🧠 7. SKILLS & PROTOCOLOS DE EXECUÇÃO
 
 O Claude Code deve ler, carregar e seguir rigorosamente as skills definidas no arquivo `SKILLS.md` (ou na pasta `.claude/skills/`).

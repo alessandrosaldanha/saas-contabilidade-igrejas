@@ -4,7 +4,8 @@ import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Avatar from "../components/Avatar";
 import { useApp } from "../context/AppContext";
-import type { UserRole, UserStatus } from "../types";
+import { supabase } from "../services/supabase";
+import type { ChurchUser, UserRole, UserStatus } from "../types";
 
 const ROLE_TONE: Record<UserRole, "purple" | "info" | "warning" | "neutral"> = {
   Admin: "purple",
@@ -23,11 +24,12 @@ const iconBtnCls =
   "w-8 h-8 flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5";
 
 export default function Usuarios() {
-  const { usersList, setUsersList, showToastMsg } = useApp();
+  const { usersList, refreshUsers, showToastMsg } = useApp();
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [isInviting, setIsInviting] = useState(false);
 
   const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
@@ -57,31 +59,58 @@ export default function Usuarios() {
     setShowInviteModal(true);
   };
 
-  const submitInvite = () => {
+  const submitInvite = async () => {
     if (!inviteName.trim() || !inviteEmail.trim()) return;
-    const rec = { id: Date.now(), name: inviteName, email: inviteEmail, role: inviteRole, status: "Convite Pendente" as const, lastAccess: "—" };
-    setUsersList((prev) => [rec, ...prev]);
+    setIsInviting(true);
+    const { error } = await supabase.functions.invoke("invite-user", {
+      body: { name: inviteName, email: inviteEmail, role: inviteRole },
+    });
+    setIsInviting(false);
+    if (error) {
+      showToastMsg(`Falha ao convidar: ${error.message}`);
+      return;
+    }
+    await refreshUsers();
     setShowInviteModal(false);
     showToastMsg(`Convite enviado para ${inviteEmail}`);
   };
 
-  const cycleUserRole = (id: number) => {
-    setUsersList((prev) =>
-      prev.map((u) => (u.id === id ? { ...u, role: ROLE_ORDER[(ROLE_ORDER.indexOf(u.role) + 1) % ROLE_ORDER.length] } : u))
-    );
+  const cycleUserRole = async (user: ChurchUser) => {
+    const nextRole = ROLE_ORDER[(ROLE_ORDER.indexOf(user.role) + 1) % ROLE_ORDER.length];
+    const { error } = await supabase.rpc("admin_update_user_role", {
+      target_id: user.id,
+      new_role: nextRole,
+    });
+    if (error) {
+      showToastMsg(`Falha ao alterar perfil: ${error.message}`);
+      return;
+    }
+    await refreshUsers();
   };
-  const resetUserPassword = (email: string) => showToastMsg(`Link de redefinição de senha enviado para ${email}`);
-  const toggleUserAccess = (id: number) => {
-    setUsersList((prev) =>
-      prev.map((u) => (u.id === id ? { ...u, status: u.status === "Inativo" ? "Ativo" : "Inativo" } : u))
-    );
+
+  const resetUserPassword = async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    showToastMsg(error ? `Falha ao enviar link: ${error.message}` : `Link de redefinição de senha enviado para ${email}`);
+  };
+
+  const toggleUserAccess = async (user: ChurchUser) => {
+    const nextStatus: UserStatus = user.status === "Inativo" ? "Ativo" : "Inativo";
+    const { error } = await supabase.rpc("admin_set_user_status", {
+      target_id: user.id,
+      new_status: nextStatus,
+    });
+    if (error) {
+      showToastMsg(`Falha ao alterar acesso: ${error.message}`);
+      return;
+    }
+    await refreshUsers();
   };
 
   return (
     <div>
       <div className="mb-6">
         <h1 className="font-display font-semibold text-2xl m-0 tracking-tight">Governança e Usuários</h1>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1.5">Controle de acesso via SSO (Keycloak)</p>
+        <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1.5">Controle de acesso via Supabase Auth</p>
       </div>
 
       <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
@@ -174,14 +203,14 @@ export default function Usuarios() {
                   <td className="px-4.5 py-3 text-neutral-400 text-xs">{u.lastAccess}</td>
                   <td className="px-4.5 py-3 text-right">
                     <div className="flex gap-1 justify-end">
-                      <button onClick={() => cycleUserRole(u.id)} title="Alterar Permissões / Role" className={iconBtnCls}>
+                      <button onClick={() => cycleUserRole(u)} title="Alterar Permissões / Role" className={iconBtnCls}>
                         <Shuffle size={14} />
                       </button>
                       <button onClick={() => resetUserPassword(u.email)} title="Enviar Reset de Senha" className={iconBtnCls}>
                         <KeyRound size={14} />
                       </button>
                       <button
-                        onClick={() => toggleUserAccess(u.id)}
+                        onClick={() => toggleUserAccess(u)}
                         title={u.status === "Inativo" ? "Reativar Acesso" : "Bloquear Acesso"}
                         className={iconBtnCls}
                       >
@@ -259,7 +288,7 @@ export default function Usuarios() {
                   onChange={(e) => setInviteSendEmail(e.target.checked)}
                   className="w-[15px] h-[15px] accent-orla-blue cursor-pointer"
                 />
-                Enviar e-mail de ativação de conta via Keycloak
+                Enviar e-mail de ativação de conta via Supabase Auth
               </label>
             </div>
 
@@ -272,9 +301,10 @@ export default function Usuarios() {
               </button>
               <button
                 onClick={submitInvite}
-                className="px-4 py-2 rounded-md bg-orla-blue text-white text-sm font-medium hover:bg-blue-600"
+                disabled={isInviting}
+                className="px-4 py-2 rounded-md bg-orla-blue text-white text-sm font-medium hover:bg-blue-600 disabled:opacity-70"
               >
-                Enviar Convite
+                {isInviting ? "Enviando…" : "Enviar Convite"}
               </button>
             </div>
           </div>

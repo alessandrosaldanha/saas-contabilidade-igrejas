@@ -1,7 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { ChurchUser, ImportHistoryItem, Transaction } from "../types";
-import { DEFAULT_IMPORT_HISTORY, DEFAULT_TRANSACTIONS, DEFAULT_USERS } from "../services/mockData";
+import { DEFAULT_IMPORT_HISTORY, DEFAULT_TRANSACTIONS } from "../services/mockData";
+import { supabase } from "../services/supabase";
+import { useAuth } from "./AuthContext";
 
 interface AppContextValue {
   theme: "dark" | "light";
@@ -27,9 +29,27 @@ interface AppContextValue {
   setImportHistory: React.Dispatch<React.SetStateAction<ImportHistoryItem[]>>;
 
   usersList: ChurchUser[];
-  setUsersList: React.Dispatch<React.SetStateAction<ChurchUser[]>>;
+  refreshUsers: () => Promise<void>;
 
   currentUser: { name: string; email: string; role: string };
+}
+
+function mapProfileRow(row: {
+  id: string;
+  name: string;
+  email: string;
+  role: ChurchUser["role"];
+  status: ChurchUser["status"];
+  last_access: string | null;
+}): ChurchUser {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    role: row.role,
+    status: row.status,
+    lastAccess: row.last_access ? new Date(row.last_access).toLocaleString("pt-BR") : "—",
+  };
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -93,7 +113,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const [transactions, setTransactions] = useState<Transaction[]>(DEFAULT_TRANSACTIONS);
   const [importHistory, setImportHistory] = useState<ImportHistoryItem[]>(DEFAULT_IMPORT_HISTORY);
-  const [usersList, setUsersList] = useState<ChurchUser[]>(DEFAULT_USERS);
+  const [usersList, setUsersList] = useState<ChurchUser[]>([]);
+
+  const { session, profile } = useAuth();
+
+  const refreshUsers = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, name, email, role, status, last_access")
+      .order("name");
+    if (!error && data) setUsersList(data.map(mapProfileRow));
+  }, []);
+
+  useEffect(() => {
+    if (session) refreshUsers();
+    else setUsersList([]);
+  }, [session, refreshUsers]);
 
   const value: AppContextValue = {
     theme,
@@ -113,8 +148,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     importHistory,
     setImportHistory,
     usersList,
-    setUsersList,
-    currentUser: { name: "Carlos Mendes", email: "carlos.mendes@igreja.org", role: "Admin" },
+    refreshUsers,
+    currentUser: profile
+      ? { name: profile.name, email: profile.email, role: profile.role }
+      : { name: "—", email: "—", role: "—" },
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

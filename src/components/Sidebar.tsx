@@ -16,23 +16,27 @@ import {
 import Avatar from "./Avatar";
 import Badge from "./Badge";
 import { useApp } from "../context/AppContext";
+import { useAuth } from "../context/AuthContext";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard Executivo", icon: LayoutGrid },
   { to: "/importacao", label: "Extratos e Importação IA", icon: FileText },
   { to: "/livro-caixa", label: "Livro Caixa (Lançamentos)", icon: Wallet, badge: 3 },
-  { to: "/usuarios", label: "Governança e Usuários", icon: Users },
+  { to: "/usuarios", label: "Governança e Usuários", icon: Users, adminOnly: true },
   { to: "/auditoria", label: "Trilha de Auditoria (Logs)", icon: Clock },
 ];
 
 export default function Sidebar() {
   const { sidebarCollapsed, toggleSidebar, isDark, toggleTheme, currentUser } = useApp();
+  const { signOut } = useAuth();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const navigate = useNavigate();
   const expanded = !sidebarCollapsed;
+  const navItems = NAV_ITEMS.filter((item) => !item.adminOnly || currentUser.role === "Admin");
 
-  const logout = () => {
+  const logout = async () => {
     setShowProfileMenu(false);
+    await signOut();
     navigate("/login");
   };
 
@@ -73,7 +77,7 @@ export default function Sidebar() {
       )}
 
       <nav className="flex flex-col gap-1">
-        {NAV_ITEMS.map((item) => (
+        {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}

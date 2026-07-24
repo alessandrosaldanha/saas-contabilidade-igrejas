@@ -4,7 +4,6 @@
 // assinatura de exports para não quebrar os componentes que os consomem.
 import type {
   Transaction,
-  ChurchUser,
   AuditLog,
   AuditActionKey,
   ChatMessage,
@@ -109,16 +108,6 @@ export const DEFAULT_CHAT_MESSAGES: ChatMessage[] = [
 export const DEFAULT_IMPORT_HISTORY: ImportHistoryItem[] = [
   { id: 1, filename: "extrato_junho_2026.ofx", monthLabel: "Junho de 2026", count: 6, importedAt: "05/07/2026", importedBy: "Ana Ferreira" },
   { id: 2, filename: "extrato_maio_2026.pdf", monthLabel: "Maio de 2026", count: 7, importedAt: "03/06/2026", importedBy: "Roberto Alves" },
-];
-
-export const DEFAULT_USERS: ChurchUser[] = [
-  { id: 1, name: "Carlos Mendes", email: "carlos.mendes@igreja.org", role: "Admin", status: "Ativo", lastAccess: "Hoje, 09:14" },
-  { id: 2, name: "Ana Ferreira", email: "ana.ferreira@igreja.org", role: "Tesoureiro", status: "Ativo", lastAccess: "Hoje, 08:02" },
-  { id: 3, name: "Roberto Alves", email: "roberto.alves@igreja.org", role: "Tesoureiro", status: "Ativo", lastAccess: "Ontem, 17:40" },
-  { id: 4, name: "Marta Souza", email: "marta.souza@igreja.org", role: "Auditor", status: "Ativo", lastAccess: "17/07/2026, 14:20" },
-  { id: 5, name: "Pedro Lima", email: "pedro.lima@igreja.org", role: "Auditor", status: "Inativo", lastAccess: "15/07/2026, 10:05" },
-  { id: 6, name: "Helena Costa", email: "helena.costa@igreja.org", role: "Conselho Fiscal", status: "Ativo", lastAccess: "20/07/2026, 11:30" },
-  { id: 7, name: "João Pereira", email: "joao.pereira@igreja.org", role: "Tesoureiro", status: "Convite Pendente", lastAccess: "—" },
 ];
 
 // ── Auditoria ──────────────────────────────────────────────────────

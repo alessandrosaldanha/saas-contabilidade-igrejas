@@ -10,9 +10,11 @@ import {
   LogIn,
 } from "lucide-react";
 import ThemeToggle from "../components/ThemeToggle";
+import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
   const navigate = useNavigate();
+  const { signIn } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,23 +23,20 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const authenticate = (delay: number) => {
+  const authenticate = async () => {
     if (!email.trim() || !password.trim()) {
       setErrorMessage("Preencha e-mail e senha para continuar.");
       return;
     }
     setIsLoading(true);
     setErrorMessage("");
-    setTimeout(() => {
-      if (password.length < 6) {
-        setIsLoading(false);
-        setErrorMessage(
-          "E-mail ou senha incorretos / Acesso negado pelo Keycloak.",
-        );
-      } else {
-        navigate("/dashboard");
-      }
-    }, delay);
+    const { error } = await signIn(email.trim(), password);
+    setIsLoading(false);
+    if (error) {
+      setErrorMessage("E-mail ou senha incorretos. Verifique e tente novamente.");
+      return;
+    }
+    navigate("/dashboard");
   };
 
   return (
@@ -156,7 +155,7 @@ export default function Login() {
             </div>
 
             <button
-              onClick={() => authenticate(1300)}
+              onClick={authenticate}
               disabled={isLoading}
               className="w-full h-12 rounded-md bg-orla-blue text-white font-medium text-sm flex items-center justify-center gap-2 hover:bg-blue-600 disabled:opacity-70 transition-colors"
             >
