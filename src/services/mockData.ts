@@ -115,23 +115,3 @@ export interface MetricMeta {
   color: string;
   values: number[];
 }
-export const METRICS_META: MetricMeta[] = [
-  { id: "entradas", label: "Entradas Totais", color: "#198f51", values: [78, 82, 75, 90, 95, 88, 101, 97, 105, 110, 102, 128] },
-  { id: "saidas", label: "Saídas Totais", color: "#d4453b", values: [60, 64, 58, 70, 73, 68, 75, 80, 78, 85, 90, 94] },
-  { id: "prebenda", label: "Prebenda Pastoral", color: "#de7d02", values: [30, 32, 30, 34, 33, 35, 36, 34, 38, 40, 37, 42] },
-  { id: "manutencao", label: "Manutenção do Templo", color: "#0057ff", values: [8, 10, 9, 14, 12, 11, 16, 13, 15, 18, 14, 20] },
-  { id: "acaosocial", label: "Ação Social", color: "#7c3aed", values: [6, 7, 6, 8, 9, 8, 10, 9, 11, 10, 9, 12] },
-  { id: "contas", label: "Contas/Utilidades", color: "#6f9bff", values: [5, 5, 6, 6, 5, 6, 6, 7, 6, 7, 6, 8] },
-  { id: "administrativo", label: "Administrativo", color: "#aeaeb2", values: [4, 4, 4, 5, 4, 5, 5, 5, 5, 6, 5, 6] },
-];
-
-export const DASHBOARD_ENTRADAS = [78, 82, 75, 90, 95, 88, 101, 97, 105, 110, 102, 128];
-export const DASHBOARD_SAIDAS = [60, 64, 58, 70, 73, 68, 75, 80, 78, 85, 90, 94];
-
-export const DONUT_DATA = [
-  { name: "Prebenda Pastoral", pct: 34, color: "#ff5e40" },
-  { name: "Manutenção do Templo", pct: 28, color: "#0057ff" },
-  { name: "Ação Social", pct: 18, color: "#198f51" },
-  { name: "Contas e Utilidades", pct: 12, color: "#de7d02" },
-  { name: "Administrativo", pct: 8, color: "#7c3aed" },
-];

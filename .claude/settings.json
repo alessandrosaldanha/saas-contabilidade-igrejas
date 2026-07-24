@@ -39,7 +39,8 @@
       "PowerShell($env:PATH = \"$env:USERPROFILE\\\\scoop\\\\shims;$env:PATH\"; cd \"c:\\\\Users\\\\Alessandro\\\\Downloads\\\\SaaS contabilidade para igrejas\"; supabase functions deploy parse-statement 2>&1)",
       "Bash(node -e ' *)",
       "PowerShell($env:PATH = \"$env:USERPROFILE\\\\scoop\\\\shims;$env:PATH\"; cd \"c:\\\\Users\\\\Alessandro\\\\Downloads\\\\SaaS contabilidade para igrejas\"; supabase functions deploy parse-statement 2>&1; supabase functions deploy invite-user 2>&1)",
-      "Bash(grep -v \"^\\\\./\\\\.git/\")"
+      "Bash(grep -v \"^\\\\./\\\\.git/\")",
+      "Bash(unset SERVICE_KEY USER_ID)"
     ]
   }
 }

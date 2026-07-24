@@ -151,6 +151,35 @@ src/
 
 **Ainda mockado (fora do escopo desta fase):** `Dashboard.tsx` (Fase 2) e `Auditoria.tsx` (Fase 4).
 
+### [2026-07-24] Incidente de segurança: segredos reais gravados em `.claude/settings.json`
+
+**O que aconteceu:** o allowlist de permissões do Claude Code registra automaticamente os comandos Bash/PowerShell exatos que são aprovados. Como alguns comandos desta sessão continham valores reais (service_role key do Supabase, API key do Gemini) embutidos diretamente na linha de comando (ex.: `curl ... -H "apikey: sb_secret_..."`), esses valores foram parar em `.claude/settings.json`. O **GitHub Push Protection bloqueou o push** ao detectar os segredos, antes de qualquer exposição pública.
+
+**Verificação feita:** conferido manualmente (via `git show <commit>:.claude/settings.json`) que nenhum commit **já publicado** no GitHub continha os segredos — o vazamento ficou restrito a um commit local que nunca foi aceito pelo remoto.
+
+**Correção:** `.claude/settings.json` reescrito removendo os valores sensíveis das entradas do allowlist (mantendo as permissões genéricas/reutilizáveis); o commit local foi re-escrito (`--amend`, seguro porque nunca tinha sido publicado) antes do push.
+
+**Lição para o futuro:** ao rodar comandos que precisam de uma chave/secret real (curl com `apikey`, `Authorization: Bearer`, etc.), preferir variáveis de ambiente de shell (`$VAR`) já populadas por um passo anterior em vez de colar o valor literal na linha de comando — isso evita que o valor literal seja gravado no allowlist de permissões. Revisar `.claude/settings.json` antes de qualquer commit que o inclua.
+
+### [2026-07-24] Fase 2: Dashboard Executivo com dados reais
+
+**O que foi feito:**
+- **`src/utils/metrics.ts`** (novo): agregações reais a partir de `transactions` —
+  - `buildMetricsMeta(transactions, year)`: séries mensais (12 meses, em milhares) por categoria — usadas pelo gráfico exploratório.
+  - `computePeriodComparison` / `getPeriodRange`: totais de entradas/saídas para o período selecionado (trimestral = últimos 3 meses corridos, semestral = 6, anual = 12) **e** o período anterior de mesma duração, para calcular o delta.
+  - `buildCategoryBreakdown`: saídas por categoria dentro de uma janela de datas, com percentuais.
+  - `deltaLabel`: formata a variação percentual (ou avisa "sem dados no período anterior" quando não há base de comparação).
+- **`src/pages/Dashboard.tsx`**: KPIs (Entradas/Saídas Totais do período com delta real vs. período anterior; Saldo Atual em Caixa = soma de **todos** os lançamentos reais; substituído "Reserva de Emergência" — que não tinha nenhuma fonte de dado real por trás — por "Lançamentos no Período", contagem real). Gráfico "Entradas vs Saídas" e donut "Saídas por Categoria" calculados a partir de `transactions` reais, com estado vazio ("sem lançamentos ainda") em vez de gráfico quebrado/zerado quando não há dados.
+- **`src/components/ExploratoryChart.tsx`**: passou a receber `metrics: MetricMeta[]` via prop (antes importava `METRICS_META` mockado direto do módulo); adicionado estado vazio quando todas as séries selecionadas são zero.
+- **`src/services/mockData.ts`**: removidos `METRICS_META`, `DASHBOARD_ENTRADAS`, `DASHBOARD_SAIDAS`, `DONUT_DATA` (mock não usado mais por ninguém).
+
+**Decisões técnicas:**
+- Períodos (trimestral/semestral/anual) são janelas **rolantes** a partir de hoje (não "trimestre/semestre civil") — mais simples e sempre mostra dado real disponível, mesmo logo no início do ano.
+- Gráfico "Entradas vs Saídas" e o exploratório continuam com os meses fixos Jan–Dez do ano corrente (mesma convenção do mock original) — é um recorte diferente (calendário fixo) do das KPIs (janela rolante), igual já era no mock.
+- Testado com dados reais no Supabase de produção (inseridos e depois removidos por mim, tomando cuidado de **não apagar 7 lançamentos reais que o próprio usuário já tinha importado** — identificados e preservados por não terem o prefixo "TESTE" usado nos meus dados de teste).
+
+**Ainda mockado:** `Auditoria.tsx` (Fase 4) — trilha de auditoria continua sendo gerada por um gerador procedural fake, não reflete ações reais do sistema.
+
 ## 🧠 7. SKILLS & PROTOCOLOS DE EXECUÇÃO
 
 O Claude Code deve ler, carregar e seguir rigorosamente as skills definidas no arquivo `SKILLS.md` (ou na pasta `.claude/skills/`).

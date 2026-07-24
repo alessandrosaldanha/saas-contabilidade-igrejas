@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Check } from "lucide-react";
-import { METRICS_META, MONTHS } from "../services/mockData";
+import { MONTHS } from "../services/mockData";
+import type { MetricMeta } from "../services/mockData";
 import { buildStackedBars, buildLines, buildAreas, buildRadar } from "../utils/chartBuilders";
 import Card from "./Card";
 
@@ -13,12 +14,30 @@ const CHART_TABS: Array<{ id: ChartType; label: string }> = [
   { id: "radar", label: "Radar" },
 ];
 
-export default function ExploratoryChart() {
+interface ExploratoryChartProps {
+  metrics: MetricMeta[];
+}
+
+export default function ExploratoryChart({ metrics }: ExploratoryChartProps) {
   const [chartType, setChartType] = useState<ChartType>("lines");
   const [selected, setSelected] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(METRICS_META.map((m) => [m.id, true]))
+    Object.fromEntries(metrics.map((m) => [m.id, true]))
   );
   const [warnMetricId, setWarnMetricId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSelected((s) => {
+      const next = { ...s };
+      let changed = false;
+      for (const m of metrics) {
+        if (!(m.id in next)) {
+          next[m.id] = true;
+          changed = true;
+        }
+      }
+      return changed ? next : s;
+    });
+  }, [metrics]);
 
   const toggleMetric = (id: string) => {
     const activeCount = Object.values(selected).filter(Boolean).length;
@@ -31,7 +50,8 @@ export default function ExploratoryChart() {
     setWarnMetricId(null);
   };
 
-  const active = useMemo(() => METRICS_META.filter((m) => selected[m.id]), [selected]);
+  const active = useMemo(() => metrics.filter((m) => selected[m.id]), [selected, metrics]);
+  const hasData = useMemo(() => active.some((m) => m.values.some((v) => v > 0)), [active]);
 
   const bars = useMemo(() => (chartType === "bars" ? buildStackedBars(active, 880, 260) : []), [active, chartType]);
   const lines = useMemo(() => (chartType === "lines" ? buildLines(active, 880, 260) : []), [active, chartType]);
@@ -58,7 +78,7 @@ export default function ExploratoryChart() {
       </div>
 
       <div className="flex flex-wrap gap-2 mb-5">
-        {METRICS_META.map((m) => (
+        {metrics.map((m) => (
           <div key={m.id} className="relative">
             <button
               onClick={() => toggleMetric(m.id)}
@@ -81,7 +101,13 @@ export default function ExploratoryChart() {
         ))}
       </div>
 
-      {chartType === "bars" && (
+      {!hasData && (
+        <div className="py-10 text-center text-sm text-neutral-400">
+          Sem lançamentos suficientes este ano para exibir o gráfico.
+        </div>
+      )}
+
+      {hasData && chartType === "bars" && (
         <svg viewBox="0 0 880 260" className="w-full h-[260px] block">
           {bars.map((bar, i) => (
             <g key={i}>
@@ -92,7 +118,7 @@ export default function ExploratoryChart() {
           ))}
         </svg>
       )}
-      {chartType === "lines" && (
+      {hasData && chartType === "lines" && (
         <svg viewBox="0 0 880 260" className="w-full h-[260px] block">
           {lines.map((ln, i) => (
             <g key={i}>
@@ -106,7 +132,7 @@ export default function ExploratoryChart() {
           ))}
         </svg>
       )}
-      {chartType === "area" && (
+      {hasData && chartType === "area" && (
         <svg viewBox="0 0 880 260" className="w-full h-[260px] block">
           {areas.map((ar, i) => (
             <g key={i}>
@@ -121,7 +147,7 @@ export default function ExploratoryChart() {
           ))}
         </svg>
       )}
-      {chartType === "radar" && radar && (
+      {hasData && chartType === "radar" && radar && (
         <div className="flex justify-center">
           <svg viewBox="0 0 320 320" className="w-[320px] h-[320px] block">
             {radar.axes.map((ax, i) => (
@@ -146,7 +172,7 @@ export default function ExploratoryChart() {
         </div>
       )}
 
-      {chartType !== "radar" && (
+      {hasData && chartType !== "radar" && (
         <div className="flex justify-between mt-1 px-0.5">
           {MONTHS.map((m) => (
             <span key={m} className="text-[9px] text-neutral-400">
