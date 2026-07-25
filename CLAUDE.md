@@ -495,6 +495,16 @@ src/
 - Mantido o domínio antigo da Vercel na lista (não removido) — sem custo e evita quebrar acessos que ainda apontem para lá.
 - **Pendência a verificar pelo usuário:** *Authentication → URL Configuration → Redirect URLs* no dashboard do Supabase deve incluir `https://www.contabilidadereformada.com.br/reset-password` (mesma observação já feita para o domínio da Vercel na Fase de redefinição de senha) — não foi possível confirmar/alterar isso nesta sessão por ser uma configuração do dashboard, fora do escopo de código.
 
+### [2026-07-25] Correção: CORS travando em dev por porta variável do Vite
+
+**O que foi relatado:** mesmo após o ajuste de CORS para o domínio próprio, a importação de extrato continuava falhando com "Failed to send a request to the Edge Function". Pedido ao usuário para abrir o DevTools e reproduzir — o console mostrou a causa exata: `Access to fetch at '.../parse-statement' from origin 'http://localhost:5174' has been blocked by CORS policy: ... 'Access-Control-Allow-Origin' header has a value 'https://www.contabilidadereformada.com.br' that is not equal to the supplied origin`.
+
+**Causa raiz:** o teste estava rodando localmente, mas o Vite subiu na porta `5174` (não `5173`) — provavelmente porque a porta padrão já estava em uso por outro processo/sessão. A allow-list de CORS (`supabase/functions/_shared/cors.ts`) tinha `http://localhost:5173` fixo, então a porta 5174 caía no fallback (domínio de produção), causando o mismatch.
+
+**Correção:** trocado o item fixo `"http://localhost:5173"` por uma checagem via regex (`/^https?:\/\/localhost:\d+$/`) que aceita **qualquer porta** de `localhost` — o Vite muda de porta sempre que a anterior está ocupada, então fixar uma única porta na allow-list é frágil e reabre esse mesmo problema a cada vez que isso acontecer. As 3 Edge Functions foram reimplantadas; validado com `curl -X OPTIONS` simulando `Origin: http://localhost:5174` — resposta `200` com o header correto.
+
+**Decisão técnica:** aceitar qualquer porta de `localhost`/`127.0.0.1`... (na prática só `localhost`, já que é o host usado pelo Vite) não é um risco de segurança relevante — um site malicioso não consegue forjar `Origin: http://localhost:PORTA` de dentro do navegador de um usuário real (isso só aconteceria se o próprio computador do desenvolvedor já estivesse comprometido, cenário em que CORS já seria o menor dos problemas).
+
 ## 🧠 7. SKILLS & PROTOCOLOS DE EXECUÇÃO
 
 O Claude Code deve ler, carregar e seguir rigorosamente as skills definidas no arquivo `SKILLS.md` (ou na pasta `.claude/skills/`).

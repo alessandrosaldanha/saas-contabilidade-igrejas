@@ -8,12 +8,20 @@ export const ALLOWED_ORIGINS = [
   "https://www.contabilidadereformada.com.br",
   "https://contabilidadereformada.com.br",
   "https://saas-contabilidade-igrejas.vercel.app",
-  "http://localhost:5173",
 ];
+
+// Qualquer porta de localhost é aceita em dev — o Vite muda de porta (5173,
+// 5174, ...) sempre que a anterior já está em uso, então fixar uma única
+// porta na allow-list quebra o fluxo local toda vez que isso acontece.
+const LOCALHOST_ORIGIN = /^https?:\/\/localhost:\d+$/;
+
+function isAllowedOrigin(origin: string): boolean {
+  return ALLOWED_ORIGINS.includes(origin) || LOCALHOST_ORIGIN.test(origin);
+}
 
 export function corsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get("Origin") ?? "";
-  const allowOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  const allowOrigin = isAllowedOrigin(origin) ? origin : ALLOWED_ORIGINS[0];
   return {
     "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
