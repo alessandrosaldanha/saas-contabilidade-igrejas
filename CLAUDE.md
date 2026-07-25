@@ -635,6 +635,14 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
 - Dashboard/Livro Caixa/Auditoria continuam liberados para Auditor (não fizeram parte do pedido).
 - Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros novos). Teste end-to-end real (login como Auditor confirmando que o menu some e a URL redireciona) não foi executado nesta sessão por falta de credenciais de teste.
 
+### [2026-07-25] Primeira release oficial: v1.0.0
+
+**O que foi feito:** commitadas e enviadas para `origin/main` todas as mudanças pendentes da fase de Governança/multi-tenant (commit `f90a5df`), e criada a tag anotada `v1.0.0` (também enviada para o remoto), consolidando o módulo de Governança (Admin Master), o isolamento multi-tenant por `church_id`, os ajustes de matriz de permissões (RBAC) e as correções de CORS/domínio próprio já commitadas anteriormente no mesmo dia.
+
+**Decisões técnicas:**
+- O `gh` CLI está instalado mas não autenticado nesta sessão (sem navegador para o login interativo, e sem `GH_TOKEN`/`GITHUB_TOKEN` no ambiente) — não foi possível rodar `gh release create` diretamente. Combinado com o usuário: criar a tag anotada `v1.0.0` (com o changelog completo como mensagem da tag) e enviar para o GitHub; a criação do objeto "Release" em si (título + notas na UI) fica para o usuário fazer manualmente em `https://github.com/alessandrosaldanha/saas-contabilidade-igrejas/releases/new?tag=v1.0.0`, colando o changelog já pronto.
+- Antes de criar a tag, nada do trabalho desta fase estava commitado — confirmado com o usuário antes de commitar/dar push, já que são ações que afetam o repositório remoto compartilhado.
+
 ## 🧠 7. SKILLS & PROTOCOLOS DE EXECUÇÃO
 
 O Claude Code deve ler, carregar e seguir rigorosamente as skills definidas no arquivo `SKILLS.md` (ou na pasta `.claude/skills/`).
