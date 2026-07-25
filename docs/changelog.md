@@ -615,3 +615,11 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
 - A limpeza removeu as linhas de `audit_logs` geradas pelo teste via `DELETE` direto (SQL, como superuser) — mesma exceção já usada antes (incidente "TESTE ESTORNO" de 24/07) para não deixar ruído de teste artificial na trilha de auditoria real, mantendo a política de imutabilidade para ações de usuários de verdade.
 - Validado com `npx tsc --noEmit` e `npm run build` (sem erros) após as correções de front-end.
 
+
+### [2026-07-25] Correção: falso-positivo de erro do editor em `supabase/functions`
+
+**O que foi encontrado:** o usuário reportou "um erro" em `supabase/functions/parse-statement/index.ts`. Investigação: o código roda normalmente em produção (logs do Supabase sem nenhuma falha nova desde o último deploy) e nenhuma revisão manual da lógica encontrou bug real. Causa raiz: o projeto não tinha nenhum `deno.json` nem `.vscode/settings.json` — sem isso, o VS Code usa o servidor de TypeScript padrão (voltado só para `src/`, via `tsconfig.app.json`) dentro da pasta `supabase/functions`, que é código Deno de verdade (`Deno.serve`, imports via URL `https://esm.sh/...`). O resultado é uma sequência de falsos-positivos no editor ("Cannot find name 'Deno'", "Cannot find module" nos imports HTTP), sem nenhum efeito na execução real da função.
+
+**Correção:** criados `.vscode/settings.json` (raiz do projeto, com `deno.enablePaths: ["./supabase/functions"]` e `deno.enable: false` fora dela, para não afetar o TypeScript do `src/` React) e `supabase/functions/deno.json` (compilerOptions com `lib: ["deno.window"]`) — padrão recomendado pela própria Supabase para projetos que misturam Deno (Edge Functions) com um app Node/Vite no mesmo repositório. Requer a extensão "Deno for VS Code" (`denoland.vscode-deno`) instalada para o efeito completo; sem ela, o VS Code ainda mostrará os avisos (mas nenhum deles nunca afetou o app em produção).
+
+**Decisão técnica:** nenhuma mudança de código em `parse-statement/index.ts` foi necessária — o "erro" era 100% de configuração do editor, não de lógica. Validado com `npx tsc --noEmit` (sem erros, os novos arquivos de config não afetam a checagem do `src/`).
