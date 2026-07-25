@@ -30,6 +30,7 @@ export const ACTION_TYPES: Record<AuditActionKey, { label: string; tone: "info" 
   aprovacao_caixa: { label: "Aprovação de Caixa", tone: "success" },
   estorno: { label: "Estorno/Exclusão", tone: "error" },
   acesso: { label: "Acesso/Login", tone: "purple" },
+  aceite_termos: { label: "Aceite dos Termos de Uso", tone: "success" },
 };
 export const AUDIT_PAGE_SIZE = 15;
 

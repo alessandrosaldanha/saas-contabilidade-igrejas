@@ -44,3 +44,7 @@ CRUD de igrejas (`/governanca`): busca por nome/e-mail/CEP/responsável, filtro 
 - Usuário com `status = 'Inativo'` tem o profile escondido pela RLS (`is_active()`) — `AuthContext.signIn()` trata isso como conta inativa, sem revelar se o e-mail existe.
 
 Para o detalhe de *como* essas regras foram implementadas (SQL exato, migrations), ver [`database.md`](./database.md). Para o histórico de bugs de RBAC encontrados e corrigidos (inclusive a auditoria completa com teste ao vivo em produção), ver [`changelog.md`](./changelog.md).
+
+## Aceite obrigatório dos Termos de Uso (independente de papel)
+
+`profiles.termo_aceito = false` bloqueia **toda** a árvore de rotas protegidas — inclusive `master` — antes mesmo da checagem de `allowedRoles`, no mesmo ponto do `ProtectedRoute` onde `isPasswordRecovery` já é tratado. Enquanto pendente, `TermsAcceptanceModal` é renderizado em vez do `Outlet` (nenhuma tela ou dado da igreja carrega antes do aceite). Aceitar chama a RPC `accept_terms`, que grava o histórico imutável em `termo_aceite_registros`, ativa a flag e loga `aceite_termos` em `audit_logs` — ver [`database.md`](./database.md).

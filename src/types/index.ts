@@ -41,6 +41,12 @@ export interface ChurchUser {
   // Só preenchido quando quem carrega a lista é o Master (visão global entre
   // igrejas) — para os demais papéis a igreja é sempre implicitamente a própria.
   churchName?: string | null;
+  // Flag rápida de aceite dos Termos de Uso — checada pelo ProtectedRoute para
+  // bloquear o acesso até o aceite explícito (histórico completo em
+  // termo_aceite_registros, ver docs/database.md). Só é buscada/relevante
+  // para o profile da própria sessão (AuthContext); listagens de outros
+  // membros (Usuarios/ChurchDetailsModal) não a preenchem.
+  termoAceito?: boolean;
 }
 
 export interface Church {
@@ -65,7 +71,8 @@ export type AuditActionKey =
   | "edicao_manual"
   | "aprovacao_caixa"
   | "estorno"
-  | "acesso";
+  | "acesso"
+  | "aceite_termos";
 
 export interface AuditLog {
   id: string;

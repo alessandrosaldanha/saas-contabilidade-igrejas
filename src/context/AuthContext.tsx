@@ -43,7 +43,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 async function fetchProfile(userId: string): Promise<ChurchUser | null> {
   const { data } = await supabase
     .from("profiles")
-    .select("id, name, email, role, status, last_access, cpf, church_id")
+    .select("id, name, email, role, status, last_access, cpf, church_id, termo_aceito")
     .eq("id", userId)
     .single();
 
@@ -57,6 +57,7 @@ async function fetchProfile(userId: string): Promise<ChurchUser | null> {
     lastAccess: data.last_access ? new Date(data.last_access).toLocaleString("pt-BR") : "—",
     cpf: data.cpf,
     churchId: data.church_id,
+    termoAceito: data.termo_aceito,
   };
 }
 

@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import TermsAcceptanceModal from "./TermsAcceptanceModal";
 import type { UserRole } from "../types";
 
 interface ProtectedRouteProps {
@@ -27,6 +28,13 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
 
   if (!session || !profile || profile.status === "Inativo") {
     return <Navigate to="/login" replace />;
+  }
+
+  // Bloqueia toda a árvore de rotas protegidas (inclusive as com allowedRoles
+  // abaixo, que nem chegam a avaliar) até o aceite explícito dos Termos de
+  // Uso — igual à recuperação de senha acima, não é uma questão de role.
+  if (!profile.termoAceito) {
+    return <TermsAcceptanceModal />;
   }
 
   if (allowedRoles && !allowedRoles.includes(profile.role)) {

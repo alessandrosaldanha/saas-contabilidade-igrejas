@@ -25,6 +25,7 @@ src/
 │   ├── Sidebar.tsx, Layout.tsx, Card.tsx, Badge.tsx, Avatar.tsx, MetricCard.tsx
 │   ├── ThemeToggle.tsx, Toast.tsx, ExploratoryChart.tsx, ProtectedRoute.tsx
 │   ├── ProfileSettingsModal.tsx, UnsavedChangesPrompt.tsx, Pagination.tsx
+│   ├── TermsAcceptanceModal.tsx            # modal bloqueante de aceite dos Termos de Uso (1º acesso)
 │   └── Church*.tsx, MemberEditModal.tsx   # módulo de Governança (só para `master`)
 ├── pages/           # Páginas/rotas principais
 │   ├── Login.tsx, ResetPassword.tsx
