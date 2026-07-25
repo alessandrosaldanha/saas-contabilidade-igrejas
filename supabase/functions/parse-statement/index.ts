@@ -50,6 +50,9 @@ const REFINE_SCHEMA = {
 
 async function callGemini(contents: unknown[], schema: unknown) {
   const apiKey = Deno.env.get("GEMINI_API_KEY");
+  // Diagnóstico seguro: confirma que o secret foi carregado do ambiente, sem
+  // nunca logar o valor real (nem parcial) — só presença/ausência e o modelo.
+  console.log(`[parse-statement] GEMINI_API_KEY carregada: ${apiKey ? "sim" : "NÃO"} | modelo: ${GEMINI_MODEL}`);
   if (!apiKey) throw new Error("GEMINI_API_KEY não configurada");
 
   let res: Response;
