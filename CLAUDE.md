@@ -483,6 +483,18 @@ src/
 - Nenhum badge de CI foi incluído — não há pipeline de CI configurado (`.github/workflows` não existe); um badge de "build passing" seria enganoso.
 - Validado com `npx tsc --noEmit` e `npm run build` (sem erros) após todas as mudanças; `npm run lint` validado separadamente após criar o `eslint.config.js`.
 
+### [2026-07-25] Correção: "Failed to send a request to the Edge Function" após configurar domínio próprio
+
+**O que foi relatado:** ao tentar importar um extrato em `www.contabilidadereformada.com.br` (domínio próprio recém-comprado/configurado), a chamada à Edge Function `parse-statement` falhava com "Failed to send a request to the Edge Function".
+
+**Causa raiz:** a allow-list de CORS criada na auditoria de segurança de 24/07 (`supabase/functions/_shared/cors.ts`) só continha o domínio antigo da Vercel (`saas-contabilidade-igrejas.vercel.app`) e `localhost`. Com o app agora servido em `www.contabilidadereformada.com.br`, o preflight `OPTIONS` respondia `Access-Control-Allow-Origin` com a URL antiga (fallback de origem não reconhecida) em vez da origem real da requisição — o navegador bloqueia a resposta por não bater com a origem, e o `supabase-js` reporta esse erro genérico de rede (não é um problema de `GEMINI_API_KEY`, que segue configurada normalmente nos Secrets).
+
+**Correção:** adicionados `https://www.contabilidadereformada.com.br` e `https://contabilidadereformada.com.br` (com e sem `www`, por segurança) a `ALLOWED_ORIGINS` em `supabase/functions/_shared/cors.ts`. As 3 Edge Functions (`parse-statement`, `invite-user`, `generate-reset-link`) foram reimplantadas. Validado com `curl -X OPTIONS` simulando o preflight do navegador a partir da nova origem — resposta `200` com `Access-Control-Allow-Origin: https://www.contabilidadereformada.com.br` correto.
+
+**Decisões técnicas:**
+- Mantido o domínio antigo da Vercel na lista (não removido) — sem custo e evita quebrar acessos que ainda apontem para lá.
+- **Pendência a verificar pelo usuário:** *Authentication → URL Configuration → Redirect URLs* no dashboard do Supabase deve incluir `https://www.contabilidadereformada.com.br/reset-password` (mesma observação já feita para o domínio da Vercel na Fase de redefinição de senha) — não foi possível confirmar/alterar isso nesta sessão por ser uma configuração do dashboard, fora do escopo de código.
+
 ## 🧠 7. SKILLS & PROTOCOLOS DE EXECUÇÃO
 
 O Claude Code deve ler, carregar e seguir rigorosamente as skills definidas no arquivo `SKILLS.md` (ou na pasta `.claude/skills/`).

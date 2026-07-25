@@ -5,6 +5,8 @@
 // conhecidas fecha essa superfície sem afetar nenhum fluxo real, já que o app só
 // chama estas functions a partir do domínio de produção ou do localhost de dev.
 export const ALLOWED_ORIGINS = [
+  "https://www.contabilidadereformada.com.br",
+  "https://contabilidadereformada.com.br",
   "https://saas-contabilidade-igrejas.vercel.app",
   "http://localhost:5173",
 ];
