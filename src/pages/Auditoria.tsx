@@ -155,7 +155,7 @@ export default function Auditoria() {
         </Badge>
       </div>
 
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 flex-wrap mb-4">
         <button
           onClick={goPrevMonth}
           className="w-8 h-8 flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20"

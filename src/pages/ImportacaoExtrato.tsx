@@ -339,8 +339,8 @@ export default function ImportacaoExtrato() {
         </div>
       </div>
 
-      <div className="grid gap-5 h-[560px]" style={{ gridTemplateColumns: "1fr 1fr" }}>
-        <div className="flex flex-col gap-4 min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:h-[560px]">
+        <div className="flex flex-col gap-4 min-h-0 h-[480px] lg:h-auto">
           <input
             ref={fileInputRef}
             type="file"
@@ -422,7 +422,7 @@ export default function ImportacaoExtrato() {
           </Card>
         </div>
 
-        <Card padding="none" className="flex flex-col min-h-0">
+        <Card padding="none" className="flex flex-col min-h-0 h-[420px] lg:h-auto">
           <div className="flex items-center gap-2.5 px-4.5 py-4 border-b border-neutral-200 dark:border-white/10">
             <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-orla-blue shrink-0">
               <Award size={14} className="text-white" />
@@ -575,8 +575,8 @@ export default function ImportacaoExtrato() {
       </div>
 
       {showSuccessModal && (
-        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-6">
-          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[440px] rounded-lg shadow-md p-9 text-center">
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-4 sm:p-6">
+          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[440px] rounded-lg shadow-md p-6 sm:p-9 text-center">
             <div className="w-14 h-14 rounded-full bg-status-success flex items-center justify-center mx-auto mb-4.5">
               <Check size={26} strokeWidth={2.5} className="text-white" />
             </div>
@@ -609,8 +609,8 @@ export default function ImportacaoExtrato() {
       )}
 
       {duplicateWarning && (
-        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-6">
-          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[480px] rounded-lg shadow-md p-8">
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-4 sm:p-6">
+          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[480px] rounded-lg shadow-md p-5 sm:p-8">
             <div className="flex items-center gap-3 mb-4">
               <span className="w-10 h-10 rounded-full bg-status-warning/15 flex items-center justify-center shrink-0">
                 <AlertTriangle size={20} className="text-status-warning" />
@@ -650,8 +650,8 @@ export default function ImportacaoExtrato() {
       )}
 
       {historyEdit && (
-        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-6">
-          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[440px] rounded-lg shadow-md p-8">
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-4 sm:p-6">
+          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[440px] rounded-lg shadow-md p-5 sm:p-8">
             <div className="flex items-center justify-between mb-5">
               <h3 className="font-display font-semibold text-lg m-0">Editar Registro de Importação</h3>
               <button onClick={() => setHistoryEdit(null)} className="text-neutral-400 p-1">
@@ -669,7 +669,7 @@ export default function ImportacaoExtrato() {
                 />
               </label>
 
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <label className="block flex-1">
                   <span className="block text-sm font-medium mb-1.5">Mês/Ano de Referência</span>
                   <input
@@ -679,7 +679,7 @@ export default function ImportacaoExtrato() {
                     className="w-full box-border border border-neutral-300 dark:border-white/20 bg-white dark:bg-neutral-900 rounded-md px-3.5 py-2.5 text-sm outline-none"
                   />
                 </label>
-                <label className="block w-[140px]">
+                <label className="block w-full sm:w-[140px]">
                   <span className="block text-sm font-medium mb-1.5">Qtd. Transações</span>
                   <input
                     type="number"
@@ -712,8 +712,8 @@ export default function ImportacaoExtrato() {
       )}
 
       {historyDeleteTarget && (
-        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-6">
-          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[440px] rounded-lg shadow-md p-8">
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-4 sm:p-6">
+          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[440px] rounded-lg shadow-md p-5 sm:p-8">
             <div className="flex items-center justify-between mb-5">
               <h3 className="font-display font-semibold text-lg m-0">Excluir Registro de Importação</h3>
               <button onClick={() => setHistoryDeleteTarget(null)} className="text-neutral-400 p-1">

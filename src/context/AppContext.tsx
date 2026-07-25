@@ -13,6 +13,13 @@ interface AppContextValue {
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
 
+  // Drawer do menu lateral em telas mobile/tablet (< md) — independente do
+  // colapso de ícone-só do desktop acima.
+  mobileNavOpen: boolean;
+  openMobileNav: () => void;
+  closeMobileNav: () => void;
+  toggleMobileNav: () => void;
+
   isPresenting: boolean;
   showExitBadge: boolean;
   enterPresentation: () => void;
@@ -120,6 +127,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const toggleSidebar = useCallback(() => setSidebarCollapsed((v) => !v), []);
+
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const openMobileNav = useCallback(() => setMobileNavOpen(true), []);
+  const closeMobileNav = useCallback(() => setMobileNavOpen(false), []);
+  const toggleMobileNav = useCallback(() => setMobileNavOpen((v) => !v), []);
 
   const [isPresenting, setIsPresenting] = useState(false);
   const [showExitBadge, setShowExitBadge] = useState(false);
@@ -278,6 +290,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toggleTheme,
     sidebarCollapsed,
     toggleSidebar,
+    mobileNavOpen,
+    openMobileNav,
+    closeMobileNav,
+    toggleMobileNav,
     isPresenting,
     showExitBadge,
     enterPresentation,

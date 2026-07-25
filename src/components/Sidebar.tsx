@@ -11,6 +11,7 @@ import {
   Moon,
   Sun,
   LogOut,
+  X,
   Wallet as WalletIcon,
 } from "lucide-react";
 import Avatar from "./Avatar";
@@ -28,7 +29,8 @@ const NAV_ITEMS = [
 ];
 
 export default function Sidebar() {
-  const { sidebarCollapsed, toggleSidebar, isDark, toggleTheme, currentUser, guardedNavigate } = useApp();
+  const { sidebarCollapsed, toggleSidebar, mobileNavOpen, closeMobileNav, isDark, toggleTheme, currentUser, guardedNavigate } =
+    useApp();
   const { profile, signOut } = useAuth();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const navigate = useNavigate();
@@ -53,66 +55,82 @@ export default function Sidebar() {
 
   const logout = () => {
     setShowProfileMenu(false);
+    closeMobileNav();
     guardedNavigate(performLogout);
   };
 
   return (
-    <aside
-      className={`shrink-0 h-full bg-neutral-50 dark:bg-neutral-950 border-r border-neutral-200 dark:border-white/10 flex flex-col py-5 px-3 relative transition-[width] duration-200 ${
-        expanded ? "w-[248px]" : "w-[76px]"
-      }`}
-    >
-      <div className={`flex items-center gap-2.5 px-1 pb-5 ${expanded ? "justify-start" : "justify-center"}`}>
-        <span className="inline-flex items-center justify-center w-[30px] h-[30px] rounded-md bg-orla-blue shrink-0">
-          <WalletIcon size={17} className="text-white" />
-        </span>
-        {expanded && (
-          <span className="font-display font-semibold text-base leading-tight text-black dark:text-white">
+    <>
+      {/* Backdrop do drawer mobile — clicar fora fecha o menu. Some sozinho em md+. */}
+      {mobileNavOpen && (
+        <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={closeMobileNav} aria-hidden="true" />
+      )}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 h-full bg-neutral-50 dark:bg-neutral-950 border-r border-neutral-200 dark:border-white/10 flex flex-col py-5 px-3 transition-transform duration-200 w-[248px] ${
+          mobileNavOpen ? "translate-x-0" : "-translate-x-full"
+        } md:static md:translate-x-0 md:transition-[width] md:shrink-0 ${expanded ? "md:w-[248px]" : "md:w-[76px]"}`}
+      >
+        <div className={`flex items-center gap-2.5 px-1 pb-5 ${expanded ? "justify-start" : "md:justify-center"}`}>
+          <span className="inline-flex items-center justify-center w-[30px] h-[30px] rounded-md bg-orla-blue shrink-0">
+            <WalletIcon size={17} className="text-white" />
+          </span>
+          <span
+            className={`font-display font-semibold text-base leading-tight text-black dark:text-white ${expanded ? "" : "md:hidden"}`}
+          >
             Contabilidade
             <br />
             Igreja
           </span>
-        )}
-      </div>
+          <button
+            onClick={closeMobileNav}
+            title="Fechar menu"
+            className="ml-auto p-1.5 rounded-md text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5 md:hidden"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
-      <button
-        onClick={toggleSidebar}
-        title="Recolher menu"
-        className={`flex items-center gap-2 border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900 text-neutral-500 dark:text-neutral-400 rounded-md px-2.5 py-1.5 text-[11px] mb-4 hover:bg-neutral-100 dark:hover:bg-neutral-800 ${
-          expanded ? "justify-start" : "justify-center"
-        }`}
-      >
-        <PanelLeft size={13} className={sidebarCollapsed ? "rotate-180" : ""} />
-        {expanded && "Recolher"}
-      </button>
+        <button
+          onClick={toggleSidebar}
+          title="Recolher menu"
+          className={`hidden md:flex items-center gap-2 border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900 text-neutral-500 dark:text-neutral-400 rounded-md px-2.5 py-1.5 text-[11px] mb-4 hover:bg-neutral-100 dark:hover:bg-neutral-800 ${
+            expanded ? "justify-start" : "justify-center"
+          }`}
+        >
+          <PanelLeft size={13} className={sidebarCollapsed ? "rotate-180" : ""} />
+          {expanded && "Recolher"}
+        </button>
 
-      {expanded && (
-        <div className="text-[10px] font-semibold tracking-wider uppercase text-neutral-400 dark:text-neutral-500 px-3 pb-2">
+        <div
+          className={`text-[10px] font-semibold tracking-wider uppercase text-neutral-400 dark:text-neutral-500 px-3 pb-2 ${expanded ? "" : "md:hidden"}`}
+        >
           Menu
         </div>
-      )}
 
-      <nav className="flex flex-col gap-1">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            onClick={(e) => {
-              if (item.to === location.pathname) return;
-              e.preventDefault();
-              guardedNavigate(() => navigate(item.to));
-            }}
-            className={({ isActive }) =>
-              `flex items-center gap-2.5 rounded-r-sm border-l-[2.5px] px-3 py-2.5 text-sm transition-colors ${
-                isActive
-                  ? "border-orla-blue bg-orla-blue/10 text-black dark:text-white font-semibold"
-                  : "border-transparent text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
-              } ${expanded ? "" : "justify-center"}`
-            }
-          >
-            <item.icon size={18} className="shrink-0" />
-            {expanded && (
-              <span className="flex-1 flex items-center justify-between min-w-0">
+        <nav className="flex flex-col gap-1">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              onClick={(e) => {
+                if (item.to === location.pathname) return;
+                e.preventDefault();
+                closeMobileNav();
+                guardedNavigate(() => navigate(item.to));
+              }}
+              className={({ isActive }) =>
+                `flex items-center gap-2.5 rounded-r-sm border-l-[2.5px] px-3 py-2.5 text-sm transition-colors ${
+                  isActive
+                    ? "border-orla-blue bg-orla-blue/10 text-black dark:text-white font-semibold"
+                    : "border-transparent text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
+                } ${expanded ? "" : "md:justify-center"}`
+              }
+            >
+              <item.icon size={18} className="shrink-0" />
+              <span
+                className={`flex-1 flex items-center justify-between min-w-0 ${expanded ? "" : "md:hidden"}`}
+              >
                 <span className="truncate">{item.label}</span>
                 {item.badge && (
                   <Badge tone="warning" size="sm">
@@ -120,14 +138,13 @@ export default function Sidebar() {
                   </Badge>
                 )}
               </span>
-            )}
-          </NavLink>
-        ))}
-      </nav>
+            </NavLink>
+          ))}
+        </nav>
 
-      <div className="mt-auto relative">
-        {showProfileMenu && (
-          <div className="absolute bottom-[calc(100%+8px)] left-0 right-0 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 rounded-lg shadow-md p-4 z-[60] min-w-[240px]">
+        <div className="mt-auto relative">
+          {showProfileMenu && (
+            <div className="absolute bottom-[calc(100%+8px)] left-0 right-0 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 rounded-lg shadow-md p-4 z-[60] min-w-[240px] max-w-[calc(100vw-2rem)]">
             <div className="flex items-center gap-3 pb-3.5 border-b border-neutral-200 dark:border-white/10 mb-2">
               <Avatar name={currentUser.name} size="lg" />
               <div className="min-w-0">
@@ -170,18 +187,17 @@ export default function Sidebar() {
           className="flex items-center gap-2.5 px-2 py-2.5 rounded-md cursor-pointer border-t border-neutral-200 dark:border-white/10 hover:bg-neutral-100 dark:hover:bg-white/5"
         >
           <Avatar name={currentUser.name} size="md" />
-          {expanded && (
-            <div className="min-w-0 flex-1">
-              <div className="text-sm text-black dark:text-white truncate">{currentUser.name}</div>
-              <div className="mt-0.5">
-                <Badge tone="purple" size="sm">
-                  {currentUser.role}
-                </Badge>
-              </div>
+          <div className={`min-w-0 flex-1 ${expanded ? "" : "md:hidden"}`}>
+            <div className="text-sm text-black dark:text-white truncate">{currentUser.name}</div>
+            <div className="mt-0.5">
+              <Badge tone="purple" size="sm">
+                {currentUser.role}
+              </Badge>
             </div>
-          )}
+          </div>
         </div>
-      </div>
-    </aside>
+        </div>
+      </aside>
+    </>
   );
 }

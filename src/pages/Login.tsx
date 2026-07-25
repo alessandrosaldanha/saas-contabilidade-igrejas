@@ -89,12 +89,12 @@ export default function Login() {
         </div>
       </div>
 
-      <div className="flex-[1_1_54%] min-w-[360px] flex flex-col overflow-y-auto">
-        <div className="flex justify-end px-8 pt-6">
+      <div className="flex-[1_1_54%] min-w-0 md:min-w-[360px] flex flex-col overflow-y-auto">
+        <div className="flex justify-end px-5 sm:px-8 pt-6">
           <ThemeToggle />
         </div>
 
-        <div className="flex-1 flex items-center justify-center px-10 pb-16">
+        <div className="flex-1 flex items-center justify-center px-5 sm:px-10 pb-16">
           <div className="w-full max-w-[400px]">
             <h1 className="font-display font-semibold text-[27px] tracking-tight mb-1.5">
               Bem-vindo de volta

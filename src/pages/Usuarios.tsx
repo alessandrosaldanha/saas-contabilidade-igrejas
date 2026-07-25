@@ -311,8 +311,8 @@ export default function Usuarios() {
       </Card>
 
       {showInviteModal && (
-        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-6">
-          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[440px] rounded-lg shadow-md p-8">
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-4 sm:p-6">
+          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[440px] rounded-lg shadow-md p-5 sm:p-8">
             <div className="flex items-center justify-between mb-5">
               <h3 className="font-display font-semibold text-lg m-0">Convidar Novo Usuário</h3>
               <button onClick={() => setShowInviteModal(false)} className="text-neutral-400 p-1">
@@ -363,7 +363,7 @@ export default function Usuarios() {
                 </select>
               </label>
 
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <label className="block flex-1">
                   <span className="block text-sm font-medium mb-1.5">Senha</span>
                   <input
@@ -411,8 +411,8 @@ export default function Usuarios() {
       )}
 
       {resetLinkModal && (
-        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-6">
-          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[480px] rounded-lg shadow-md p-8">
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-4 sm:p-6">
+          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[480px] rounded-lg shadow-md p-5 sm:p-8">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-display font-semibold text-lg m-0">Link de Redefinição de Senha</h3>
               <button onClick={() => setResetLinkModal(null)} className="text-neutral-400 p-1">
@@ -458,8 +458,8 @@ export default function Usuarios() {
       )}
 
       {roleEdit && (
-        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-6">
-          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[420px] rounded-lg shadow-md p-8">
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-4 sm:p-6">
+          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[420px] rounded-lg shadow-md p-5 sm:p-8">
             {roleEdit.step === "select" ? (
               <>
                 <div className="flex items-center justify-between mb-5">

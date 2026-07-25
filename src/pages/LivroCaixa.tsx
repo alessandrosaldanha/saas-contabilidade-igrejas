@@ -262,7 +262,7 @@ export default function LivroCaixa() {
             <ChevronRight size={15} />
           </button>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {canManage && (
             <button
               onClick={openCreateModal}
@@ -376,8 +376,8 @@ export default function LivroCaixa() {
       </Card>
 
       {reportModal && (
-        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-6">
-          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[680px] max-h-[90vh] overflow-y-auto rounded-lg shadow-md p-9">
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-4 sm:p-6">
+          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[680px] max-h-[90vh] overflow-y-auto rounded-lg shadow-md p-5 sm:p-9">
             <div className="flex items-center justify-between mb-5.5">
               <span className="text-xs text-neutral-400 uppercase tracking-wide">
                 {reportModal === "pdf" ? "Relatório PDF" : "Relatório Word"}
@@ -398,28 +398,30 @@ export default function LivroCaixa() {
               </div>
             </div>
 
-            <table className="w-full border-collapse text-xs mb-4.5">
-              <thead>
-                <tr className="text-left text-neutral-400 border-b border-neutral-200 dark:border-white/10">
-                  <th className="py-1.5 px-2 font-medium">Data</th>
-                  <th className="py-1.5 px-2 font-medium">Descrição</th>
-                  <th className="py-1.5 px-2 font-medium">Categoria</th>
-                  <th className="py-1.5 px-2 font-medium">Tipo</th>
-                  <th className="py-1.5 px-2 font-medium text-right">Valor</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ledger.rows.map((row) => (
-                  <tr key={row.id} className="border-b border-neutral-200 dark:border-white/10">
-                    <td className="py-1.5 px-2 whitespace-nowrap">{row.date}</td>
-                    <td className="py-1.5 px-2">{row.desc}</td>
-                    <td className="py-1.5 px-2">{row.category}</td>
-                    <td className="py-1.5 px-2">{row.type === "entrada" ? "Entrada" : "Saída"}</td>
-                    <td className={`py-1.5 px-2 text-right ${row.value < 0 ? "text-orla-coral" : "text-status-success"}`}>{fmt(row.value)}</td>
+            <div className="overflow-x-auto mb-4.5">
+              <table className="w-full min-w-[520px] border-collapse text-xs">
+                <thead>
+                  <tr className="text-left text-neutral-400 border-b border-neutral-200 dark:border-white/10">
+                    <th className="py-1.5 px-2 font-medium">Data</th>
+                    <th className="py-1.5 px-2 font-medium">Descrição</th>
+                    <th className="py-1.5 px-2 font-medium">Categoria</th>
+                    <th className="py-1.5 px-2 font-medium">Tipo</th>
+                    <th className="py-1.5 px-2 font-medium text-right">Valor</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {ledger.rows.map((row) => (
+                    <tr key={row.id} className="border-b border-neutral-200 dark:border-white/10">
+                      <td className="py-1.5 px-2 whitespace-nowrap">{row.date}</td>
+                      <td className="py-1.5 px-2">{row.desc}</td>
+                      <td className="py-1.5 px-2">{row.category}</td>
+                      <td className="py-1.5 px-2">{row.type === "entrada" ? "Entrada" : "Saída"}</td>
+                      <td className={`py-1.5 px-2 text-right ${row.value < 0 ? "text-orla-coral" : "text-status-success"}`}>{fmt(row.value)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
             <div className="bg-neutral-50 dark:bg-neutral-950 rounded-md p-4 mb-6.5">
               <div className="font-semibold text-sm mb-2">Resumo Financeiro do Mês</div>
@@ -429,7 +431,7 @@ export default function LivroCaixa() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-10 mt-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-10 mt-8">
               <div className="border-t border-neutral-300 dark:border-white/20 pt-2 text-center text-xs text-neutral-400">
                 Assinatura do Tesoureiro
               </div>
@@ -457,8 +459,8 @@ export default function LivroCaixa() {
       )}
 
       {deleteTarget && (
-        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-6">
-          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[440px] rounded-lg shadow-md p-8">
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-4 sm:p-6">
+          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[440px] rounded-lg shadow-md p-5 sm:p-8">
             <div className="flex items-center justify-between mb-5">
               <h3 className="font-display font-semibold text-lg m-0">Excluir Lançamento</h3>
               <button onClick={() => setDeleteTarget(null)} className="text-neutral-400 p-1">
@@ -497,8 +499,8 @@ export default function LivroCaixa() {
       )}
 
       {formModal && (
-        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-6">
-          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[440px] rounded-lg shadow-md p-8">
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-4 sm:p-6">
+          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[440px] rounded-lg shadow-md p-5 sm:p-8">
             <div className="flex items-center justify-between mb-5">
               <h3 className="font-display font-semibold text-lg m-0">
                 {formModal.mode === "create" ? "Novo Lançamento" : "Editar Lançamento"}
@@ -509,7 +511,7 @@ export default function LivroCaixa() {
             </div>
 
             <div className="flex flex-col gap-3.5">
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <label className="block flex-1">
                   <span className="block text-sm font-medium mb-1.5">Data</span>
                   <input
@@ -542,7 +544,7 @@ export default function LivroCaixa() {
                 />
               </label>
 
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <label className="block flex-1">
                   <span className="block text-sm font-medium mb-1.5">Tipo</span>
                   <select

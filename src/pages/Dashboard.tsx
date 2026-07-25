@@ -81,8 +81,8 @@ export default function Dashboard() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <div className="flex gap-1 bg-neutral-100 dark:bg-neutral-950 p-1 rounded-md border border-neutral-200 dark:border-white/10">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap gap-1 bg-neutral-100 dark:bg-neutral-950 p-1 rounded-md border border-neutral-200 dark:border-white/10">
             {(Object.keys(PERIOD_LABELS) as Period[]).map((id) => (
               <button
                 key={id}
@@ -113,7 +113,7 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <div className="grid mb-8" style={{ gridTemplateColumns: "2fr 1fr", gap: "18px" }}>
+      <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4.5 mb-8">
         <Card padding="lg">
           <div className="flex items-center justify-between mb-1.5">
             <h3 className="font-display font-semibold text-base m-0">Entradas vs Saídas ({year})</h3>
