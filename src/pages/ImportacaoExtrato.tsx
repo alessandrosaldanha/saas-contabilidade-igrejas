@@ -89,8 +89,15 @@ function findDuplicates(staged: Transaction[], existing: Transaction[]): Transac
 }
 
 export default function ImportacaoExtrato() {
-  const { transactions, importHistory, refreshTransactions, refreshImportHistory, showToastMsg, registerUnsavedGuard } =
-    useApp();
+  const {
+    transactions,
+    importHistory,
+    refreshTransactions,
+    refreshImportHistory,
+    showToastMsg,
+    registerUnsavedGuard,
+    effectiveChurchId,
+  } = useApp();
   const { profile } = useAuth();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -110,8 +117,11 @@ export default function ImportacaoExtrato() {
   const [historyDeleteTarget, setHistoryDeleteTarget] = useState<ImportHistoryItem | null>(null);
   const [isDeletingHistory, setIsDeletingHistory] = useState(false);
 
-  const canEditHistory = profile?.role === "Admin" || profile?.role === "Tesoureiro";
-  const canDeleteHistory = profile?.role === "Admin";
+  // Master só importa/gerencia extratos depois de escolher uma igreja no
+  // seletor da Sidebar (sem isso não haveria church_id para gravar o lote).
+  const canEditHistory =
+    profile?.role === "Admin" || profile?.role === "Tesoureiro" || (profile?.role === "master" && !!effectiveChurchId);
+  const canDeleteHistory = profile?.role === "Admin" || (profile?.role === "master" && !!effectiveChurchId);
 
   const openHistoryEdit = (item: ImportHistoryItem) => {
     setHistoryEdit({ id: item.id, filename: item.filename, monthLabel: item.monthLabel, count: String(item.count) });
@@ -236,9 +246,19 @@ export default function ImportacaoExtrato() {
   // lançamentos não salvos — por isso devolve se o salvamento teve sucesso ou não.
   const doSave = async (): Promise<boolean> => {
     if (isSaving || stagedTransactions.length === 0 || !profile) return false;
+    if (profile.role === "master" && !effectiveChurchId) {
+      showToastMsg("Selecione uma igreja no menu lateral antes de salvar.");
+      return false;
+    }
     setDuplicateWarning(null);
     setIsSaving(true);
     try {
+      // Para o Master, church_id não tem DEFAULT no banco (ele não pertence a
+      // nenhuma igreja) — precisa vir explícito da igreja escolhida na Sidebar.
+      // `undefined` é omitido do payload JSON, então para os demais papéis o
+      // DEFAULT do banco (a própria igreja) continua resolvendo sozinho.
+      const masterChurchId = profile.role === "master" ? effectiveChurchId : undefined;
+
       const { data: historyRow, error: historyError } = await supabase
         .from("import_history")
         .insert({
@@ -246,6 +266,7 @@ export default function ImportacaoExtrato() {
           month_label: deriveMonthLabel(stagedTransactions),
           count: stagedTransactions.length,
           imported_by: profile.id,
+          church_id: masterChurchId,
         })
         .select("id")
         .single();
@@ -260,6 +281,7 @@ export default function ImportacaoExtrato() {
         confidence: t.confidence,
         created_by: profile.id,
         import_id: historyRow.id,
+        church_id: masterChurchId,
       }));
 
       const { error: txError } = await supabase.from("transactions").insert(rows);
@@ -491,7 +513,7 @@ export default function ImportacaoExtrato() {
         </div>
         <button
           onClick={confirmSave}
-          disabled={isSaving || totalCount === 0}
+          disabled={isSaving || totalCount === 0 || (profile?.role === "master" && !effectiveChurchId)}
           className="flex items-center gap-2 px-5 py-3 rounded-md bg-orla-blue text-white text-sm font-medium hover:bg-blue-600 disabled:opacity-70"
         >
           {isSaving ? (

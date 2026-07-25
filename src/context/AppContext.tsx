@@ -40,6 +40,16 @@ interface AppContextValue {
 
   currentUser: { name: string; email: string; role: string };
 
+  // O Master (dono da SaaS) não pertence a nenhuma igreja, mas tem acesso
+  // irrestrito a todas — "igreja em visualização" é a igreja que ele escolheu
+  // no seletor da Sidebar para ver/gerenciar Dashboard/Livro Caixa/Importação/
+  // Usuários/Auditoria como se fosse o Admin dela. Para os demais papéis,
+  // effectiveChurchId é sempre a própria igreja (profile.churchId).
+  masterChurches: { id: string; name: string }[];
+  viewingChurchId: string | null;
+  setViewingChurchId: (id: string | null) => void;
+  effectiveChurchId: string | null;
+
   registerUnsavedGuard: (guard: UnsavedGuard | null) => void;
   guardedNavigate: (proceed: () => void) => void;
   pendingUnsavedPrompt: boolean;
@@ -62,6 +72,9 @@ function mapProfileRow(row: {
   role: ChurchUser["role"];
   status: ChurchUser["status"];
   last_access: string | null;
+  cpf?: string | null;
+  church_id?: string | null;
+  church_name?: string | null;
 }): ChurchUser {
   return {
     id: row.id,
@@ -70,7 +83,29 @@ function mapProfileRow(row: {
     role: row.role,
     status: row.status,
     lastAccess: row.last_access ? new Date(row.last_access).toLocaleString("pt-BR") : "—",
+    cpf: row.cpf,
+    churchId: row.church_id,
+    churchName: row.church_name,
   };
+}
+
+interface ProfileRowWithChurch {
+  id: string;
+  name: string;
+  email: string;
+  role: ChurchUser["role"];
+  status: ChurchUser["status"];
+  last_access: string | null;
+  cpf: string | null;
+  church_id: string | null;
+  // `church_id` é FK de profiles para churches (relação "para um" / belongs-to)
+  // — o PostgREST embute isso como objeto único (ou null), nunca como array.
+  // Sem os tipos gerados do banco, o supabase-js às vezes infere um array por
+  // via das dúvidas; por isso o cast explícito abaixo em vez de confiar nesse
+  // tipo inferido (foi exatamente essa suposição errada — tratar como array e
+  // acessar `[0]` — que fazia a coluna "Igreja" aparecer como "—" mesmo para
+  // usuários com church_id preenchido).
+  church: { name: string } | null;
 }
 
 function mapTransactionRow(
@@ -191,44 +226,113 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const usersById = useMemo(() => new Map(usersList.map((u) => [u.id, u.name])), [usersList]);
 
+  const isMaster = profile?.role === "master";
+
+  // O Master escolhe, na Sidebar, qual igreja está gerenciando no momento —
+  // persistido em localStorage para sobreviver a um F5. Para os demais
+  // papéis, "igreja em visualização" é sempre a própria (nunca escolhida).
+  const VIEWING_CHURCH_KEY = "master_viewing_church_id";
+  const [viewingChurchId, setViewingChurchIdState] = useState<string | null>(() =>
+    localStorage.getItem(VIEWING_CHURCH_KEY),
+  );
+  const setViewingChurchId = useCallback((id: string | null) => {
+    setViewingChurchIdState(id);
+    if (id) localStorage.setItem(VIEWING_CHURCH_KEY, id);
+    else localStorage.removeItem(VIEWING_CHURCH_KEY);
+  }, []);
+  const effectiveChurchId = isMaster ? viewingChurchId : (profile?.churchId ?? null);
+
+  const [masterChurches, setMasterChurches] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    if (!isMaster) {
+      setMasterChurches([]);
+      return;
+    }
+    supabase
+      .from("churches")
+      .select("id, name")
+      .order("name")
+      .then(({ data }) => setMasterChurches(data ?? []));
+  }, [isMaster]);
+
+  // O Master vê o diretório de usuários por completo, de todas as igrejas
+  // (a tela de Usuários mostra a coluna/filtro "Igreja" só para ele) — não
+  // depende da "igreja em gestão" escolhida na Sidebar, ao contrário de
+  // transactions/import_history, que são um ledger por igreja e exigem essa
+  // escolha. Para os demais papéis, a busca continua restrita à própria
+  // igreja (`effectiveChurchId` é sempre `profile.churchId` nesse caso).
   const refreshUsers = useCallback(async () => {
+    if (isMaster) {
+      // O próprio Master nunca aparece nesta listagem — é o dono da SaaS, não
+      // um "membro/admin de igreja" a ser gerido por essa tela.
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, name, email, role, status, last_access, cpf, church_id, church:churches(name)")
+        .neq("role", "master")
+        .order("name");
+      if (!error && data) {
+        // Cast explícito (em vez de deixar o TS inferir do select-string, que
+        // sem os tipos gerados do banco pode errar a cardinalidade do embed).
+        const rows = data as unknown as ProfileRowWithChurch[];
+        setUsersList(
+          rows.map((row) => mapProfileRow({ ...row, church_name: row.church?.name ?? null })),
+        );
+      }
+      return;
+    }
+
+    if (!effectiveChurchId) {
+      setUsersList([]);
+      return;
+    }
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, name, email, role, status, last_access")
+      .select("id, name, email, role, status, last_access, cpf, church_id")
+      .eq("church_id", effectiveChurchId)
       .order("name");
     if (!error && data) setUsersList(data.map(mapProfileRow));
-  }, []);
+  }, [isMaster, effectiveChurchId]);
 
   const refreshTransactions = useCallback(async () => {
+    if (!effectiveChurchId) {
+      setTransactionsState([]);
+      return;
+    }
     const { data, error } = await supabase
       .from("transactions")
       .select("id, occurred_on, description, value, type, category, confidence, created_by")
+      .eq("church_id", effectiveChurchId)
       .order("occurred_on");
     if (!error && data) setTransactionsState(data.map((row) => mapTransactionRow(row, usersById)));
-  }, [usersById]);
+  }, [effectiveChurchId, usersById]);
 
   const refreshImportHistory = useCallback(async () => {
+    if (!effectiveChurchId) {
+      setImportHistoryState([]);
+      return;
+    }
     const { data, error } = await supabase
       .from("import_history")
       .select("id, filename, month_label, count, imported_by, imported_at")
+      .eq("church_id", effectiveChurchId)
       .order("imported_at", { ascending: false });
     if (!error && data) setImportHistoryState(data.map((row) => mapImportHistoryRow(row, usersById)));
-  }, [usersById]);
+  }, [effectiveChurchId, usersById]);
 
   useEffect(() => {
-    if (session) refreshUsers();
+    if (session && (isMaster || effectiveChurchId)) refreshUsers();
     else setUsersList([]);
-  }, [session, refreshUsers]);
+  }, [session, isMaster, effectiveChurchId, refreshUsers]);
 
   useEffect(() => {
-    if (session) {
+    if (session && effectiveChurchId) {
       refreshTransactions();
       refreshImportHistory();
     } else {
       setTransactionsState([]);
       setImportHistoryState([]);
     }
-  }, [session, refreshTransactions, refreshImportHistory]);
+  }, [session, effectiveChurchId, refreshTransactions, refreshImportHistory]);
 
   const unsavedGuardRef = useRef<UnsavedGuard | null>(null);
   const pendingProceedRef = useRef<(() => void) | null>(null);
@@ -310,6 +414,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     currentUser: profile
       ? { name: profile.name, email: profile.email, role: profile.role }
       : { name: "—", email: "—", role: "—" },
+    masterChurches,
+    viewingChurchId,
+    setViewingChurchId,
+    effectiveChurchId,
     registerUnsavedGuard,
     guardedNavigate,
     pendingUnsavedPrompt,

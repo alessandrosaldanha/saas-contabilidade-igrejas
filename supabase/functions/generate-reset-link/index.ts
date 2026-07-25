@@ -29,11 +29,12 @@ Deno.serve(async (req) => {
 
     const { data: callerProfile } = await callerClient
       .from("profiles")
-      .select("role")
+      .select("role, church_id")
       .eq("id", caller.id)
       .single();
 
-    if (callerProfile?.role !== "Admin") {
+    const callerIsMaster = callerProfile?.role === "master";
+    if (!callerIsMaster && callerProfile?.role !== "Admin") {
       return new Response("Apenas administradores podem gerar link de redefinição de senha", {
         status: 403,
         headers: CORS_HEADERS,
@@ -49,6 +50,26 @@ Deno.serve(async (req) => {
     // aqui também evita depender só dessa configuração remota.
     if (!ALLOWED_ORIGINS.some((origin) => redirectTo.startsWith(origin))) {
       return new Response("redirectTo fora do domínio autorizado", { status: 400, headers: CORS_HEADERS });
+    }
+
+    // Um Admin comum só pode gerar link de redefinição para alguém da própria
+    // igreja — sem isso, um Admin de uma igreja poderia resetar a senha de
+    // qualquer usuário de outra igreja só sabendo o e-mail. O Master não tem
+    // essa restrição.
+    const { data: targetProfile } = await callerClient
+      .from("profiles")
+      .select("church_id")
+      .eq("email", email)
+      .single();
+
+    if (!targetProfile) {
+      return new Response("Usuário não encontrado", { status: 404, headers: CORS_HEADERS });
+    }
+    if (!callerIsMaster && targetProfile.church_id !== callerProfile!.church_id) {
+      return new Response("Você só pode gerar link de redefinição para usuários da sua própria igreja", {
+        status: 403,
+        headers: CORS_HEADERS,
+      });
     }
 
     const adminClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -69,6 +90,7 @@ Deno.serve(async (req) => {
       action_label: "Edição Manual",
       before: "—",
       after: `Link de redefinição de senha gerado para ${email}`,
+      church_id: targetProfile?.church_id ?? null,
     });
 
     return new Response(JSON.stringify({ actionLink: data.properties.action_link }), {

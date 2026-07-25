@@ -43,7 +43,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 async function fetchProfile(userId: string): Promise<ChurchUser | null> {
   const { data } = await supabase
     .from("profiles")
-    .select("id, name, email, role, status, last_access")
+    .select("id, name, email, role, status, last_access, cpf, church_id")
     .eq("id", userId)
     .single();
 
@@ -55,6 +55,8 @@ async function fetchProfile(userId: string): Promise<ChurchUser | null> {
     role: data.role,
     status: data.status,
     lastAccess: data.last_access ? new Date(data.last_access).toLocaleString("pt-BR") : "—",
+    cpf: data.cpf,
+    churchId: data.church_id,
   };
 }
 
@@ -120,6 +122,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       supabase.removeChannel(channel);
     };
   }, [session?.user.id]);
+
+  // Mesma lógica acima, mas para a igreja do usuário (não o Master, que não
+  // tem church_id): se um Admin Master desativar a igreja em outra sessão,
+  // desloga na hora em vez de esperar a próxima renovação de token/RLS.
+  useEffect(() => {
+    const churchId = profile?.churchId;
+    if (!churchId) return;
+
+    const channel = supabase
+      .channel(`church-status-${churchId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "churches", filter: `id=eq.${churchId}` },
+        (payload) => {
+          if ((payload.new as { is_active?: boolean })?.is_active === false) {
+            localStorage.setItem(INACTIVE_LOGOUT_FLAG, "1");
+            supabase.auth.signOut();
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profile?.churchId]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });

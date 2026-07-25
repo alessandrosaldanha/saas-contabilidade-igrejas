@@ -46,7 +46,7 @@ function mapRow(row: AuditLogRow, usersById: Map<string, string>): AuditLog {
 }
 
 export default function Auditoria() {
-  const { usersList } = useApp();
+  const { usersList, effectiveChurchId } = useApp();
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
@@ -61,12 +61,20 @@ export default function Auditoria() {
 
   useEffect(() => {
     let active = true;
+    // O Master só vê a auditoria depois de escolher uma igreja no seletor da
+    // Sidebar (sem isso não há um church_id para filtrar).
+    if (!effectiveChurchId) {
+      setLogs([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const start = new Date(year, month, 1).toISOString();
     const end = new Date(year, month + 1, 1).toISOString();
     supabase
       .from("audit_logs")
       .select("id, occurred_at, user_id, role, action_key, action_label, before, after, ip, device")
+      .eq("church_id", effectiveChurchId)
       .gte("occurred_at", start)
       .lt("occurred_at", end)
       .order("occurred_at", { ascending: false })
@@ -78,7 +86,7 @@ export default function Auditoria() {
     return () => {
       active = false;
     };
-  }, [year, month, usersById]);
+  }, [year, month, usersById, effectiveChurchId]);
 
   const goPrevMonth = () => {
     if (month === 0) {

@@ -30,20 +30,41 @@ Deno.serve(async (req) => {
 
     const { data: callerProfile } = await callerClient
       .from("profiles")
-      .select("role")
+      .select("role, church_id")
       .eq("id", caller.id)
       .single();
 
-    if (callerProfile?.role !== "Admin") {
+    const callerIsMaster = callerProfile?.role === "master";
+    if (!callerIsMaster && callerProfile?.role !== "Admin") {
       return new Response("Apenas administradores podem convidar usuários", { status: 403, headers: CORS_HEADERS });
     }
 
-    const { email, name, role, password } = await req.json();
+    const { email, name, role, password, cpf, church_id } = await req.json();
     if (!email || !name || !role || !password) {
       return new Response("Campos obrigatórios: email, name, role, password", { status: 400, headers: CORS_HEADERS });
     }
     if (typeof password !== "string" || password.length < 8) {
       return new Response("A senha deve ter pelo menos 8 caracteres", { status: 400, headers: CORS_HEADERS });
+    }
+    if (!["Admin", "Tesoureiro", "Auditor", "Conselho Fiscal"].includes(role)) {
+      return new Response("Perfil de acesso inválido", { status: 400, headers: CORS_HEADERS });
+    }
+
+    // Um Admin comum só cadastra membros da própria igreja (o church_id enviado
+    // pelo corpo da requisição é ignorado para ele); só o Master pode escolher a
+    // igreja de destino, e precisa informá-la explicitamente.
+    let effectiveChurchId: string | null;
+    if (callerIsMaster) {
+      if (!church_id) {
+        return new Response("church_id é obrigatório para o Admin Master", { status: 400, headers: CORS_HEADERS });
+      }
+      const { data: churchRow } = await callerClient.from("churches").select("id").eq("id", church_id).single();
+      if (!churchRow) {
+        return new Response("Igreja não encontrada", { status: 400, headers: CORS_HEADERS });
+      }
+      effectiveChurchId = church_id;
+    } else {
+      effectiveChurchId = callerProfile!.church_id;
     }
 
     const adminClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -51,7 +72,7 @@ Deno.serve(async (req) => {
       email,
       password,
       email_confirm: true,
-      user_metadata: { name, role },
+      user_metadata: { name, role, church_id: effectiveChurchId, cpf: cpf || null },
     });
 
     if (error) {
@@ -60,11 +81,12 @@ Deno.serve(async (req) => {
 
     await callerClient.from("audit_logs").insert({
       user_id: caller.id,
-      role: callerProfile.role,
+      role: callerProfile!.role,
       action_key: "edicao_manual",
       action_label: "Edição Manual",
       before: "—",
       after: `Usuário criado: ${email} (${role})`,
+      church_id: effectiveChurchId,
     });
 
     return new Response(JSON.stringify({ userId: data.user?.id }), {

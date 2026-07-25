@@ -13,6 +13,7 @@ import {
   LogOut,
   X,
   Wallet as WalletIcon,
+  Building2,
 } from "lucide-react";
 import Avatar from "./Avatar";
 import Badge from "./Badge";
@@ -21,22 +22,42 @@ import { useApp } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../services/supabase";
 
+// O Master tem acesso irrestrito — vê todos os menus normais de igreja (com
+// a igreja escolhida no seletor abaixo) MAIS o menu exclusivo de Governança.
+const TENANT_ROLES = ["Admin", "Tesoureiro", "Auditor", "Conselho Fiscal", "master"];
+// Auditor e Conselho Fiscal não lançam/importam nada (papéis só de
+// leitura/fiscalização) — por isso ficam de fora de "Extratos e Importação IA"
+// (RLS e a Edge Function parse-statement só aceitam Admin/Tesoureiro/master).
+const IMPORTACAO_ROLES = ["Admin", "Tesoureiro", "master"];
+
 const NAV_ITEMS = [
-  { to: "/dashboard", label: "Dashboard Executivo", icon: LayoutGrid },
-  { to: "/importacao", label: "Extratos e Importação IA", icon: FileText },
-  { to: "/livro-caixa", label: "Livro Caixa (Lançamentos)", icon: Wallet, badge: 3 },
-  { to: "/usuarios", label: "Governança e Usuários", icon: Users, allowedRoles: ["Admin"] },
+  { to: "/governanca", label: "Governança (Admin Master)", icon: Building2, allowedRoles: ["master"] },
+  { to: "/dashboard", label: "Dashboard Executivo", icon: LayoutGrid, allowedRoles: TENANT_ROLES },
+  { to: "/importacao", label: "Extratos e Importação IA", icon: FileText, allowedRoles: IMPORTACAO_ROLES },
+  { to: "/livro-caixa", label: "Livro Caixa (Lançamentos)", icon: Wallet, badge: 3, allowedRoles: TENANT_ROLES },
+  { to: "/usuarios", label: "Governança e Usuários", icon: Users, allowedRoles: ["Admin", "master"] },
   {
     to: "/auditoria",
     label: "Trilha de Auditoria (Logs)",
     icon: Clock,
-    allowedRoles: ["Admin", "Auditor", "Conselho Fiscal"],
+    allowedRoles: ["Admin", "Auditor", "Conselho Fiscal", "master"],
   },
 ];
 
 export default function Sidebar() {
-  const { sidebarCollapsed, toggleSidebar, mobileNavOpen, closeMobileNav, isDark, toggleTheme, currentUser, guardedNavigate } =
-    useApp();
+  const {
+    sidebarCollapsed,
+    toggleSidebar,
+    mobileNavOpen,
+    closeMobileNav,
+    isDark,
+    toggleTheme,
+    currentUser,
+    guardedNavigate,
+    masterChurches,
+    viewingChurchId,
+    setViewingChurchId,
+  } = useApp();
   const { profile, signOut } = useAuth();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -99,6 +120,26 @@ export default function Sidebar() {
             <X size={18} />
           </button>
         </div>
+
+        {currentUser.role === "master" && (
+          <div className={`px-1 pb-4 ${expanded ? "" : "md:hidden"}`}>
+            <label className="block text-[10px] font-semibold tracking-wider uppercase text-neutral-400 dark:text-neutral-500 mb-1.5">
+              Igreja em Gestão
+            </label>
+            <select
+              value={viewingChurchId ?? ""}
+              onChange={(e) => setViewingChurchId(e.target.value || null)}
+              className="w-full box-border border border-neutral-300 dark:border-white/20 bg-white dark:bg-neutral-900 rounded-md px-2.5 py-2 text-xs outline-none"
+            >
+              <option value="">Selecione uma igreja…</option>
+              {masterChurches.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <button
           onClick={toggleSidebar}

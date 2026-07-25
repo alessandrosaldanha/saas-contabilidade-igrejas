@@ -6,9 +6,14 @@ import Avatar from "../components/Avatar";
 import { useApp } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
 import { getFunctionErrorMessage, supabase } from "../services/supabase";
+import { ASSIGNABLE_ROLES } from "../types";
 import type { ChurchUser, UserRole, UserStatus } from "../types";
 
+// "master" nunca aparece aqui de verdade (a RLS de profiles nunca deixa um
+// Admin de igreja enxergar a linha do Admin Master), mas o tipo UserRole
+// agora inclui essa role e o Record precisa de todas as chaves para compilar.
 const ROLE_TONE: Record<UserRole, "purple" | "info" | "warning" | "neutral"> = {
+  master: "neutral",
   Admin: "purple",
   Tesoureiro: "info",
   Auditor: "warning",
@@ -19,7 +24,7 @@ const STATUS_TONE: Record<UserStatus, "success" | "neutral" | "warning"> = {
   Inativo: "neutral",
   "Convite Pendente": "warning",
 };
-const ROLE_ORDER: UserRole[] = ["Admin", "Tesoureiro", "Auditor", "Conselho Fiscal"];
+const ROLE_ORDER = ASSIGNABLE_ROLES;
 
 const iconBtnCls =
   "w-8 h-8 flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5";
@@ -31,11 +36,14 @@ interface RoleEditState {
 }
 
 export default function Usuarios() {
-  const { usersList, refreshUsers, showToastMsg } = useApp();
+  const { usersList, refreshUsers, showToastMsg, effectiveChurchId, viewingChurchId, masterChurches } = useApp();
   const { profile: authProfile, refreshProfile } = useAuth();
+  const isMaster = authProfile?.role === "master";
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  // Só relevante para o Master — visão global entre igrejas (ver AppContext).
+  const [churchFilter, setChurchFilter] = useState("all");
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [isInviting, setIsInviting] = useState(false);
 
@@ -43,6 +51,7 @@ export default function Usuarios() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteCargo, setInviteCargo] = useState("");
   const [inviteRole, setInviteRole] = useState<UserRole>("Tesoureiro");
+  const [inviteChurchId, setInviteChurchId] = useState("");
   const [invitePassword, setInvitePassword] = useState("");
   const [inviteConfirmPassword, setInviteConfirmPassword] = useState("");
 
@@ -50,10 +59,11 @@ export default function Usuarios() {
     return usersList.filter((u) => {
       if (roleFilter !== "all" && u.role !== roleFilter) return false;
       if (statusFilter !== "all" && u.status !== statusFilter) return false;
+      if (isMaster && churchFilter !== "all" && u.churchId !== churchFilter) return false;
       if (search && !`${u.name} ${u.email}`.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
-  }, [usersList, roleFilter, statusFilter, search]);
+  }, [usersList, roleFilter, statusFilter, churchFilter, isMaster, search]);
 
   const kpiTotal = usersList.length;
   const kpiActive = usersList.filter((u) => u.status === "Ativo").length;
@@ -64,6 +74,9 @@ export default function Usuarios() {
     setInviteEmail("");
     setInviteCargo("");
     setInviteRole("Tesoureiro");
+    // Sugere a igreja em gestão (Sidebar) como ponto de partida, mas o Master
+    // pode trocar no próprio modal — ele opera sobre todas as igrejas aqui.
+    setInviteChurchId(viewingChurchId ?? "");
     setInvitePassword("");
     setInviteConfirmPassword("");
     setShowInviteModal(true);
@@ -83,9 +96,22 @@ export default function Usuarios() {
       showToastMsg("As senhas não coincidem.");
       return;
     }
+    if (isMaster && !inviteChurchId) {
+      showToastMsg("Selecione a igreja deste usuário.");
+      return;
+    }
     setIsInviting(true);
+    // church_id só é de fato usado pela Edge Function quando quem chama é o
+    // Master (um Admin comum sempre é cadastrado na própria igreja, ignorando
+    // qualquer church_id enviado) — por isso é seguro sempre incluir aqui.
     const { error } = await supabase.functions.invoke("invite-user", {
-      body: { name: inviteName, email: inviteEmail, role: inviteRole, password: invitePassword },
+      body: {
+        name: inviteName,
+        email: inviteEmail,
+        role: inviteRole,
+        password: invitePassword,
+        church_id: isMaster ? inviteChurchId : effectiveChurchId,
+      },
     });
     setIsInviting(false);
     if (error) {
@@ -233,6 +259,20 @@ export default function Usuarios() {
           <option value="Inativo">Inativos</option>
           <option value="Convite Pendente">Convite Pendente</option>
         </select>
+        {isMaster && (
+          <select
+            value={churchFilter}
+            onChange={(e) => setChurchFilter(e.target.value)}
+            className="border border-neutral-300 dark:border-white/20 bg-white dark:bg-neutral-900 rounded-md text-xs px-3 py-2"
+          >
+            <option value="all">Todas as Igrejas</option>
+            {masterChurches.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        )}
         <button
           onClick={openInviteModal}
           className="flex items-center gap-1.5 px-4 py-2.5 rounded-md bg-orla-blue text-white text-sm font-medium hover:bg-blue-600"
@@ -248,6 +288,7 @@ export default function Usuarios() {
             <thead>
               <tr className="text-left text-neutral-400">
                 <th className="px-4.5 py-3 font-medium text-xs">Usuário</th>
+                {isMaster && <th className="px-4.5 py-3 font-medium text-xs">Igreja</th>}
                 <th className="px-4.5 py-3 font-medium text-xs">Função (Role)</th>
                 <th className="px-4.5 py-3 font-medium text-xs">Status de Acesso</th>
                 <th className="px-4.5 py-3 font-medium text-xs">Último acesso</th>
@@ -266,6 +307,13 @@ export default function Usuarios() {
                       </div>
                     </div>
                   </td>
+                  {isMaster && (
+                    <td className="px-4.5 py-3">
+                      <Badge tone="neutral" appearance="outline">
+                        {u.churchName || "—"}
+                      </Badge>
+                    </td>
+                  )}
                   <td className="px-4.5 py-3">
                     <button
                       onClick={() => openRoleEdit(u)}
@@ -349,6 +397,24 @@ export default function Usuarios() {
                   className="w-full box-border border border-neutral-300 dark:border-white/20 bg-white dark:bg-neutral-900 rounded-md px-3.5 py-2.5 text-sm outline-none"
                 />
               </label>
+
+              {isMaster && (
+                <label className="block">
+                  <span className="block text-sm font-medium mb-1.5">Igreja</span>
+                  <select
+                    value={inviteChurchId}
+                    onChange={(e) => setInviteChurchId(e.target.value)}
+                    className="w-full box-border border border-neutral-300 dark:border-white/20 bg-white dark:bg-neutral-900 rounded-md px-3.5 py-2.5 text-sm outline-none"
+                  >
+                    <option value="">Selecione a igreja…</option>
+                    {masterChurches.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
 
               <label className="block">
                 <span className="block text-sm font-medium mb-1.5">Perfil de Acesso</span>

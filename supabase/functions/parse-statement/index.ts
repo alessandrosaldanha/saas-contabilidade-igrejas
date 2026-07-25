@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
       return new Response(`Falha ao verificar permissões: ${profileError.message}`, { status: 500, headers: CORS_HEADERS });
     }
 
-    if (!profile || !["Admin", "Tesoureiro"].includes(profile.role)) {
+    if (!profile || !["Admin", "Tesoureiro", "master"].includes(profile.role)) {
       return new Response("Apenas Admin/Tesoureiro podem importar extratos", { status: 403, headers: CORS_HEADERS });
     }
 

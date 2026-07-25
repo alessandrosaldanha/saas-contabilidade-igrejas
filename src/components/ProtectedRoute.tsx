@@ -30,7 +30,10 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   }
 
   if (allowedRoles && !allowedRoles.includes(profile.role)) {
-    return <Navigate to="/dashboard" replace />;
+    // O Master não tem acesso a /dashboard (não pertence a nenhuma igreja) —
+    // sem este caso especial, um Master barrado aqui cairia num loop de
+    // redirecionamento (mandado de volta pra uma rota que ele também não pode acessar).
+    return <Navigate to={profile.role === "master" ? "/governanca" : "/dashboard"} replace />;
   }
 
   return <Outlet />;

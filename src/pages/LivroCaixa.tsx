@@ -61,7 +61,7 @@ function computeLedger(transactions: Transaction[], year: number, monthIdx: numb
 }
 
 export default function LivroCaixa() {
-  const { transactions, refreshTransactions, showToastMsg } = useApp();
+  const { transactions, refreshTransactions, showToastMsg, effectiveChurchId } = useApp();
   const { profile } = useAuth();
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
@@ -74,8 +74,11 @@ export default function LivroCaixa() {
   const [isSavingForm, setIsSavingForm] = useState(false);
   const [periodPickerOpen, setPeriodPickerOpen] = useState(false);
 
-  const canManage = profile?.role === "Admin" || profile?.role === "Tesoureiro";
-  const canDelete = profile?.role === "Admin";
+  // Master só gerencia/exclui lançamentos depois de escolher uma igreja no
+  // seletor da Sidebar (sem isso não haveria church_id para gravar o lançamento).
+  const canManage =
+    profile?.role === "Admin" || profile?.role === "Tesoureiro" || (profile?.role === "master" && !!effectiveChurchId);
+  const canDelete = profile?.role === "Admin" || (profile?.role === "master" && !!effectiveChurchId);
 
   const confirmDelete = async () => {
     if (!deleteTarget || isDeleting) return;
@@ -123,9 +126,17 @@ export default function LivroCaixa() {
       confidence: "alta" as const,
     };
 
+    // Para o Master, church_id não tem DEFAULT no banco (ele não pertence a
+    // nenhuma igreja) — precisa vir explícito da igreja escolhida na Sidebar.
+    // `undefined` é omitido do payload JSON, então para os demais papéis o
+    // DEFAULT do banco (a própria igreja) continua resolvendo sozinho.
     const { error } =
       formModal.mode === "create"
-        ? await supabase.from("transactions").insert({ ...payload, created_by: profile.id })
+        ? await supabase.from("transactions").insert({
+            ...payload,
+            created_by: profile.id,
+            church_id: profile.role === "master" ? effectiveChurchId : undefined,
+          })
         : await supabase.from("transactions").update(payload).eq("id", formModal.id);
 
     setIsSavingForm(false);
