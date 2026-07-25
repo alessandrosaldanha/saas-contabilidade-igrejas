@@ -5,6 +5,7 @@ import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
+import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import LivroCaixa from "./pages/LivroCaixa";
 import ImportacaoExtrato from "./pages/ImportacaoExtrato";
@@ -27,6 +28,7 @@ export default function App() {
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route element={<ProtectedRoute />}>
                 <Route path="/" element={<Layout />}>
                   <Route index element={<Navigate to="/dashboard" replace />} />

@@ -1,10 +1,9 @@
-// Edge Function: cria um novo usuário (Auth) já com a senha definida pelo Admin
-// (em vez do fluxo de convite por e-mail, que sofria com o link sendo
-// pré-consumido por scanners de segurança — ver CLAUDE.md) e grava name/role
-// no profile. Precisa de service-role key — por isso roda aqui, nunca no frontend.
-// Deploy: supabase functions deploy invite-user
-// SUPABASE_URL, SUPABASE_ANON_KEY e SUPABASE_SERVICE_ROLE_KEY já existem por
-// padrão no runtime de toda Edge Function (não precisam ser configuradas como secret).
+// Edge Function: gera um link de redefinição de senha (token de recovery real
+// do Supabase Auth) para um usuário e devolve o link pronto para o Admin
+// copiar/enviar manualmente — em vez de depender do e-mail de recovery do
+// Supabase chegar (ver incidente de `otp_expired` documentado no CLAUDE.md).
+// Precisa de service-role key — por isso roda aqui, nunca no frontend.
+// Deploy: supabase functions deploy generate-reset-link
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const CORS_HEADERS = {
@@ -39,23 +38,22 @@ Deno.serve(async (req) => {
       .single();
 
     if (callerProfile?.role !== "Admin") {
-      return new Response("Apenas administradores podem convidar usuários", { status: 403, headers: CORS_HEADERS });
+      return new Response("Apenas administradores podem gerar link de redefinição de senha", {
+        status: 403,
+        headers: CORS_HEADERS,
+      });
     }
 
-    const { email, name, role, password } = await req.json();
-    if (!email || !name || !role || !password) {
-      return new Response("Campos obrigatórios: email, name, role, password", { status: 400, headers: CORS_HEADERS });
-    }
-    if (typeof password !== "string" || password.length < 6) {
-      return new Response("A senha deve ter pelo menos 6 caracteres", { status: 400, headers: CORS_HEADERS });
+    const { email, redirectTo } = await req.json();
+    if (!email || !redirectTo) {
+      return new Response("Campos obrigatórios: email, redirectTo", { status: 400, headers: CORS_HEADERS });
     }
 
     const adminClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const { data, error } = await adminClient.auth.admin.createUser({
+    const { data, error } = await adminClient.auth.admin.generateLink({
+      type: "recovery",
       email,
-      password,
-      email_confirm: true,
-      user_metadata: { name, role },
+      options: { redirectTo },
     });
 
     if (error) {
@@ -68,10 +66,10 @@ Deno.serve(async (req) => {
       action_key: "edicao_manual",
       action_label: "Edição Manual",
       before: "—",
-      after: `Usuário criado: ${email} (${role})`,
+      after: `Link de redefinição de senha gerado para ${email}`,
     });
 
-    return new Response(JSON.stringify({ userId: data.user?.id }), {
+    return new Response(JSON.stringify({ actionLink: data.properties.action_link }), {
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   } catch (err) {

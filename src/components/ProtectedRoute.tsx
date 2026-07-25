@@ -7,7 +7,15 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
-  const { session, profile, loading } = useAuth();
+  const { session, profile, loading, isPasswordRecovery } = useAuth();
+
+  // Checado antes de tudo (inclusive antes de `loading`): uma sessão de
+  // recuperação de senha nunca deve cair em nenhuma rota protegida, mesmo que
+  // a sessão em si já pareça "válida" — ver detectPasswordRecoveryFromUrl() em
+  // AuthContext.tsx para o porquê disso não pode esperar `loading` terminar.
+  if (isPasswordRecovery) {
+    return <Navigate to="/reset-password" replace />;
+  }
 
   if (loading) {
     return (

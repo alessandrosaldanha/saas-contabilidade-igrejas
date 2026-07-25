@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Mail,
@@ -10,8 +10,10 @@ import {
   LogIn,
 } from "lucide-react";
 import ThemeToggle from "../components/ThemeToggle";
-import { useAuth } from "../context/AuthContext";
+import { useAuth, consumeInactiveLogoutFlag } from "../context/AuthContext";
 import chapelIllustration from "../assets/chapel-illustration.svg";
+
+const INACTIVE_MESSAGE = "Sua conta está inativa. Entre em contato com o administrador para mais informações.";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -24,6 +26,13 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
+  // Se a conta foi desativada enquanto a sessão estava ativa em algum
+  // navegador (via assinatura Realtime no AuthContext), o signOut forçado
+  // marca esse flag antes de redirecionar para cá.
+  useEffect(() => {
+    if (consumeInactiveLogoutFlag()) setErrorMessage(INACTIVE_MESSAGE);
+  }, []);
+
   const authenticate = async () => {
     if (!email.trim() || !password.trim()) {
       setErrorMessage("Preencha e-mail e senha para continuar.");
@@ -33,6 +42,10 @@ export default function Login() {
     setErrorMessage("");
     const { error } = await signIn(email.trim(), password);
     setIsLoading(false);
+    if (error === "INACTIVE") {
+      setErrorMessage(INACTIVE_MESSAGE);
+      return;
+    }
     if (error) {
       setErrorMessage("E-mail ou senha incorretos. Verifique e tente novamente.");
       return;

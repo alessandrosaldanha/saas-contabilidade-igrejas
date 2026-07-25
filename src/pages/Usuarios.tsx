@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { Search, UserPlus, Shuffle, KeyRound, Power, X } from "lucide-react";
+import { Search, UserPlus, KeyRound, Power, ShieldAlert, Copy, X } from "lucide-react";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Avatar from "../components/Avatar";
 import { useApp } from "../context/AppContext";
+import { useAuth } from "../context/AuthContext";
 import { getFunctionErrorMessage, supabase } from "../services/supabase";
 import type { ChurchUser, UserRole, UserStatus } from "../types";
 
@@ -23,8 +24,15 @@ const ROLE_ORDER: UserRole[] = ["Admin", "Tesoureiro", "Auditor", "Conselho Fisc
 const iconBtnCls =
   "w-8 h-8 flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5";
 
+interface RoleEditState {
+  user: ChurchUser;
+  selectedRole: UserRole;
+  step: "select" | "confirm";
+}
+
 export default function Usuarios() {
   const { usersList, refreshUsers, showToastMsg } = useApp();
+  const { profile: authProfile, refreshProfile } = useAuth();
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -35,7 +43,8 @@ export default function Usuarios() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteCargo, setInviteCargo] = useState("");
   const [inviteRole, setInviteRole] = useState<UserRole>("Tesoureiro");
-  const [inviteSendEmail, setInviteSendEmail] = useState(true);
+  const [invitePassword, setInvitePassword] = useState("");
+  const [inviteConfirmPassword, setInviteConfirmPassword] = useState("");
 
   const filtered = useMemo(() => {
     return usersList.filter((u) => {
@@ -55,42 +64,107 @@ export default function Usuarios() {
     setInviteEmail("");
     setInviteCargo("");
     setInviteRole("Tesoureiro");
-    setInviteSendEmail(true);
+    setInvitePassword("");
+    setInviteConfirmPassword("");
     setShowInviteModal(true);
   };
 
   const submitInvite = async () => {
     if (!inviteName.trim() || !inviteEmail.trim()) return;
+    if (!invitePassword || !inviteConfirmPassword) {
+      showToastMsg("Preencha a senha e a confirmação de senha.");
+      return;
+    }
+    if (invitePassword.length < 6) {
+      showToastMsg("A senha deve ter pelo menos 6 caracteres.");
+      return;
+    }
+    if (invitePassword !== inviteConfirmPassword) {
+      showToastMsg("As senhas não coincidem.");
+      return;
+    }
     setIsInviting(true);
     const { error } = await supabase.functions.invoke("invite-user", {
-      body: { name: inviteName, email: inviteEmail, role: inviteRole },
+      body: { name: inviteName, email: inviteEmail, role: inviteRole, password: invitePassword },
     });
     setIsInviting(false);
     if (error) {
-      showToastMsg(`Falha ao convidar: ${await getFunctionErrorMessage(error)}`);
+      showToastMsg(`Falha ao cadastrar: ${await getFunctionErrorMessage(error)}`);
       return;
     }
     await refreshUsers();
     setShowInviteModal(false);
-    showToastMsg(`Convite enviado para ${inviteEmail}`);
+    showToastMsg(`Usuário ${inviteEmail} cadastrado com sucesso`);
   };
 
-  const cycleUserRole = async (user: ChurchUser) => {
-    const nextRole = ROLE_ORDER[(ROLE_ORDER.indexOf(user.role) + 1) % ROLE_ORDER.length];
+  const [roleEdit, setRoleEdit] = useState<RoleEditState | null>(null);
+  const [isSavingRole, setIsSavingRole] = useState(false);
+
+  const openRoleEdit = (user: ChurchUser) => setRoleEdit({ user, selectedRole: user.role, step: "select" });
+
+  // Promover alguém a Admin, ou rebaixar um Admin (a si mesmo ou a outro),
+  // exige um passo extra de confirmação com o aviso específico de cada caso;
+  // qualquer outra troca de role é aplicada direto.
+  const chooseRole = (role: UserRole) => {
+    if (!roleEdit || isSavingRole) return;
+    if (role === roleEdit.user.role) {
+      setRoleEdit(null);
+      return;
+    }
+    const needsConfirmation = role === "Admin" || roleEdit.user.role === "Admin";
+    if (needsConfirmation) {
+      setRoleEdit({ ...roleEdit, selectedRole: role, step: "confirm" });
+    } else {
+      applyRoleChange(roleEdit.user, role);
+    }
+  };
+
+  const applyRoleChange = async (user: ChurchUser, role: UserRole) => {
+    setIsSavingRole(true);
     const { error } = await supabase.rpc("admin_update_user_role", {
       target_id: user.id,
-      new_role: nextRole,
+      new_role: role,
     });
+    setIsSavingRole(false);
     if (error) {
       showToastMsg(`Falha ao alterar perfil: ${error.message}`);
       return;
     }
+    setRoleEdit(null);
     await refreshUsers();
+    // Se o próprio Admin logado mudou a sua role, atualiza o profile da sessão
+    // atual — senão o Sidebar/ProtectedRoute continuariam achando que ele
+    // ainda é Admin até o próximo login.
+    if (user.id === authProfile?.id) await refreshProfile();
+    showToastMsg(`Permissão de ${user.name} alterada para ${role}`);
   };
 
+  const [resetLinkModal, setResetLinkModal] = useState<{ email: string; link: string } | null>(null);
+  const [resettingEmail, setResettingEmail] = useState<string | null>(null);
+
   const resetUserPassword = async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
-    showToastMsg(error ? `Falha ao enviar link: ${error.message}` : `Link de redefinição de senha enviado para ${email}`);
+    setResettingEmail(email);
+    const { data, error } = await supabase.functions.invoke("generate-reset-link", {
+      body: { email, redirectTo: `${window.location.origin}/reset-password` },
+    });
+    setResettingEmail(null);
+    if (error) {
+      showToastMsg(`Falha ao gerar link: ${await getFunctionErrorMessage(error)}`);
+      return;
+    }
+    const link = (data as { actionLink?: string })?.actionLink;
+    if (!link) {
+      showToastMsg("Link gerado, mas a resposta veio sem o link.");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(link);
+      showToastMsg(`Link de redefinição copiado para a área de transferência (${email})`);
+    } catch {
+      // Clipboard pode falhar por permissão/navegador — mostra o link num modal
+      // para o Admin copiar manualmente.
+      setResetLinkModal({ email, link });
+    }
   };
 
   const toggleUserAccess = async (user: ChurchUser) => {
@@ -193,7 +267,13 @@ export default function Usuarios() {
                     </div>
                   </td>
                   <td className="px-4.5 py-3">
-                    <Badge tone={ROLE_TONE[u.role]}>{u.role}</Badge>
+                    <button
+                      onClick={() => openRoleEdit(u)}
+                      title="Alterar Permissão / Role"
+                      className="inline-flex rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-orla-blue"
+                    >
+                      <Badge tone={ROLE_TONE[u.role]}>{u.role}</Badge>
+                    </button>
                   </td>
                   <td className="px-4.5 py-3">
                     <Badge tone={STATUS_TONE[u.status]} appearance="outline" dot>
@@ -203,10 +283,12 @@ export default function Usuarios() {
                   <td className="px-4.5 py-3 text-neutral-400 text-xs">{u.lastAccess}</td>
                   <td className="px-4.5 py-3 text-right">
                     <div className="flex gap-1 justify-end">
-                      <button onClick={() => cycleUserRole(u)} title="Alterar Permissões / Role" className={iconBtnCls}>
-                        <Shuffle size={14} />
-                      </button>
-                      <button onClick={() => resetUserPassword(u.email)} title="Enviar Reset de Senha" className={iconBtnCls}>
+                      <button
+                        onClick={() => resetUserPassword(u.email)}
+                        disabled={resettingEmail === u.email}
+                        title="Resetar Senha / Gerar Link"
+                        className={`${iconBtnCls} disabled:opacity-50`}
+                      >
                         <KeyRound size={14} />
                       </button>
                       <button
@@ -281,15 +363,32 @@ export default function Usuarios() {
                 </select>
               </label>
 
-              <label className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={inviteSendEmail}
-                  onChange={(e) => setInviteSendEmail(e.target.checked)}
-                  className="w-[15px] h-[15px] accent-orla-blue cursor-pointer"
-                />
-                Enviar e-mail de ativação de conta via Supabase Auth
-              </label>
+              <div className="flex gap-3">
+                <label className="block flex-1">
+                  <span className="block text-sm font-medium mb-1.5">Senha</span>
+                  <input
+                    type="password"
+                    value={invitePassword}
+                    onChange={(e) => setInvitePassword(e.target.value)}
+                    placeholder="Mínimo 6 caracteres"
+                    className="w-full box-border border border-neutral-300 dark:border-white/20 bg-white dark:bg-neutral-900 rounded-md px-3.5 py-2.5 text-sm outline-none"
+                  />
+                </label>
+                <label className="block flex-1">
+                  <span className="block text-sm font-medium mb-1.5">Confirmar Senha</span>
+                  <input
+                    type="password"
+                    value={inviteConfirmPassword}
+                    onChange={(e) => setInviteConfirmPassword(e.target.value)}
+                    placeholder="Repita a senha"
+                    className="w-full box-border border border-neutral-300 dark:border-white/20 bg-white dark:bg-neutral-900 rounded-md px-3.5 py-2.5 text-sm outline-none"
+                  />
+                </label>
+              </div>
+              <p className="text-xs text-neutral-400 -mt-2">
+                O usuário já é criado com esta senha e pode entrar direto — use "Resetar Senha / Enviar Link" na
+                tabela se ele precisar trocá-la depois.
+              </p>
             </div>
 
             <div className="flex justify-end gap-2.5 mt-6.5">
@@ -304,9 +403,124 @@ export default function Usuarios() {
                 disabled={isInviting}
                 className="px-4 py-2 rounded-md bg-orla-blue text-white text-sm font-medium hover:bg-blue-600 disabled:opacity-70"
               >
-                {isInviting ? "Enviando…" : "Enviar Convite"}
+                {isInviting ? "Cadastrando…" : "Cadastrar Usuário"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {resetLinkModal && (
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-6">
+          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[480px] rounded-lg shadow-md p-8">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display font-semibold text-lg m-0">Link de Redefinição de Senha</h3>
+              <button onClick={() => setResetLinkModal(null)} className="text-neutral-400 p-1">
+                <X size={18} />
+              </button>
+            </div>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed mb-4">
+              Não foi possível copiar automaticamente. Copie o link abaixo e envie manualmente para{" "}
+              <strong>{resetLinkModal.email}</strong> — o link é de uso único e expira em algumas horas.
+            </p>
+            <div className="flex gap-2">
+              <input
+                readOnly
+                value={resetLinkModal.link}
+                onFocus={(e) => e.currentTarget.select()}
+                className="flex-1 min-w-0 border border-neutral-300 dark:border-white/20 bg-neutral-50 dark:bg-neutral-950 rounded-md px-3.5 py-2.5 text-xs outline-none"
+              />
+              <button
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(resetLinkModal.link);
+                    showToastMsg("Link copiado para a área de transferência");
+                  } catch {
+                    showToastMsg("Não foi possível copiar — selecione o texto e copie manualmente.");
+                  }
+                }}
+                title="Copiar link"
+                className="w-10 h-10 shrink-0 flex items-center justify-center rounded-md bg-orla-blue text-white hover:bg-blue-600"
+              >
+                <Copy size={15} />
+              </button>
+            </div>
+            <div className="flex justify-end mt-6.5">
+              <button
+                onClick={() => setResetLinkModal(null)}
+                className="px-4 py-2 rounded-md border border-neutral-300 dark:border-white/20 text-sm font-medium"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {roleEdit && (
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-6">
+          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[420px] rounded-lg shadow-md p-8">
+            {roleEdit.step === "select" ? (
+              <>
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="font-display font-semibold text-lg m-0">Alterar Permissão</h3>
+                  <button onClick={() => setRoleEdit(null)} className="text-neutral-400 p-1">
+                    <X size={18} />
+                  </button>
+                </div>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
+                  Selecione a nova função de acesso para <strong>{roleEdit.user.name}</strong>.
+                </p>
+                <div className="flex flex-col gap-2">
+                  {ROLE_ORDER.map((role) => (
+                    <button
+                      key={role}
+                      onClick={() => chooseRole(role)}
+                      className={`flex items-center justify-between px-3.5 py-2.5 rounded-md border text-sm font-medium ${
+                        role === roleEdit.user.role
+                          ? "border-orla-blue bg-orla-blue/10"
+                          : "border-neutral-300 dark:border-white/20 hover:bg-neutral-100 dark:hover:bg-white/5"
+                      }`}
+                    >
+                      <Badge tone={ROLE_TONE[role]}>{role}</Badge>
+                      {role === roleEdit.user.role && <span className="text-xs text-neutral-400">Atual</span>}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="w-10 h-10 rounded-full bg-status-warning/15 flex items-center justify-center shrink-0">
+                    <ShieldAlert size={20} className="text-status-warning" />
+                  </span>
+                  <h3 className="font-display font-semibold text-lg m-0">
+                    {roleEdit.selectedRole === "Admin" ? "Promover a Administrador" : "Remover acesso de Administrador"}
+                  </h3>
+                </div>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed mb-6">
+                  {roleEdit.selectedRole === "Admin"
+                    ? "Atenção: Ao tornar este usuário Administrador, ele terá acesso total ao sistema, incluindo exclusão e convite de novos membros."
+                    : "Atenção: Ao remover o acesso de Administrador, este usuário perderá todos os privilégios administrativos e o acesso à aba de Governança e Usuários."}
+                </p>
+                <div className="flex justify-end gap-2.5">
+                  <button
+                    onClick={() => setRoleEdit({ ...roleEdit, step: "select" })}
+                    disabled={isSavingRole}
+                    className="px-4 py-2 rounded-md border border-neutral-300 dark:border-white/20 text-sm font-medium disabled:opacity-70"
+                  >
+                    Voltar
+                  </button>
+                  <button
+                    onClick={() => applyRoleChange(roleEdit.user, roleEdit.selectedRole)}
+                    disabled={isSavingRole}
+                    className="px-4 py-2 rounded-md bg-status-warning text-white text-sm font-medium hover:opacity-90 disabled:opacity-70"
+                  >
+                    {isSavingRole ? "Salvando…" : "Confirmar"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
