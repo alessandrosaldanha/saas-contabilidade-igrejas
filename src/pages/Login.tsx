@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Mail,
@@ -33,7 +34,8 @@ export default function Login() {
     if (consumeInactiveLogoutFlag()) setErrorMessage(INACTIVE_MESSAGE);
   }, []);
 
-  const authenticate = async () => {
+  const authenticate = async (e: FormEvent) => {
+    e.preventDefault();
     if (!email.trim() || !password.trim()) {
       setErrorMessage("Preencha e-mail e senha para continuar.");
       return;
@@ -111,85 +113,87 @@ export default function Login() {
               </div>
             )}
 
-            <div className="flex flex-col gap-4 mb-2">
-              <label className="block">
-                <span className="block text-sm font-medium mb-1.5">
-                  E-mail Corporativo/Ministerial
-                </span>
-                <span className="flex items-center gap-2 border border-neutral-300 dark:border-white/20 rounded-md px-3.5 py-2.5 bg-white dark:bg-neutral-900">
-                  <Mail size={14} className="text-neutral-400 shrink-0" />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      setErrorMessage("");
-                    }}
-                    placeholder="voce@igreja.org"
-                    className="flex-1 min-w-0 bg-transparent outline-none text-sm"
-                  />
-                </span>
-              </label>
+            <form onSubmit={authenticate}>
+              <div className="flex flex-col gap-4 mb-2">
+                <label className="block">
+                  <span className="block text-sm font-medium mb-1.5">
+                    E-mail Corporativo/Ministerial
+                  </span>
+                  <span className="flex items-center gap-2 border border-neutral-300 dark:border-white/20 rounded-md px-3.5 py-2.5 bg-white dark:bg-neutral-900">
+                    <Mail size={14} className="text-neutral-400 shrink-0" />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        setErrorMessage("");
+                      }}
+                      placeholder="voce@igreja.org"
+                      className="flex-1 min-w-0 bg-transparent outline-none text-sm"
+                    />
+                  </span>
+                </label>
 
-              <label className="block">
-                <span className="block text-sm font-medium mb-1.5">
-                  Senha de Acesso
-                </span>
-                <span className="flex items-center gap-2 border border-neutral-300 dark:border-white/20 rounded-md px-3.5 py-2.5 bg-white dark:bg-neutral-900">
-                  <Lock size={14} className="text-neutral-400 shrink-0" />
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      setErrorMessage("");
-                    }}
-                    placeholder="••••••••"
-                    className="flex-1 min-w-0 bg-transparent outline-none text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((v) => !v)}
-                    className="text-neutral-400 shrink-0"
-                  >
-                    {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                  </button>
-                </span>
-              </label>
-            </div>
+                <label className="block">
+                  <span className="block text-sm font-medium mb-1.5">
+                    Senha de Acesso
+                  </span>
+                  <span className="flex items-center gap-2 border border-neutral-300 dark:border-white/20 rounded-md px-3.5 py-2.5 bg-white dark:bg-neutral-900">
+                    <Lock size={14} className="text-neutral-400 shrink-0" />
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        setErrorMessage("");
+                      }}
+                      placeholder="••••••••"
+                      className="flex-1 min-w-0 bg-transparent outline-none text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="text-neutral-400 shrink-0"
+                    >
+                      {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </span>
+                </label>
+              </div>
 
-            <div className="flex items-center justify-between my-4">
-              <label className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={remember}
-                  onChange={(e) => setRemember(e.target.checked)}
-                  className="w-[15px] h-[15px] accent-orla-blue cursor-pointer"
-                />
-                Lembrar neste dispositivo
-              </label>
-              <a
-                href="#"
-                className="text-xs text-orla-blue hover:text-blue-400 no-underline"
+              <div className="flex items-center justify-between my-4">
+                <label className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={remember}
+                    onChange={(e) => setRemember(e.target.checked)}
+                    className="w-[15px] h-[15px] accent-orla-blue cursor-pointer"
+                  />
+                  Lembrar neste dispositivo
+                </label>
+                <a
+                  href="#"
+                  className="text-xs text-orla-blue hover:text-blue-400 no-underline"
+                >
+                  Esqueceu a senha?
+                </a>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full h-12 rounded-md bg-orla-blue text-white font-medium text-sm flex items-center justify-center gap-2 hover:bg-blue-600 disabled:opacity-70 transition-colors"
               >
-                Esqueceu a senha?
-              </a>
-            </div>
-
-            <button
-              onClick={authenticate}
-              disabled={isLoading}
-              className="w-full h-12 rounded-md bg-orla-blue text-white font-medium text-sm flex items-center justify-center gap-2 hover:bg-blue-600 disabled:opacity-70 transition-colors"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 size={15} className="animate-spin" />
-                  Autenticando…
-                </>
-              ) : (
-                "Entrar na Plataforma"
-              )}
-            </button>
+                {isLoading ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" />
+                    Autenticando…
+                  </>
+                ) : (
+                  "Entrar na Plataforma"
+                )}
+              </button>
+            </form>
           </div>
         </div>
       </div>

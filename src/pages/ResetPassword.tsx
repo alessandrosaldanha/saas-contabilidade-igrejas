@@ -83,8 +83,8 @@ export default function ResetPassword() {
       setErrorMessage("Preencha a nova senha e a confirmação.");
       return;
     }
-    if (password.length < 6) {
-      setErrorMessage("A senha deve ter pelo menos 6 caracteres.");
+    if (password.length < 8) {
+      setErrorMessage("A senha deve ter pelo menos 8 caracteres.");
       return;
     }
     if (password !== confirmPassword) {

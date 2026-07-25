@@ -3,6 +3,7 @@
 // Deploy: supabase functions deploy parse-statement
 // Secret:  supabase secrets set GEMINI_API_KEY=...
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { corsHeaders } from "../_shared/cors.ts";
 
 // Alias "latest" em vez de uma versão fixa — evita quebrar quando o Google
 // aposenta modelos antigos para novas chaves de API (ex.: gemini-2.5-flash
@@ -45,12 +46,6 @@ const REFINE_SCHEMA = {
     summary: { type: "string", description: "Resumo em português do que foi ajustado, 1-2 frases" },
   },
   required: ["transactions", "summary"],
-};
-
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 async function callGemini(contents: unknown[], schema: unknown) {
@@ -99,6 +94,7 @@ async function callGemini(contents: unknown[], schema: unknown) {
 }
 
 Deno.serve(async (req) => {
+  const CORS_HEADERS = corsHeaders(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
 
   try {

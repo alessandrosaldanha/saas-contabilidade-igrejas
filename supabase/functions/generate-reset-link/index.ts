@@ -5,14 +5,10 @@
 // Precisa de service-role key — por isso roda aqui, nunca no frontend.
 // Deploy: supabase functions deploy generate-reset-link
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { ALLOWED_ORIGINS, corsHeaders } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
+  const CORS_HEADERS = corsHeaders(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
 
   try {
@@ -47,6 +43,12 @@ Deno.serve(async (req) => {
     const { email, redirectTo } = await req.json();
     if (!email || !redirectTo) {
       return new Response("Campos obrigatórios: email, redirectTo", { status: 400, headers: CORS_HEADERS });
+    }
+    // Defesa em profundidade: o Supabase Auth já valida `redirectTo` contra a
+    // allow-list de Redirect URLs do projeto antes de gerar o link, mas checar
+    // aqui também evita depender só dessa configuração remota.
+    if (!ALLOWED_ORIGINS.some((origin) => redirectTo.startsWith(origin))) {
+      return new Response("redirectTo fora do domínio autorizado", { status: 400, headers: CORS_HEADERS });
     }
 
     const adminClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);

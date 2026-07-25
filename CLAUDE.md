@@ -438,6 +438,38 @@ src/
 - Escolhi `lg:` (1024px) em vez de `md:` (768px) para os dois grids de 2 colunas com conteúdo mais denso (gráficos do Dashboard, painéis de Importação) — em tablets (768–1023px) duas colunas lado a lado ficariam apertadas demais para gráficos/tabelas; `md:` continua sendo o breakpoint do menu lateral (esse sim cabe bem a partir de 768px).
 - Validado com `npx tsc --noEmit` e `npm run build` (sem erros) e, para checagem visual real, subi o dev server (`npm run dev`) e usei o CLI do Playwright (`npx playwright screenshot --viewport-size=...`, baixando o browser Chromium correspondente à versão instalada) contra a tela pública `/login` em 320px, 375px e 768px — confirmado visualmente sem overflow horizontal e o painel ilustrado escondendo/aparecendo corretamente no breakpoint `md`. **As páginas autenticadas (Dashboard, Livro Caixa, Importação, Usuários, Auditoria, o drawer do Sidebar) não puderam ser testadas visualmente nesta sessão** por não haver credenciais de um usuário de teste disponíveis — a lógica foi validada por leitura cuidadosa do código e confirmação de que as classes Tailwind dinâmicas (`lg:grid-cols-[2fr_1fr]`, `-translate-x-full`, etc.) foram de fato geradas no CSS de produção (`grep` no bundle buildado). Recomenda-se validar manualmente essas telas em um dispositivo/emulador antes de considerar encerrado.
 
+### [2026-07-25] Auditoria de Segurança completa (Frontend, Segredos, Dependências, Auth/Rotas) + correções aplicadas
+
+**O que foi auditado (leitura/verificação, sem alteração):**
+- **XSS/Frontend:** nenhuma ocorrência de `dangerouslySetInnerHTML`, `eval`, `new Function` ou `document.write` em `src/`. Nenhum `target="_blank"` no código (logo, sem risco de `rel="noopener noreferrer"` faltando). `localStorage` só é usado para uma flag booleana de UX (`logout_reason_inactive`, `AuthContext.tsx`) — nenhum token/segredo é gravado manualmente (o `supabase-js` já gerencia a sessão internamente).
+- **Segredos:** `.env`/`.env.local` corretamente listados em `.gitignore`; confirmado via `git log --all -- .env` que o arquivo **nunca** foi commitado em nenhum branch. Nenhuma chave literal (`sb_secret_...`, JWT, `AIza...`) encontrada em código-fonte — as Edge Functions só leem segredos via `Deno.env.get(...)`. As duas entradas de `.claude/settings.json` que casaram com o padrão de busca são comandos do allowlist já mascarados (`supabase secrets set X=*`), consistente com a correção do incidente já documentado acima (24/07) — nenhum valor literal exposto atualmente.
+- **Dependências (`npm audit`):** 9 avisos — `react-router-dom@6.30.4`/`react-router` (**moderado**, CVE de open-redirect que pode levar a XSS via `<Link>`/`useNavigate`, GHSA-jjmj-jmhj-qwj2; sem fix não-major disponível hoje — 6.30.4 já é a última release da série 6.x); `eslint`/`minimatch`/`brace-expansion` (**alto**, mas só `devDependencies`, não vão para o bundle de produção); `esbuild`/`vite` (**moderado**, só afeta o dev server local). Nenhuma dependência de produção crítica.
+- **Auth/Rotas:** confirmado que RBAC é reforçado no banco (RLS + RPCs `SECURITY DEFINER`), não só na UI — `ProtectedRoute.tsx` bloqueia por `session`/`profile`/`status === "Inativo"` antes de qualquer render, e as 3 Edge Functions (`invite-user`, `generate-reset-link`, `parse-statement`) já validavam `role === "Admin"`/`has_role(['Admin','Tesoureiro'])` no servidor antes de qualquer ação privilegiada.
+
+**Correções aplicadas nesta sessão:**
+- **Política de senha fraca (mínimo 6 → 8 caracteres):** `src/pages/Usuarios.tsx` (cadastro), `src/pages/ResetPassword.tsx` (redefinição) e `supabase/functions/invite-user/index.ts` (validação server-side) — 6 caracteres estava abaixo do mínimo recomendado pela OWASP.
+- **CORS aberto (`Access-Control-Allow-Origin: "*"`) nas 3 Edge Functions:** criado `supabase/functions/_shared/cors.ts` com uma allow-list (`https://saas-contabilidade-igrejas.vercel.app` + `http://localhost:5173`) — `corsHeaders(req)` agora reflete a origem da requisição só se ela estiver na lista (com `Vary: Origin`), em vez de aceitar qualquer site. `parse-statement`, `invite-user` e `generate-reset-link` atualizadas para importar o helper.
+- **`generate-reset-link` sem validação de `redirectTo`:** adicionada checagem contra a mesma allow-list antes de chamar `generateLink` (defesa em profundidade — o Supabase Auth já valida isso pela allow-list de Redirect URLs do projeto, mas o código agora não depende só dessa configuração remota).
+
+**Decisões técnicas:**
+- **Não foi feito upgrade do `react-router-dom` para a v7** — é a única forma de eliminar de fato o CVE (não há patch não-major na série 6.x), mas é uma migração maior (mudanças de API/roteamento) que merece sua própria sessão de teste, não uma correção "de passagem" numa auditoria. Registrado aqui como pendência.
+- **Dependências de dev (`eslint`, `esbuild`/`vite`) não foram atualizadas** — os avisos de severidade alta são todos em `devDependencies` (nunca chegam ao bundle de produção); corrigi-los exigiria `--force` com bump major do ESLint/Vite, risco desproporcional ao ganho de segurança real nesta sessão.
+- As 3 Edge Functions foram **implantadas em produção** (`supabase functions deploy ...`, projeto `fumabywngmjfzsobmbjr`) imediatamente após a correção, já que as mudanças são hardening puro (allow-list já cobre o domínio de produção e o localhost de dev) e não alteram nenhum comportamento visível para usuários legítimos.
+- Validado com `npx tsc --noEmit` e `npm run build` (sem erros). Teste end-to-end real (cadastro/reset de senha com o novo mínimo de 8 caracteres, chamada às Edge Functions a partir do domínio de produção) não foi executado nesta sessão por não haver credenciais de um usuário Admin disponíveis — recomenda-se validar manualmente antes de considerar encerrado.
+
+### [2026-07-25] Correção: Enter não submetia o formulário de Login
+
+**O que foi encontrado:** `src/pages/Login.tsx` não tinha nenhuma tag `<form>` — os campos de e-mail/senha estavam soltos em `<div>`/`<label>`, e o botão "Entrar na Plataforma" chamava `authenticate()` via `onClick`, sem `type="submit"`. Sem um elemento `<form>` com `onSubmit`, o navegador não tem para onde disparar o evento de submissão ao pressionar Enter dentro de um `<input>` — por isso só o clique no botão funcionava.
+
+**O que foi feito:**
+- Envolvidos os campos (e-mail, senha, "lembrar"/"esqueceu a senha") e o botão de submit num único `<form onSubmit={authenticate}>`.
+- `authenticate` passou a receber o evento (`FormEvent`) e chamar `e.preventDefault()` antes de qualquer validação, evitando o reload de página padrão do submit nativo.
+- Botão principal trocado de `onClick={authenticate}` para `type="submit"` (sem `onClick`) — agora dispara tanto por clique quanto por Enter, através do `onSubmit` do form. O botão de mostrar/ocultar senha já era `type="button"`, então continua não disparando submit por engano.
+
+**Decisões técnicas:**
+- Não foi necessário nenhum `onKeyDown`/listener manual de tecla — usar a semântica nativa de `<form>`/`type="submit"` é a forma correta e mais robusta (funciona também com autofill do navegador, leitores de tela e Enter em qualquer campo do formulário, não só num input específico).
+- Validado com `npx tsc --noEmit`, `npm run build` (sem erros) e um teste real em navegador (Playwright headless contra o dev server local): preenchendo e-mail/senha e pressionando Enter no campo de senha, o botão mudou para o estado "Autenticando…" sem nenhum clique no botão — confirmando que a submissão via teclado funciona igual à submissão via mouse.
+
 ## 🧠 7. SKILLS & PROTOCOLOS DE EXECUÇÃO
 
 O Claude Code deve ler, carregar e seguir rigorosamente as skills definidas no arquivo `SKILLS.md` (ou na pasta `.claude/skills/`).

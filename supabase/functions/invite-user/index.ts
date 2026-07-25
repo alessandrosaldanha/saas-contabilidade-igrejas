@@ -6,14 +6,10 @@
 // SUPABASE_URL, SUPABASE_ANON_KEY e SUPABASE_SERVICE_ROLE_KEY já existem por
 // padrão no runtime de toda Edge Function (não precisam ser configuradas como secret).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
+  const CORS_HEADERS = corsHeaders(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
 
   try {
@@ -46,8 +42,8 @@ Deno.serve(async (req) => {
     if (!email || !name || !role || !password) {
       return new Response("Campos obrigatórios: email, name, role, password", { status: 400, headers: CORS_HEADERS });
     }
-    if (typeof password !== "string" || password.length < 6) {
-      return new Response("A senha deve ter pelo menos 6 caracteres", { status: 400, headers: CORS_HEADERS });
+    if (typeof password !== "string" || password.length < 8) {
+      return new Response("A senha deve ter pelo menos 8 caracteres", { status: 400, headers: CORS_HEADERS });
     }
 
     const adminClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);

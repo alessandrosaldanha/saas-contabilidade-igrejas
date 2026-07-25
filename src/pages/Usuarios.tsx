@@ -75,8 +75,8 @@ export default function Usuarios() {
       showToastMsg("Preencha a senha e a confirmação de senha.");
       return;
     }
-    if (invitePassword.length < 6) {
-      showToastMsg("A senha deve ter pelo menos 6 caracteres.");
+    if (invitePassword.length < 8) {
+      showToastMsg("A senha deve ter pelo menos 8 caracteres.");
       return;
     }
     if (invitePassword !== inviteConfirmPassword) {
