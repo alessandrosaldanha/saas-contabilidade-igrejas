@@ -81,6 +81,10 @@ export interface AuditLog {
   after: string;
   ip: string;
   device: string;
+  // Só preenchido quando quem carrega o log é o Master (visão global entre
+  // igrejas, "Todas as Igrejas") — para os demais papéis a igreja é sempre
+  // implicitamente a própria.
+  churchName?: string | null;
 }
 
 export interface ChatMessage {

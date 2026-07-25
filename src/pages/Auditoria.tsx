@@ -4,6 +4,7 @@ import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Avatar from "../components/Avatar";
 import { useApp } from "../context/AppContext";
+import { useAuth } from "../context/AuthContext";
 import { supabase } from "../services/supabase";
 import { ACTION_TYPES, AUDIT_PAGE_SIZE, MONTHS_FULL } from "../services/mockData";
 import type { AuditActionKey, AuditLog } from "../types";
@@ -12,6 +13,10 @@ const ACTION_FILTERS: Array<{ id: AuditActionKey | "all"; label: string }> = [
   { id: "all", label: "Todas as ações" },
   ...(Object.keys(ACTION_TYPES) as AuditActionKey[]).map((k) => ({ id: k, label: ACTION_TYPES[k].label })),
 ];
+
+const MASTER_SELECT =
+  "id, occurred_at, user_id, role, action_key, action_label, before, after, ip, device, church_id, church:churches(name)";
+const TENANT_SELECT = "id, occurred_at, user_id, role, action_key, action_label, before, after, ip, device";
 
 interface AuditLogRow {
   id: string;
@@ -24,6 +29,10 @@ interface AuditLogRow {
   after: string | null;
   ip: string | null;
   device: string | null;
+  // `church_id` é FK de audit_logs para churches (relação "para um") — o
+  // PostgREST embute isso como objeto único (ou null), nunca array. Só vem
+  // preenchido quando a query é a do Master (MASTER_SELECT).
+  church?: { name: string } | null;
 }
 
 function mapRow(row: AuditLogRow, usersById: Map<string, string>): AuditLog {
@@ -42,17 +51,25 @@ function mapRow(row: AuditLogRow, usersById: Map<string, string>): AuditLog {
     after: row.after ?? "—",
     ip: row.ip ?? "—",
     device: row.device ?? "—",
+    churchName: row.church?.name ?? null,
   };
 }
 
 export default function Auditoria() {
-  const { usersList, effectiveChurchId } = useApp();
+  const { usersList, effectiveChurchId, masterChurches } = useApp();
+  const { profile } = useAuth();
+  const isMaster = profile?.role === "master";
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [search, setSearch] = useState("");
   const [userFilter, setUserFilter] = useState("all");
   const [actionFilter, setActionFilter] = useState<AuditActionKey | "all">("all");
+  // Só relevante para o Master — "all" = histórico global (todas as igrejas).
+  // Diferente de Dashboard/Livro Caixa/Importação (que exigem a "igreja em
+  // gestão" da Sidebar), a Auditoria do Master tem seu próprio seletor
+  // independente, podendo ver tudo de uma vez ou uma igreja específica.
+  const [churchFilter, setChurchFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,32 +78,47 @@ export default function Auditoria() {
 
   useEffect(() => {
     let active = true;
-    // O Master só vê a auditoria depois de escolher uma igreja no seletor da
-    // Sidebar (sem isso não há um church_id para filtrar).
-    if (!effectiveChurchId) {
+
+    // Para os demais papéis (não-master), a igreja é sempre a própria — sem
+    // ela (não deveria acontecer, todo profile não-master tem church_id) não
+    // há o que buscar.
+    if (!isMaster && !effectiveChurchId) {
       setLogs([]);
       setLoading(false);
       return;
     }
+
     setLoading(true);
     const start = new Date(year, month, 1).toISOString();
     const end = new Date(year, month + 1, 1).toISOString();
-    supabase
+    let query = supabase
       .from("audit_logs")
-      .select("id, occurred_at, user_id, role, action_key, action_label, before, after, ip, device")
-      .eq("church_id", effectiveChurchId)
+      .select(isMaster ? MASTER_SELECT : TENANT_SELECT)
       .gte("occurred_at", start)
       .lt("occurred_at", end)
-      .order("occurred_at", { ascending: false })
-      .then(({ data, error }) => {
-        if (!active) return;
-        if (!error && data) setLogs(data.map((row) => mapRow(row, usersById)));
-        setLoading(false);
-      });
+      .order("occurred_at", { ascending: false });
+
+    // Master com "Todas as Igrejas" não filtra por church_id (a RLS via
+    // is_master() já libera ver tudo); com uma igreja específica escolhida,
+    // filtra igual aos demais papéis.
+    if (isMaster) {
+      if (churchFilter !== "all") query = query.eq("church_id", churchFilter);
+    } else {
+      query = query.eq("church_id", effectiveChurchId as string);
+    }
+
+    query.then(({ data, error }) => {
+      if (!active) return;
+      if (!error && data) {
+        const rows = data as unknown as AuditLogRow[];
+        setLogs(rows.map((row) => mapRow(row, usersById)));
+      }
+      setLoading(false);
+    });
     return () => {
       active = false;
     };
-  }, [year, month, usersById, effectiveChurchId]);
+  }, [year, month, usersById, isMaster, effectiveChurchId, churchFilter]);
 
   const goPrevMonth = () => {
     if (month === 0) {
@@ -219,6 +251,20 @@ export default function Auditoria() {
             </option>
           ))}
         </select>
+        {isMaster && (
+          <select
+            value={churchFilter}
+            onChange={(e) => changeFilters(() => setChurchFilter(e.target.value))}
+            className="border border-neutral-300 dark:border-white/20 bg-white dark:bg-neutral-900 rounded-md text-xs px-3 py-2"
+          >
+            <option value="all">Todas as Igrejas</option>
+            {masterChurches.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div className="flex gap-2 flex-wrap mb-5">
@@ -263,6 +309,7 @@ export default function Auditoria() {
               <tr className="text-left text-neutral-400">
                 <th className="px-4.5 py-3 font-medium text-xs">Data/Hora</th>
                 <th className="px-4.5 py-3 font-medium text-xs">Usuário</th>
+                {isMaster && <th className="px-4.5 py-3 font-medium text-xs">Igreja</th>}
                 <th className="px-4.5 py-3 font-medium text-xs">Ação</th>
                 <th className="px-4.5 py-3 font-medium text-xs">Antes → Depois</th>
                 <th className="px-4.5 py-3 font-medium text-xs">IP / Dispositivo</th>
@@ -281,6 +328,13 @@ export default function Auditoria() {
                       </div>
                     </div>
                   </td>
+                  {isMaster && (
+                    <td className="px-4.5 py-3">
+                      <Badge tone="neutral" appearance="outline">
+                        {log.churchName || "—"}
+                      </Badge>
+                    </td>
+                  )}
                   <td className="px-4.5 py-3">
                     <Badge tone={ACTION_TYPES[log.actionKey].tone}>{log.actionLabel}</Badge>
                   </td>
