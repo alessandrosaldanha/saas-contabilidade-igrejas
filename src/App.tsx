@@ -38,7 +38,9 @@ export default function App() {
                   <Route element={<ProtectedRoute allowedRoles={["Admin"]} />}>
                     <Route path="usuarios" element={<Usuarios />} />
                   </Route>
-                  <Route path="auditoria" element={<Auditoria />} />
+                  <Route element={<ProtectedRoute allowedRoles={["Admin", "Auditor", "Conselho Fiscal"]} />}>
+                    <Route path="auditoria" element={<Auditoria />} />
+                  </Route>
                 </Route>
               </Route>
               <Route path="*" element={<Navigate to="/dashboard" replace />} />

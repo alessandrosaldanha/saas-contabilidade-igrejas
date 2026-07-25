@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import Avatar from "./Avatar";
 import Badge from "./Badge";
+import ProfileSettingsModal from "./ProfileSettingsModal";
 import { useApp } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../services/supabase";
@@ -24,8 +25,13 @@ const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard Executivo", icon: LayoutGrid },
   { to: "/importacao", label: "Extratos e Importação IA", icon: FileText },
   { to: "/livro-caixa", label: "Livro Caixa (Lançamentos)", icon: Wallet, badge: 3 },
-  { to: "/usuarios", label: "Governança e Usuários", icon: Users, adminOnly: true },
-  { to: "/auditoria", label: "Trilha de Auditoria (Logs)", icon: Clock },
+  { to: "/usuarios", label: "Governança e Usuários", icon: Users, allowedRoles: ["Admin"] },
+  {
+    to: "/auditoria",
+    label: "Trilha de Auditoria (Logs)",
+    icon: Clock,
+    allowedRoles: ["Admin", "Auditor", "Conselho Fiscal"],
+  },
 ];
 
 export default function Sidebar() {
@@ -33,10 +39,13 @@ export default function Sidebar() {
     useApp();
   const { profile, signOut } = useAuth();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const expanded = !sidebarCollapsed;
-  const navItems = NAV_ITEMS.filter((item) => !item.adminOnly || currentUser.role === "Admin");
+  const navItems = NAV_ITEMS.filter(
+    (item) => !item.allowedRoles || item.allowedRoles.includes(currentUser.role)
+  );
 
   const performLogout = async () => {
     if (profile) {
@@ -158,7 +167,10 @@ export default function Sidebar() {
               </div>
             </div>
             <button
-              onClick={() => setShowProfileMenu(false)}
+              onClick={() => {
+                setShowProfileMenu(false);
+                setShowProfileModal(true);
+              }}
               className="flex items-center gap-2.5 w-full text-left px-2 py-2 rounded-md text-sm text-black dark:text-white hover:bg-neutral-100 dark:hover:bg-white/5"
             >
               <Settings size={15} />
@@ -198,6 +210,8 @@ export default function Sidebar() {
         </div>
         </div>
       </aside>
+
+      {showProfileModal && <ProfileSettingsModal onClose={() => setShowProfileModal(false)} />}
     </>
   );
 }
