@@ -470,6 +470,19 @@ src/
 - Não foi necessário nenhum `onKeyDown`/listener manual de tecla — usar a semântica nativa de `<form>`/`type="submit"` é a forma correta e mais robusta (funciona também com autofill do navegador, leitores de tela e Enter em qualquer campo do formulário, não só num input específico).
 - Validado com `npx tsc --noEmit`, `npm run build` (sem erros) e um teste real em navegador (Playwright headless contra o dev server local): preenchendo e-mail/senha e pressionando Enter no campo de senha, o botão mudou para o estado "Autenticando…" sem nenhum clique no botão — confirmando que a submissão via teclado funciona igual à submissão via mouse.
 
+### [2026-07-25] Reformulação completa do README.md (padrão enterprise) + correções de tooling
+
+**O que foi feito:**
+- **`README.md`** reescrito do zero, com base no estado real do repositório (não no protótipo original): título/tagline, badges (React, TypeScript, Vite, Tailwind, Supabase, Gemini, deploy Vercel, licença), índice navegável, tabela de funcionalidades por módulo, diagrama de arquitetura em Mermaid + tabela de stack por camada, mapa de pastas, pré-requisitos, passo a passo de instalação (clone → migrations → `.env` → secrets das Edge Functions → deploy), tabela de scripts (`dev`/`build`/`preview`/`lint`/`tsc --noEmit`), seção de deploy, seção de segurança/governança (refletindo a auditoria de segurança já documentada acima) e seção de contribuição/licença.
+- **`LICENSE`** (novo, MIT) — não existia nenhum arquivo de licença no repositório apesar do README antigo já ter um badge "MIT"; confirmado com o usuário qual licença usar antes de criar o arquivo.
+- **`eslint.config.js`** (novo) — o script `lint` do `package.json` já existia e todas as dependências do ESLint 9 (`@eslint/js`, `typescript-eslint`, `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`, `globals`) já estavam instaladas, mas **não havia nenhum arquivo de configuração** (`eslint.config.js`) — `npm run lint` falhava direto com "ESLint couldn't find an eslint.config.(js|mjs|cjs) file". Corrigido com a configuração padrão do template Vite (react-ts) para não documentar no README um comando que na prática não funcionava. Rodado depois: 0 erros, 5 avisos pré-existentes (`react-refresh/only-export-components` em `AppContext.tsx`/`AuthContext.tsx`, `react-hooks/exhaustive-deps` em `Dashboard.tsx`) — não corrigidos, pois são avisos (não erros) fora do escopo desta tarefa.
+
+**Decisões técnicas:**
+- Removidas do README as referências a **Keycloak** (nunca foi de fato integrado — descartado ainda na Fase 1, ver decisão de 24/07 "Autenticação: Supabase Auth (não Keycloak)") e ao modelo fixo "Gemini 3.5 Flash" (o projeto usa o alias `gemini-flash-latest`, documentado como decisão deliberada para não quebrar quando o Google aposenta modelos).
+- Export de relatório em PDF/Word descrito no README como "prévia de relatório" (modal), não como geração de arquivo real — só o CSV/Excel gera um arquivo de fato (`Blob`), consistente com o que o código faz hoje.
+- Nenhum badge de CI foi incluído — não há pipeline de CI configurado (`.github/workflows` não existe); um badge de "build passing" seria enganoso.
+- Validado com `npx tsc --noEmit` e `npm run build` (sem erros) após todas as mudanças; `npm run lint` validado separadamente após criar o `eslint.config.js`.
+
 ## 🧠 7. SKILLS & PROTOCOLOS DE EXECUÇÃO
 
 O Claude Code deve ler, carregar e seguir rigorosamente as skills definidas no arquivo `SKILLS.md` (ou na pasta `.claude/skills/`).

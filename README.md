@@ -1,54 +1,226 @@
-# 🏛️ Gestão Contábil de Igreja com IA
+# 🏛️ Contabilidade Ministerial
 
-> Sistema completo de gestão financeira, contabilidade e governança (RBAC) para igrejas locais, integrado com IA para leitura automática de extratos bancários.
+**Gestão financeira, contábil e de governança (RBAC) para igrejas locais — com leitura automática de extratos bancários via IA.**
 
-![React](https://img.shields.io/badge/React-18-blue?logo=react)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
-![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-3-38BDF8?logo=tailwind-css)
-![Vite](https://img.shields.io/badge/Vite-5-646CFF?logo=vite)
-![License](https://img.shields.io/badge/License-MIT-green)
-
----
-
-## 📌 Sobre o Projeto
-
-A plataforma foi desenvolvida para simplificar a gestão financeira e garantir **transparência e prestação de contas** em igrejas locais.
-
-O diferencial da plataforma é a utilização de **Inteligência Artificial (Google Gemini API)** para processar extratos bancários em PDF/OFX, identificando automaticamente entradas (dízimos, ofertas) e saídas (manutenção, ação social, salários) e reduzindo o trabalho manual da tesouraria.
+[![React](https://img.shields.io/badge/React-18.3-149ECA?logo=react&logoColor=white)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3-38BDF8?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Supabase](https://img.shields.io/badge/Supabase-Postgres_%7C_Auth_%7C_Edge_Functions-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com/)
+[![Google Gemini](https://img.shields.io/badge/IA-Google_Gemini-8E75B2?logo=googlegemini&logoColor=white)](https://ai.google.dev/)
+[![Deploy](https://img.shields.io/badge/deploy-vercel-black?logo=vercel&logoColor=white)](https://saas-contabilidade-igrejas.vercel.app)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
 ---
 
-## ✨ Principais Funcionalidades
+## 📖 Índice
 
-- 🔐 **Autenticação & Controlo de Acesso (RBAC):** Níveis de permissão bem definidos via Keycloak SSO / Supabase Auth (Administrador/Pastor, Tesoureiro, Auditor/Conselho Fiscal).
-- 📊 **Dashboard Executivo:** Indicadores do mês, balanço em tempo real, fluxo de caixa e **Modo Apresentação** para assembleias de prestação de contas.
-- 📑 **Livro Caixa Geral:** Registo minucioso de entradas e saídas com filtragem obrigatória por Mês/Ano.
-- 🤖 **Importação Inteligente com IA:** Leitura automática de extratos bancários com categorização sugerida antes da confirmação.
-- 🔍 **Trilha de Auditoria (Audit Logs):** Registo imutável de todas as ações feitas no sistema com busca e filtros por mês.
-- 👥 **Gestão de Utilizadores:** Gestão de equipa, convites de novos membros e revogação de acessos.
-
----
-
-## 🛠️ Tecnologias Utilizadas
-
-- **Frontend:** [React](https://react.dev/), [TypeScript](https://www.typescriptlang.org/), [Vite](https://vitejs.dev/)
-- **Estilização:** [Tailwind CSS](https://tailwindcss.com/), [Lucide React](https://lucide.dev/) (Ícones)
-- **Base de Dados:** [Supabase](https://supabase.com/) (PostgreSQL - Free Tier)
-- **Autenticação:** [Keycloak SSO](https://www.keycloak.org/) / [Supabase Auth](https://supabase.com/docs/guides/auth)
-- **Inteligência Artificial:** [Google Gemini API](https://ai.google.dev/) (Gemini 3.5 Flash)
+- [Sobre o projeto](#-sobre-o-projeto)
+- [Principais funcionalidades](#-principais-funcionalidades)
+- [Arquitetura e stack técnica](#%EF%B8%8F-arquitetura-e-stack-técnica)
+- [Estrutura de pastas](#-estrutura-de-pastas)
+- [Pré-requisitos](#-pré-requisitos)
+- [Instalação](#-instalação)
+- [Como executar](#-como-executar)
+- [Deploy](#-deploy)
+- [Segurança e governança](#-segurança-e-governança)
+- [Contribuição](#-contribuição)
+- [Licença](#-licença)
 
 ---
 
-## 🚀 Como Executar o Projeto Localmente
+## 📌 Sobre o projeto
 
-### Pré-requisitos
+O **Contabilidade Ministerial** é uma plataforma web para tesouraria de igrejas locais, construída em torno de três pilares: **simplicidade** de uso para tesoureiros não-técnicos, **auditabilidade total** de cada ação (nada é alterado ou excluído sem deixar rastro) e **automação via IA** para eliminar o trabalho manual de lançar extratos bancários linha a linha.
 
-Certifica-te de ter o **Node.js** (versão 18 ou superior) instalado na tua máquina.
+O diferencial da plataforma é a **leitura e categorização automática de extratos bancários (PDF/OFX/CSV)** via [Google Gemini](https://ai.google.dev/), que identifica entradas (dízimos, ofertas) e saídas (manutenção, ação social, contas) e sugere a categoria contábil antes de qualquer lançamento ser confirmado — sempre com revisão humana no meio do caminho.
 
-### Passo a Passo
+> [!NOTE]
+> Projeto em produção real, usado por uma igreja local. Todo o backend (banco de dados, autenticação, storage e as funções de IA) roda sobre o **free tier do Supabase**, sem custos de infraestrutura própria.
 
-1. **Clona o repositório:**
+---
+
+## ✨ Principais funcionalidades
+
+| Módulo | Descrição |
+|---|---|
+| 🔐 **Autenticação & RBAC** | Login via Supabase Auth com 4 papéis (`Admin`, `Tesoureiro`, `Auditor`, `Conselho Fiscal`), reforçados a nível de banco (RLS + RPCs `SECURITY DEFINER`) — não só na interface. |
+| 📊 **Dashboard executivo** | KPIs de entradas/saídas com variação vs. período anterior, saldo em caixa, gráfico Entradas × Saídas e donut de saídas por categoria — tudo calculado a partir de lançamentos reais. |
+| 📑 **Livro Caixa** | Extrato completo por mês/ano, saldo de abertura/fechamento calculado em runtime, lançamento manual (criar/editar/excluir) e exportação em CSV/Excel real + prévia de relatório em PDF/Word. |
+| 🤖 **Importação inteligente com IA** | Upload de extrato (PDF, OFX ou CSV) processado pelo Gemini, que extrai e categoriza os lançamentos automaticamente; chat em linguagem natural para refinar a categorização antes de salvar; detecção de duplicatas contra o Livro Caixa. |
+| 🔍 **Trilha de auditoria** | Log imutável (sem `DELETE`/`UPDATE` liberado) de todo acesso, criação, edição e exclusão de lançamentos — gerado automaticamente por *triggers* de banco, não por chamadas manuais do frontend. |
+| 👥 **Gestão de usuários** | Cadastro com senha definida pelo Admin, troca de papel/status com confirmação extra para promoções/rebaixamentos de Admin, geração de link de redefinição de senha, bloqueio em tempo real de contas desativadas (via Realtime). |
+| 🌗 **Tema claro/escuro** | Alternância persistente via Tailwind `dark` mode. |
+| 📱 **Responsivo (mobile-first)** | Menu lateral em *drawer* no mobile, tabelas com scroll próprio, grids que colapsam por breakpoint — testado de 320px a desktop. |
+
+---
+
+## 🛠️ Arquitetura e stack técnica
+
+```mermaid
+flowchart LR
+    subgraph Client["Navegador"]
+        A["React 18 + TypeScript\n(Vite, Tailwind CSS)"]
+    end
+
+    subgraph Supabase["Supabase (Free Tier)"]
+        B[("PostgreSQL\nRLS + RPCs")]
+        C["Auth\n(sessão, RBAC)"]
+        D["Storage"]
+        E["Edge Functions\n(Deno)"]
+    end
+
+    F["Google Gemini API\n(gemini-flash-latest)"]
+
+    A -- "supabase-js" --> B
+    A -- "supabase-js" --> C
+    A -- "supabase.functions.invoke" --> E
+    E -- "service-role key" --> B
+    E -- "extração + categorização" --> F
+    A -.-> D
+```
+
+| Camada | Tecnologia |
+|---|---|
+| **Frontend** | [React 18](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/), [Vite 5](https://vitejs.dev/) |
+| **Estilo/UI** | [Tailwind CSS 3](https://tailwindcss.com/) (dark mode via classe), [Lucide React](https://lucide.dev/) (ícones) |
+| **Roteamento** | [React Router DOM 6](https://reactrouter.com/) |
+| **Backend / Banco** | [Supabase](https://supabase.com/) — PostgreSQL, Row Level Security, RPCs `SECURITY DEFINER`, Realtime |
+| **Autenticação** | Supabase Auth (e-mail/senha) |
+| **Funções server-side** | Supabase Edge Functions (Deno) — `parse-statement`, `invite-user`, `generate-reset-link` |
+| **Inteligência Artificial** | [Google Gemini API](https://ai.google.dev/) (alias `gemini-flash-latest`) — leitura nativa de PDF e categorização contábil via `responseSchema` estrito |
+| **Hospedagem** | [Vercel](https://vercel.com/) (deploy automático a cada push em `main`) |
+
+---
+
+## 📂 Estrutura de pastas
+
+```text
+.
+├── src/
+│   ├── assets/            # SVGs e ilustrações estáticas
+│   ├── components/        # Sidebar, Layout, Card, Badge, Avatar, Toast, ProtectedRoute...
+│   ├── context/           # AuthContext (sessão/RBAC) e AppContext (tema, toasts, dados globais)
+│   ├── pages/             # Login, ResetPassword, Dashboard, LivroCaixa, ImportacaoExtrato,
+│   │                      # Auditoria, Usuarios
+│   ├── services/          # supabase.ts (client) e mockData.ts (helpers legados)
+│   ├── types/             # Interfaces TypeScript (Transaction, ChurchUser, AuditLog...)
+│   └── utils/             # Formatação de moeda/data, agregações de métricas, gráficos
+├── supabase/
+│   ├── migrations/        # 0001_init.sql ... 0006_rbac_status_hardening.sql
+│   └── functions/
+│       ├── _shared/       # Helper de CORS compartilhado entre as functions
+│       ├── parse-statement/       # Extração + categorização de extratos via Gemini
+│       ├── invite-user/           # Criação de usuário (Admin API)
+│       └── generate-reset-link/   # Geração de link de redefinição de senha
+├── legacy-static/         # Protótipo estático original (referência histórica)
+├── CLAUDE.md              # Log vivo de arquitetura, decisões técnicas e histórico do projeto
+└── vercel.json            # Rewrite de rotas para SPA
+```
+
+---
+
+## ✅ Pré-requisitos
+
+- [Node.js](https://nodejs.org/) **18 ou superior** (e `npm`)
+- Uma conta no [Supabase](https://supabase.com/) (free tier é suficiente)
+- Uma chave de API do [Google AI Studio](https://aistudio.google.com/) (Gemini) para a importação com IA
+- [Supabase CLI](https://supabase.com/docs/guides/cli) — apenas se for aplicar migrations/deploy de Edge Functions localmente
+
+---
+
+## 📦 Instalação
+
+1. **Clone o repositório e instale as dependências:**
+
    ```bash
-   git clone [https://github.com/teu-usuario/contabilidade-igreja.git](https://github.com/teu-usuario/contabilidade-igreja.git)
-   cd contabilidade-igreja
+   git clone https://github.com/alessandrosaldanha/saas-contabilidade-igrejas.git
+   cd saas-contabilidade-igrejas
+   npm install
    ```
+
+2. **Crie um projeto no Supabase** e rode as migrations, na ordem, em *SQL Editor* (ou via CLI):
+
+   ```bash
+   supabase link --project-ref <seu-project-ref>
+   supabase db push
+   ```
+
+3. **Configure as variáveis de ambiente do frontend** — copie `.env.example` para `.env` e preencha com os dados do seu projeto (*Project Settings → API*):
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   ```env
+   VITE_SUPABASE_URL=https://xxxxxxxxxxxx.supabase.co
+   VITE_SUPABASE_ANON_KEY=eyJhbGciOi...
+   ```
+
+4. **Configure os *secrets* das Edge Functions** (nunca no frontend):
+
+   ```bash
+   supabase secrets set GEMINI_API_KEY=<sua-chave-gemini>
+   ```
+
+   > [!IMPORTANT]
+   > `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY` **não** precisam ser configuradas manualmente — o runtime de toda Edge Function do Supabase já as injeta automaticamente.
+
+5. **Implante as Edge Functions:**
+
+   ```bash
+   supabase functions deploy parse-statement
+   supabase functions deploy invite-user
+   supabase functions deploy generate-reset-link
+   ```
+
+---
+
+## ▶️ Como executar
+
+| Comando | Descrição |
+|---|---|
+| `npm run dev` | Inicia o servidor de desenvolvimento (Vite) com hot-reload |
+| `npm run build` | Type-check (`tsc -b`) + build de produção otimizado em `dist/` |
+| `npm run preview` | Serve o build de produção localmente para validação |
+| `npm run lint` | Roda o ESLint sobre todo o projeto |
+| `npx tsc --noEmit` | Verificação de tipos isolada, sem gerar build |
+
+> [!NOTE]
+> O projeto ainda não possui uma suíte de testes automatizados (unitários/E2E). A validação de cada alteração é feita hoje via type-check, build e testes manuais/Playwright ad-hoc — ver histórico em [`CLAUDE.md`](./CLAUDE.md).
+
+---
+
+## 🚀 Deploy
+
+- **Frontend:** publicado na [Vercel](https://saas-contabilidade-igrejas.vercel.app), com deploy automático a cada push na branch `main`. `vercel.json` faz o *rewrite* de todas as rotas para `index.html`, necessário para o roteamento client-side do React Router funcionar em qualquer URL.
+- **Backend:** Supabase gerenciado (PostgreSQL + Auth + Edge Functions) — sem servidor próprio para manter.
+
+---
+
+## 🔒 Segurança e governança
+
+- **RBAC reforçado no banco, não só na UI** — toda regra de permissão (quem pode ler/criar/editar/excluir) é uma *policy* de Row Level Security ou uma RPC `SECURITY DEFINER` no Postgres. Alterar `role` no cliente não concede nenhum acesso extra.
+- **Trilha de auditoria imutável** — `audit_logs` não tem policy de `UPDATE`/`DELETE`; todo lançamento, edição de usuário e login gera um registro automático via *trigger* de banco, com IP e User-Agent reais da requisição.
+- **Segredos nunca no frontend** — chaves sensíveis (`SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`) só existem no runtime das Edge Functions; o cliente só recebe a `anon key`, pensada para ser pública.
+- **CORS restrito por allow-list** — as Edge Functions respondem apenas às origens conhecidas (domínio de produção + `localhost` de desenvolvimento), em vez de aceitar qualquer site.
+- **Política de senha** — mínimo de 8 caracteres, validado tanto no cliente quanto no servidor.
+- **Bloqueio em tempo real** — desativar um usuário encerra a sessão dele imediatamente em qualquer aba/navegador aberto, via Supabase Realtime.
+- **Sem segredos versionados** — `.env`/`.env.local` estão no `.gitignore` e nunca foram commitados; o repositório passou por auditoria de segurança completa (frontend, dependências, segredos e rotas) documentada em [`CLAUDE.md`](./CLAUDE.md).
+
+---
+
+## 🤝 Contribuição
+
+Contribuições são bem-vindas. Para propor uma mudança:
+
+1. Abra uma *issue* descrevendo o problema ou a melhoria antes de codar, quando possível.
+2. Crie um branch a partir de `main`: `git checkout -b minha-feature`.
+3. Garanta que `npx tsc --noEmit`, `npm run build` e `npm run lint` passam sem erros.
+4. Abra um Pull Request descrevendo **o quê** e **o porquê** da mudança.
+
+---
+
+## 📄 Licença
+
+Distribuído sob a licença **MIT**. Veja o arquivo [`LICENSE`](./LICENSE) para o texto completo.
