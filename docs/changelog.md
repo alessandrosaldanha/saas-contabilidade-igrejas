@@ -689,3 +689,21 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
 - Versão `v1.2.0` (MINOR, SemVer) por incluir uma funcionalidade nova retrocompatível (Termos de Uso), não só a limpeza de documentação.
 
 **Validação:** release publicado com sucesso em `https://github.com/alessandrosaldanha/saas-contabilidade-igrejas/releases/tag/v1.2.0`.
+
+### [2026-07-26] Fix: RLS bloqueando salvamento de lançamentos/importação de extrato (`transactions`)
+
+**O que foi pedido:** erro "Falha ao salvar lançamentos: new row violates row-level security policy for table 'transactions'" ao salvar extrato importado (`ImportacaoExtrato.tsx`) e lançamentos manuais (`LivroCaixa.tsx`).
+
+**Diagnóstico (confirmado via MCP Supabase — `get_logs`, `execute_sql`, `pg_policies`):**
+- A policy `transactions_insert_treasury` (e a análoga `import_history_insert_treasury`) já existia desde `0009_multi_tenant_churches.sql` e estava correta: `is_master() OR (has_role(['Admin','Tesoureiro']) AND church_id = current_church_id())`. Não era um caso de policy de INSERT ausente.
+- O front dependia de enviar `church_id: undefined` (que o `JSON.stringify` do client Supabase omite do payload) para o `DEFAULT current_church_id()` da coluna resolver sozinho, e só enviava um valor explícito para o papel `master`. Reproduzido via SQL direto (`set local request.jwt.claim.sub = ...`) que **qualquer `church_id` explícito divergente do `current_church_id()` do usuário** (ex.: estado stale de `effectiveChurchId`, múltiplas abas, race condition) dispara exatamente essa mensagem de RLS — confirmando a causa raiz como a fragilidade desse contrato implícito front↔DEFAULT, não uma policy faltante.
+- `get_advisors`/`pg_policies`/dados de `profiles`×`churches` no ambiente atual não mostraram nenhuma inconsistência de papel/igreja — o bug é de contrato entre camadas, reproduzível independente do estado dos dados.
+
+**O que foi feito:**
+- **`supabase/migrations/0012_transactions_church_id_trigger.sql`** (aplicada via MCP `apply_migration`): função `sync_church_id()` (`SECURITY DEFINER`) como trigger `BEFORE INSERT OR UPDATE` em `transactions` e `import_history` — força `NEW.church_id := current_church_id()` no servidor para qualquer papel que não seja `master`, **independente do que o client enviar**; para `master`, mantém o valor explícito escolhido na Sidebar, só validando que não veio nulo (`RAISE EXCEPTION` com mensagem clara em vez do erro genérico de RLS).
+- **`src/pages/ImportacaoExtrato.tsx`** e **`src/pages/LivroCaixa.tsx`**: removida a lógica `profile.role === "master" ? effectiveChurchId : undefined` (e o comentário sobre depender do DEFAULT/omissão de campo) — `effectiveChurchId` (do `AppContext`) já resolve corretamente para **todos os papéis** (própria igreja para não-master, igreja em gestão para master), então os dois pontos de `insert` em `transactions`/`import_history` agora sempre enviam `church_id: effectiveChurchId` explicitamente.
+
+**Decisões técnicas:**
+- Trigger no banco em vez de só corrigir o front: a policy de RLS deixa de depender de o client omitir/acertar um campo — mesmo um bug futuro no front (ou um insert direto via API) não consegue mais gravar um `church_id` de outra igreja para quem não é master; o valor correto é sempre imposto no servidor antes do `WITH CHECK` ser avaliado.
+- Validado com SQL direto (papel `Tesoureiro`, `set local request.jwt.claim.sub`): antes do fix, insert com `church_id` de outra igreja retornava `42501 new row violates row-level security policy`; depois do fix, o mesmo insert é aceito e o trigger substitui silenciosamente pelo `church_id` correto do usuário. Também validado o caso `master` sem igreja selecionada (retorna agora a mensagem clara "Selecione a igreja em gestão antes de salvar." em vez do erro genérico de RLS).
+- `npx tsc --noEmit` e `npm run build` sem erros após a simplificação do front.

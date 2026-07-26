@@ -253,12 +253,9 @@ export default function ImportacaoExtrato() {
     setDuplicateWarning(null);
     setIsSaving(true);
     try {
-      // Para o Master, church_id não tem DEFAULT no banco (ele não pertence a
-      // nenhuma igreja) — precisa vir explícito da igreja escolhida na Sidebar.
-      // `undefined` é omitido do payload JSON, então para os demais papéis o
-      // DEFAULT do banco (a própria igreja) continua resolvendo sozinho.
-      const masterChurchId = profile.role === "master" ? effectiveChurchId : undefined;
-
+      // effectiveChurchId já resolve para a própria igreja (não-master) ou para a
+      // igreja em gestão escolhida na Sidebar (master) — nunca depender de
+      // DEFAULT do banco/omissão de campo, que é frágil e sujeito a bugs de RLS.
       const { data: historyRow, error: historyError } = await supabase
         .from("import_history")
         .insert({
@@ -266,7 +263,7 @@ export default function ImportacaoExtrato() {
           month_label: deriveMonthLabel(stagedTransactions),
           count: stagedTransactions.length,
           imported_by: profile.id,
-          church_id: masterChurchId,
+          church_id: effectiveChurchId,
         })
         .select("id")
         .single();
@@ -281,7 +278,7 @@ export default function ImportacaoExtrato() {
         confidence: t.confidence,
         created_by: profile.id,
         import_id: historyRow.id,
-        church_id: masterChurchId,
+        church_id: effectiveChurchId,
       }));
 
       const { error: txError } = await supabase.from("transactions").insert(rows);

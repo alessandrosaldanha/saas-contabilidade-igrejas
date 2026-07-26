@@ -126,16 +126,15 @@ export default function LivroCaixa() {
       confidence: "alta" as const,
     };
 
-    // Para o Master, church_id não tem DEFAULT no banco (ele não pertence a
-    // nenhuma igreja) — precisa vir explícito da igreja escolhida na Sidebar.
-    // `undefined` é omitido do payload JSON, então para os demais papéis o
-    // DEFAULT do banco (a própria igreja) continua resolvendo sozinho.
+    // effectiveChurchId já resolve para a própria igreja (não-master) ou para a
+    // igreja em gestão escolhida na Sidebar (master) — nunca depender de
+    // DEFAULT do banco/omissão de campo, que é frágil e sujeito a bugs de RLS.
     const { error } =
       formModal.mode === "create"
         ? await supabase.from("transactions").insert({
             ...payload,
             created_by: profile.id,
-            church_id: profile.role === "master" ? effectiveChurchId : undefined,
+            church_id: effectiveChurchId,
           })
         : await supabase.from("transactions").update(payload).eq("id", formModal.id);
 

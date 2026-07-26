@@ -8,8 +8,8 @@ Projeto: `fumabywngmjfzsobmbjr` (região `ca-central-1`). Schema versionado em `
 |---|---|
 | `churches` | Igrejas (tenants). Nome, endereço completo, CNPJ/telefone/e-mail opcionais, `parent_church_id` (hierarquia principal/filha, só organizacional), `is_active`. Sem policy de `DELETE` — só ativar/desativar. |
 | `profiles` | Estende `auth.users`. `role`, `status`, `church_id` (nulo só para `master`), `cpf` opcional, `termo_aceito` (flag rápida de aceite dos Termos de Uso, default `false`). Toda escrita passa por RPC `SECURITY DEFINER` — não há policy de `UPDATE` direta. |
-| `transactions` | Lançamentos do Livro Caixa. `church_id NOT NULL DEFAULT current_church_id()`, `import_id` (FK opcional para `import_history`, `ON DELETE CASCADE`). |
-| `import_history` | Registro de cada lote de extrato importado (arquivo, mês, contagem). `church_id NOT NULL DEFAULT current_church_id()`. |
+| `transactions` | Lançamentos do Livro Caixa. `church_id NOT NULL DEFAULT current_church_id()`, `import_id` (FK opcional para `import_history`, `ON DELETE CASCADE`). Trigger `sync_church_id()` (`BEFORE INSERT OR UPDATE`) reforça `church_id` no servidor — ver nota abaixo. |
+| `import_history` | Registro de cada lote de extrato importado (arquivo, mês, contagem). `church_id NOT NULL DEFAULT current_church_id()`. Mesmo trigger `sync_church_id()` de `transactions`. |
 | `audit_logs` | Trilha de auditoria **append-only** (sem policy de `UPDATE`/`DELETE`). `church_id` nullable (ações globais do Master, ex. criar igreja, não pertencem a um tenant). |
 | `termo_aceite_registros` | Histórico imutável de aceite dos Termos de Uso (um registro por aceite, não por usuário) — **append-only**, sem policy de `UPDATE`/`DELETE`. `user_id`, `versao_termo`, `data_aceite`, `ip_usuario`, `user_agent`, `church_id`. |
 
@@ -24,6 +24,7 @@ is_master() or (<regra original de role/status> and church_id = current_church_i
 - `is_master()`: `true` se `profiles.role = 'master'` do usuário autenticado — bypass total de tenant em toda RLS do projeto.
 - `current_church_id()`: `church_id` do usuário autenticado (nulo para o Master).
 - `has_role(roles[])` / `is_admin()` / `is_active()`: além do bypass de master, agora também exigem que a **igreja esteja ativa** (`churches.is_active`) — igreja desativada bloqueia login/escrita mesmo com token válido.
+- `transactions`/`import_history` não dependem só do client acertar o `church_id`: o trigger `sync_church_id()` (migration `0012`) sobrescreve `NEW.church_id := current_church_id()` para qualquer papel que não seja `master` **antes** do `WITH CHECK` da policy avaliar a linha — mesmo um `church_id` explícito errado no payload (bug de front, chamada direta à API) é silenciosamente corrigido para a igreja do próprio usuário em vez de disparar violação de RLS. Para `master`, mantém o valor explícito (igreja em gestão), só rejeitando `null`.
 
 ## Funções e RPCs principais
 
@@ -39,6 +40,7 @@ is_master() or (<regra original de role/status> and church_id = current_church_i
 | `accept_terms(p_versao_termo)` | RPC (client) | Única forma de registrar aceite dos Termos de Uso — grava em `termo_aceite_registros` (com IP/user-agent), ativa `profiles.termo_aceito` e loga `aceite_termos` em `audit_logs`. Chamada pelo `TermsAcceptanceModal` (bloqueante, ver `permissions-rbac.md`). |
 | `handle_new_user()` | Trigger (`auth.users` → `profiles`) | Cria o profile automaticamente na criação do usuário, lendo `name`/`role`/`church_id`/`cpf` do `user_metadata`. |
 | `log_transaction_insert/update/delete`, `log_import_history_update/delete`, `log_church_insert/update` | Triggers | Auditoria automática — toda escrita nessas tabelas gera um `audit_logs` correspondente, **sem depender do frontend lembrar de logar**. |
+| `sync_church_id()` | Trigger (`BEFORE INSERT OR UPDATE` em `transactions`/`import_history`) | Reforça `church_id` no servidor (não-master: sempre `current_church_id()`; master: exige valor explícito não-nulo). Ver nota em "Isolamento multi-tenant" acima. |
 
 ## Padrão arquitetural: auditoria via trigger de banco
 
