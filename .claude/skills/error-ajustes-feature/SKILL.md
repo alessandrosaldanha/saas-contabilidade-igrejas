@@ -1,3 +1,8 @@
+---
+name: error-ajustes-feature
+description: Protocolo obrigatório de diagnóstico, autocorreção e validação (npx tsc --noEmit / npm run build) antes de declarar qualquer tarefa concluída. Use ao finalizar uma funcionalidade, corrigir bugs ou antes de reportar uma tarefa como pronta.
+---
+
 ## 🛠️ SKILL: SOLUÇÃO DE PROBLEMAS, CORREÇÃO E VALIDAÇÃO AUTÔNOMA
 
 Esta skill define o protocolo obrigatório de qualidade, verificação de erros e teste antes da entrega de qualquer tarefa.

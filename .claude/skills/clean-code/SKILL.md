@@ -1,3 +1,8 @@
+---
+name: clean-code
+description: Regras de código limpo, SRP, nomes claros e regra do escoteiro (Robert C. Martin). Use ao escrever ou revisar código para garantir legibilidade, funções pequenas e nomenclatura reveladora de intenção.
+---
+
 # SKILL: Clean Code & Best Practices (Robert C. Martin)
 
 ## Objetivo
