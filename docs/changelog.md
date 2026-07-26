@@ -788,3 +788,17 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
 - `Set<string>` em vez de `Record<string, boolean>`: pedido explicitamente pelo usuário ("um Array ou Set com as chaves/IDs ativas") — também deixa `toggleSeries`/`selectAll`/`clearAll` mais diretos (`has`/`add`/`delete` em vez de espalhar um objeto inteiro a cada clique).
 - Sem trava de "mínimo 1 selecionada": o pedido é explícito sobre toggle independente e não menciona essa restrição; o estado vazio já tem uma mensagem própria em vez de simplesmente não renderizar nada.
 - Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros/warnings novos) e smoke test via `npm run dev`. Teste visual real (combinar 2+ séries, usar Selecionar Todas/Limpar Seleção) não foi executado nesta sessão por falta de ambiente com browser automatizável.
+
+### [2026-07-26] Merge para `main` e Release v1.3.0
+
+**O que foi feito:**
+- `hmg` estava desatualizada em relação a `main` (faltavam os últimos 4 merges) — sincronizada via fast-forward (`git merge main --ff-only`) antes de commitar o trabalho desta sessão, para não perder histórico.
+- Commit único em `hmg` (`1839fd3`) reunindo todo o trabalho da sessão: refactor de Extratos & Importação (regras de-para/De-Para, Modo Estrito, categorias padronizadas), refactor do Dashboard (filtro Mensal, cores fixas, data labels, interatividade), fix do z-index do Toast e redesign do modal de Regras de Categorização — ver entradas anteriores deste changelog para o detalhe técnico de cada parte.
+- Merge (`--no-ff`) de `hmg` em `main` (commit `0839f0c`), validado com `npx tsc --noEmit`/`npm run build` limpos em `main` antes do push.
+- Tag anotada `v1.3.0` criada sobre `main` e Release publicado no GitHub (`gh release create`, notas curadas em linguagem de usuário final, não o changelog técnico bruto).
+
+**Decisões técnicas:**
+- Versão `v1.3.0` (MINOR, SemVer): a sessão inclui funcionalidades novas retrocompatíveis (regras de-para, Modo Estrito, filtro Mensal), não só correções — não justifica MAJOR (sem breaking change de API/schema para quem já usa o sistema) nem se limita a PATCH.
+- Notas da release escritas separadamente do changelog técnico (arquivo à parte usado só como `--notes-file`, não commitado): o changelog documenta decisões técnicas para quem mantém o código, a release fala com quem usa o produto — os dois públicos e formatos são diferentes o suficiente para não reaproveitar um como o outro diretamente.
+
+**Validação:** release publicada em `https://github.com/alessandrosaldanha/saas-contabilidade-igrejas/releases/tag/v1.3.0`.
