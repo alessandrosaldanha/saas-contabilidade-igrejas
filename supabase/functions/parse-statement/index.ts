@@ -10,15 +10,27 @@ import { corsHeaders } from "../_shared/cors.ts";
 // parou de aceitar chaves novas pouco tempo depois do lançamento).
 const GEMINI_MODEL = "gemini-flash-latest";
 
-const CATEGORIES = [
-  "Dízimos e Ofertas",
-  "Prebenda Pastoral",
-  "Manutenção do Templo",
-  "Ação Social",
-  "Contas e Utilidades",
-  "Administrativo",
-  "Outros",
+// Espelha src/constants/accountingCategories.ts — runtime Deno separado, sem
+// bundler/import compartilhado com o frontend. Qualquer mudança na taxonomia
+// precisa ser replicada nos dois lugares.
+const ENTRADA_CATEGORIES = [
+  "Dízimos",
+  "Ofertas Gerais",
+  "Ofertas Especiais/Missões",
+  "Campanhas/Eventos",
+  "Outras Entradas",
 ];
+const SAIDA_CATEGORIES = [
+  "Sustento Pastoral / Prebenda",
+  "Utilidades (Água, Luz, Internet)",
+  "Manutenção de Templo",
+  "Ação Social / Auxílio",
+  "Material de Escola Dominical / Departamentos",
+  "Eventos / Conferências",
+  "Taxas Bancárias / Impostos",
+  "Despesas Administrativas",
+];
+const ALL_CATEGORIES = [...ENTRADA_CATEGORIES, ...SAIDA_CATEGORIES];
 
 const TRANSACTION_ITEM_SCHEMA = {
   type: "object",
@@ -27,7 +39,7 @@ const TRANSACTION_ITEM_SCHEMA = {
     description: { type: "string" },
     value: { type: "number", description: "Valor absoluto (sempre positivo)" },
     type: { type: "string", enum: ["entrada", "saida"] },
-    category: { type: "string", enum: CATEGORIES },
+    category: { type: "string", enum: ALL_CATEGORIES },
     confidence: { type: "string", enum: ["alta", "media", "baixa"] },
   },
   required: ["date", "description", "value", "type", "category", "confidence"],
@@ -47,6 +59,56 @@ const REFINE_SCHEMA = {
   },
   required: ["transactions", "summary"],
 };
+
+interface TransactionItem {
+  date: string;
+  description: string;
+  value: number;
+  type: "entrada" | "saida";
+  category: string;
+  confidence: "alta" | "media" | "baixa";
+}
+
+interface CategoryRule {
+  keyword: string;
+  type: "entrada" | "saida";
+  category: string;
+}
+
+// Normaliza para comparação "contém": minúsculas, sem acento, espaços colapsados.
+function normalize(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function downgradeConfidence(c: TransactionItem["confidence"]): TransactionItem["confidence"] {
+  if (c === "alta") return "media";
+  if (c === "media") return "baixa";
+  return "baixa";
+}
+
+// Modo Estrito: regra salva sempre vence (confiança "alta"); sem regra
+// correspondente, mantém a categoria da IA mas rebaixa a confiança um nível
+// para forçar revisão humana — a IA continua fazendo a leitura/OCR do
+// extrato, só a categorização final muda de critério.
+function applyStrictMode(items: TransactionItem[], rules: CategoryRule[]): TransactionItem[] {
+  if (rules.length === 0) return items.map((item) => ({ ...item, confidence: downgradeConfidence(item.confidence) }));
+
+  const normalizedRules = rules
+    .map((r) => ({ ...r, normalizedKeyword: normalize(r.keyword) }))
+    .sort((a, b) => b.normalizedKeyword.length - a.normalizedKeyword.length);
+
+  return items.map((item) => {
+    const normalizedDesc = normalize(item.description);
+    const match = normalizedRules.find((r) => r.type === item.type && normalizedDesc.includes(r.normalizedKeyword));
+    if (match) return { ...item, category: match.category, confidence: "alta" as const };
+    return { ...item, confidence: downgradeConfidence(item.confidence) };
+  });
+}
 
 async function callGemini(contents: unknown[], schema: unknown) {
   const apiKey = Deno.env.get("GEMINI_API_KEY");
@@ -134,7 +196,25 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    console.log(`[parse-statement] mode=${body.mode} caller=${caller.id} filename=${body.filename ?? "-"}`);
+    const applyMode: "ai" | "strict" = body.applyMode === "strict" ? "strict" : "ai";
+    const churchId: string | null = body.churchId ?? null;
+    console.log(`[parse-statement] mode=${body.mode} applyMode=${applyMode} caller=${caller.id} filename=${body.filename ?? "-"}`);
+
+    // Modo Estrito consulta as regras salvas da igreja (RLS já isola por
+    // church_id — o filtro explícito só remove ambiguidade quando quem chama
+    // é o master, que enxerga todas as igrejas).
+    async function loadRulesIfStrict(): Promise<CategoryRule[]> {
+      if (applyMode !== "strict" || !churchId) return [];
+      const { data, error } = await callerClient
+        .from("category_rules")
+        .select("keyword, type, category")
+        .eq("church_id", churchId);
+      if (error) {
+        console.error("[parse-statement] falha ao buscar category_rules:", error.message);
+        return [];
+      }
+      return (data as CategoryRule[]) ?? [];
+    }
 
     if (body.mode === "extract") {
       const { filename, mimeType, contentBase64 } = body;
@@ -143,8 +223,9 @@ Deno.serve(async (req) => {
       }
 
       const prompt = `Você é um assistente contábil de uma igreja. Leia o extrato bancário anexado (arquivo "${filename}") e extraia todos os lançamentos.
-Para cada lançamento, classifique o tipo ("entrada" ou "saida") e escolha a categoria mais adequada dentre: ${CATEGORIES.join(", ")}.
-Use "Dízimos e Ofertas" para entradas típicas de igreja. Para saídas, escolha a categoria mais específica possível; use "Outros" só se nenhuma se aplicar.
+Para cada lançamento, classifique o tipo ("entrada" ou "saida").
+Se for "entrada", escolha a categoria mais adequada dentre: ${ENTRADA_CATEGORIES.join(", ")}. Use "Dízimos" para dízimos e "Ofertas Gerais" para ofertas típicas de culto.
+Se for "saida", escolha a categoria mais específica dentre: ${SAIDA_CATEGORIES.join(", ")}; use "Despesas Administrativas" só se nenhuma outra se aplicar.
 Defina "confidence" como "alta" quando a categoria for óbvia pela descrição, "media" quando razoavelmente certo, "baixa" quando for um chute.
 Retorne todos os lançamentos encontrados, sem inventar nenhum que não esteja no extrato.`;
 
@@ -152,6 +233,10 @@ Retorne todos os lançamentos encontrados, sem inventar nenhum que não esteja n
         [{ role: "user", parts: [{ inlineData: { mimeType, data: contentBase64 } }, { text: prompt }] }],
         EXTRACT_SCHEMA,
       );
+
+      const rules = await loadRulesIfStrict();
+      if (applyMode === "strict") result.transactions = applyStrictMode(result.transactions ?? [], rules);
+
       return new Response(JSON.stringify(result), { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
     }
 
@@ -166,9 +251,14 @@ Lançamentos atuais (JSON): ${JSON.stringify(transactions)}
 Instrução do usuário: "${instruction}"
 Aplique a instrução aos lançamentos (ex.: recategorizar, corrigir tipo, ajustar confiança) e devolva a lista COMPLETA atualizada
 (inclua também os lançamentos que não mudaram) e um resumo curto do que foi alterado.
-Categorias válidas: ${CATEGORIES.join(", ")}.`;
+Categorias válidas para "entrada": ${ENTRADA_CATEGORIES.join(", ")}.
+Categorias válidas para "saida": ${SAIDA_CATEGORIES.join(", ")}.`;
 
       const result = await callGemini([{ role: "user", parts: [{ text: prompt }] }], REFINE_SCHEMA);
+
+      const rules = await loadRulesIfStrict();
+      if (applyMode === "strict") result.transactions = applyStrictMode(result.transactions ?? [], rules);
+
       return new Response(JSON.stringify(result), { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
     }
 

@@ -1,15 +1,20 @@
-import { useEffect, useRef, useState } from "react";
-import type { ChangeEvent } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Upload, Loader2, Award, Send, Check, AlertTriangle, Pencil, Trash2, X } from "lucide-react";
-import Card from "../components/Card";
-import Badge from "../components/Badge";
+import { Loader2, Check, X } from "lucide-react";
+import ConfirmModal from "../components/ConfirmModal";
+import UploadDropzone from "../components/importacao/UploadDropzone";
+import SummaryCards from "../components/importacao/SummaryCards";
+import TransactionsPreviewTable from "../components/importacao/TransactionsPreviewTable";
+import ImportHistoryTable from "../components/importacao/ImportHistoryTable";
+import AiChatPanel from "../components/importacao/AiChatPanel";
+import type { RuleSuggestion } from "../components/importacao/AiChatPanel";
+import CategoryRulesModal from "../components/importacao/CategoryRulesModal";
 import { useApp } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
 import { getFunctionErrorMessage, supabase } from "../services/supabase";
-import { CATEGORY_TONE, CONF_LABEL, CONF_TONE, MONTHS_FULL } from "../services/mockData";
+import { MONTHS_FULL } from "../services/mockData";
 import { fmt, isoToBr, brToIso } from "../utils/format";
-import type { ChatMessage, Confidence, ImportHistoryItem, Transaction, TransactionType } from "../types";
+import type { CategorizationMode, ChatMessage, Confidence, ImportHistoryItem, Transaction, TransactionType } from "../types";
 
 interface ExtractedItem {
   date: string;
@@ -88,6 +93,10 @@ function findDuplicates(staged: Transaction[], existing: Transaction[]): Transac
   return staged.filter((t) => existingKeys.has(`${t.date}|${t.desc}|${Math.abs(t.value)}|${t.type}`));
 }
 
+function categorizationModeKey(churchId: string | null): string {
+  return `categorization-mode:${churchId ?? "none"}`;
+}
+
 export default function ImportacaoExtrato() {
   const {
     transactions,
@@ -100,7 +109,6 @@ export default function ImportacaoExtrato() {
   } = useApp();
   const { profile } = useAuth();
   const navigate = useNavigate();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [hasUploaded, setHasUploaded] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -116,6 +124,23 @@ export default function ImportacaoExtrato() {
   const [isSavingHistoryEdit, setIsSavingHistoryEdit] = useState(false);
   const [historyDeleteTarget, setHistoryDeleteTarget] = useState<ImportHistoryItem | null>(null);
   const [isDeletingHistory, setIsDeletingHistory] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showRulesModal, setShowRulesModal] = useState(false);
+  const [applyMode, setApplyModeState] = useState<CategorizationMode>("ai");
+  const [ruleSuggestions, setRuleSuggestions] = useState<RuleSuggestion[]>([]);
+
+  // Preferência de modo de categorização (IA Autônoma × Modo Estrito) persiste
+  // por igreja no localStorage — evita a tesouraria ter que reescolher a cada
+  // visita, sem precisar de uma coluna nova no banco para isso.
+  useEffect(() => {
+    const stored = localStorage.getItem(categorizationModeKey(effectiveChurchId));
+    setApplyModeState(stored === "strict" ? "strict" : "ai");
+  }, [effectiveChurchId]);
+
+  const setApplyMode = (mode: CategorizationMode) => {
+    setApplyModeState(mode);
+    localStorage.setItem(categorizationModeKey(effectiveChurchId), mode);
+  };
 
   // Master só importa/gerencia extratos depois de escolher uma igreja no
   // seletor da Sidebar (sem isso não haveria church_id para gravar o lote).
@@ -169,7 +194,7 @@ export default function ImportacaoExtrato() {
       const contentBase64 = await fileToBase64(file);
       const mimeType = detectMimeType(file.name);
       const { data, error } = await supabase.functions.invoke("parse-statement", {
-        body: { mode: "extract", filename: file.name, mimeType, contentBase64 },
+        body: { mode: "extract", filename: file.name, mimeType, contentBase64, applyMode, churchId: effectiveChurchId },
       });
       if (error) throw new Error(await getFunctionErrorMessage(error));
 
@@ -177,11 +202,12 @@ export default function ImportacaoExtrato() {
       setStagedTransactions(items.map(itemToStaged));
       setFilename(file.name);
       setHasUploaded(true);
+      setRuleSuggestions([]);
       setChatMessages([
         {
           id: Date.now(),
           from: "ai",
-          text: `Encontrei ${items.length} lançamento(s) em "${file.name}". Posso ajustar categorias — é só me dizer em linguagem natural, por exemplo: "recategorize os pagamentos de energia para Contas e Utilidades".`,
+          text: `Encontrei ${items.length} lançamento(s) em "${file.name}". Posso ajustar categorias — é só me dizer em linguagem natural, por exemplo: "recategorize os pagamentos de energia para Utilidades (Água, Luz, Internet)".`,
         },
       ]);
     } catch (err) {
@@ -189,17 +215,6 @@ export default function ImportacaoExtrato() {
     } finally {
       setIsUploading(false);
     }
-  };
-
-  const onDropzoneClick = () => {
-    if (isUploading) return;
-    fileInputRef.current?.click();
-  };
-
-  const onInputChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (file) onFileSelected(file);
   };
 
   const sendMessage = async () => {
@@ -215,12 +230,28 @@ export default function ImportacaoExtrato() {
           mode: "refine",
           transactions: stagedTransactions.map(stagedToApiItem),
           instruction: text,
+          applyMode,
+          churchId: effectiveChurchId,
         },
       });
       if (error) throw new Error(await getFunctionErrorMessage(error));
 
       const items = (data.transactions as ExtractedItem[]) ?? [];
-      setStagedTransactions(items.map(itemToStaged));
+      const newStaged = items.map(itemToStaged);
+
+      // A API não devolve o id original (cada refine gera um array novo) —
+      // compara por posição/descrição para identificar quais lançamentos
+      // tiveram a categoria de fato alterada por essa instrução.
+      const changed: RuleSuggestion[] = [];
+      newStaged.forEach((nt, i) => {
+        const old = stagedTransactions[i];
+        if (old && old.desc === nt.desc && old.category !== nt.category) {
+          changed.push({ id: nt.id, desc: nt.desc, type: nt.type, oldCategory: old.category, newCategory: nt.category });
+        }
+      });
+
+      setStagedTransactions(newStaged);
+      if (changed.length > 0) setRuleSuggestions((prev) => [...prev, ...changed]);
       setChatMessages((msgs) => [...msgs, { id: Date.now() + 1, from: "ai", text: data.summary || "Lançamentos atualizados." }]);
     } catch (err) {
       setChatMessages((msgs) => [
@@ -230,6 +261,26 @@ export default function ImportacaoExtrato() {
     } finally {
       setIsRefining(false);
     }
+  };
+
+  const onSaveRuleSuggestion = async (suggestion: RuleSuggestion, keyword: string) => {
+    if (!effectiveChurchId || !keyword.trim()) return;
+    const { error } = await supabase
+      .from("category_rules")
+      .upsert(
+        { church_id: effectiveChurchId, keyword: keyword.trim(), type: suggestion.type, category: suggestion.newCategory },
+        { onConflict: "church_id,keyword" },
+      );
+    if (error) {
+      showToastMsg(`Falha ao salvar regra: ${error.message}`);
+      return;
+    }
+    setRuleSuggestions((prev) => prev.filter((s) => s.id !== suggestion.id));
+    showToastMsg("Regra de categorização salva com sucesso");
+  };
+
+  const onDismissRuleSuggestion = (id: string) => {
+    setRuleSuggestions((prev) => prev.filter((s) => s.id !== id));
   };
 
   const confirmSave = () => {
@@ -314,6 +365,8 @@ export default function ImportacaoExtrato() {
     setStagedTransactions([]);
     setFilename("");
     setChatMessages([]);
+    setChatInput("");
+    setRuleSuggestions([]);
   };
 
   const hasUnsavedImport = hasUploaded && stagedTransactions.length > 0 && !showSuccessModal;
@@ -344,8 +397,6 @@ export default function ImportacaoExtrato() {
   }, [hasUnsavedImport]);
 
   const totalCount = stagedTransactions.length;
-  const entradasSum = stagedTransactions.filter((t) => t.type === "entrada").reduce((s, t) => s + t.value, 0);
-  const saidasSum = stagedTransactions.filter((t) => t.type === "saida").reduce((s, t) => s + t.value, 0);
 
   return (
     <div>
@@ -358,155 +409,38 @@ export default function ImportacaoExtrato() {
         </div>
       </div>
 
+      <SummaryCards transactions={stagedTransactions} />
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:h-[560px]">
         <div className="flex flex-col gap-4 min-h-0 h-[480px] lg:h-auto">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.ofx,.qfx,.csv"
-            onChange={onInputChange}
-            className="hidden"
+          <UploadDropzone isUploading={isUploading} hasUploaded={hasUploaded} onFileSelected={onFileSelected} />
+          <TransactionsPreviewTable
+            transactions={stagedTransactions}
+            hasUploaded={hasUploaded}
+            onClearClick={() => setShowClearConfirm(true)}
           />
-          <div
-            onClick={onDropzoneClick}
-            className="border-[1.5px] border-dashed border-neutral-300 dark:border-white/20 rounded-lg text-center cursor-pointer bg-black/[0.02] dark:bg-white/[0.02] hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors"
-            style={{ padding: isUploading ? "28px" : "36px" }}
-          >
-            {isUploading ? (
-              <div className="flex flex-col items-center gap-2.5">
-                <Loader2 size={26} className="text-orla-blue animate-spin" />
-                <span className="text-sm text-neutral-500 dark:text-neutral-300">Processando extrato com IA…</span>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-2.5">
-                <Upload size={26} className="text-neutral-400" />
-                <div>
-                  <div className="text-sm font-medium">
-                    {hasUploaded ? "Enviar outro extrato bancário" : "Arraste o extrato ou clique para enviar"}
-                  </div>
-                  <div className="text-xs text-neutral-400 mt-0.5">PDF, OFX ou CSV, até 10MB</div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <Card padding="none" className="flex-1 flex flex-col min-h-0">
-            <div className="flex items-center justify-between px-4.5 py-4 border-b border-neutral-200 dark:border-white/10">
-              <h3 className="font-display font-semibold text-[15px] m-0">Pré-visualização de lançamentos</h3>
-              <Badge tone="neutral">{stagedTransactions.length} lançamentos</Badge>
-            </div>
-            <div className="flex-1 min-h-0 overflow-auto">
-              <table className="w-full min-w-[760px] border-collapse text-xs">
-                <thead className="sticky top-0 z-10 bg-white dark:bg-neutral-900">
-                  <tr className="text-left text-neutral-400 border-b border-neutral-200 dark:border-white/10">
-                    <th className="px-3.5 py-2.5 font-medium">Data</th>
-                    <th className="px-3.5 py-2.5 font-medium">Descrição</th>
-                    <th className="px-3.5 py-2.5 font-medium">Valor</th>
-                    <th className="px-3.5 py-2.5 font-medium">Tipo</th>
-                    <th className="px-3.5 py-2.5 font-medium">Categoria</th>
-                    <th className="px-3.5 py-2.5 font-medium">Confiança</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stagedTransactions.map((row) => (
-                    <tr key={row.id} className="border-t border-neutral-200 dark:border-white/10">
-                      <td className="px-3.5 py-2.5 text-neutral-500 dark:text-neutral-400 whitespace-nowrap">{row.date}</td>
-                      <td className="px-3.5 py-2.5">{row.desc}</td>
-                      <td className={`px-3.5 py-2.5 whitespace-nowrap ${row.value < 0 ? "text-orla-coral" : "text-status-success"}`}>
-                        {fmt(row.value)}
-                      </td>
-                      <td className="px-3.5 py-2.5">
-                        <Badge tone={row.type === "entrada" ? "success" : "error"}>
-                          {row.type === "entrada" ? "Entrada" : "Saída"}
-                        </Badge>
-                      </td>
-                      <td className="px-3.5 py-2.5">
-                        <Badge tone={CATEGORY_TONE[row.category] || "neutral"}>{row.category}</Badge>
-                      </td>
-                      <td className="px-3.5 py-2.5">
-                        <Badge tone={CONF_TONE[row.confidence]} appearance="outline">
-                          {CONF_LABEL[row.confidence]}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {stagedTransactions.length === 0 && (
-                <div className="p-8 text-center text-neutral-400 text-sm">
-                  {hasUploaded ? "Nenhum lançamento encontrado neste extrato." : "Envie um extrato para ver a pré-visualização."}
-                </div>
-              )}
-            </div>
-          </Card>
         </div>
 
-        <Card padding="none" className="flex flex-col min-h-0 h-[420px] lg:h-auto">
-          <div className="flex items-center gap-2.5 px-4.5 py-4 border-b border-neutral-200 dark:border-white/10">
-            <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-orla-blue shrink-0">
-              <Award size={14} className="text-white" />
-            </span>
-            <div>
-              <div className="text-sm font-medium">Agente de IA · Categorização</div>
-              <div className="text-[11px] text-neutral-400">Ajuste categorias por linguagem natural</div>
-            </div>
-          </div>
-
-          <div className="flex-1 min-h-0 overflow-y-auto px-4.5 py-4 flex flex-col gap-2.5">
-            {chatMessages.map((msg) => (
-              <div key={msg.id} className={`flex ${msg.from === "user" ? "justify-end" : "justify-start"}`}>
-                <div
-                  className={`max-w-[82%] px-3.5 py-2.5 rounded-2xl text-sm leading-snug ${
-                    msg.from === "user" ? "bg-orla-blue text-white" : "bg-neutral-100 dark:bg-neutral-950"
-                  }`}
-                >
-                  {msg.text}
-                </div>
-              </div>
-            ))}
-            {isRefining && (
-              <div className="flex justify-start">
-                <div className="max-w-[82%] px-3.5 py-2.5 rounded-2xl text-sm bg-neutral-100 dark:bg-neutral-950 flex items-center gap-2">
-                  <Loader2 size={13} className="animate-spin" /> Ajustando lançamentos…
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-2 px-4 py-3.5 border-t border-neutral-200 dark:border-white/10">
-            <input
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-              disabled={!hasUploaded || isRefining}
-              placeholder={hasUploaded ? "ex: recategorize os pagamentos de energia…" : "Envie um extrato primeiro"}
-              className="flex-1 bg-neutral-100 dark:bg-neutral-950 border-[1.5px] border-neutral-300 dark:border-white/10 rounded-md px-3.5 py-2.5 text-sm outline-none disabled:opacity-60"
-            />
-            <button
-              onClick={sendMessage}
-              disabled={!hasUploaded || isRefining}
-              className="w-10 h-10 flex items-center justify-center rounded-md bg-orla-blue text-white disabled:opacity-50 shrink-0"
-            >
-              <Send size={16} />
-            </button>
-          </div>
-        </Card>
+        <AiChatPanel
+          hasUploaded={hasUploaded}
+          chatMessages={chatMessages}
+          isRefining={isRefining}
+          chatInput={chatInput}
+          onChatInputChange={setChatInput}
+          onSend={sendMessage}
+          applyMode={applyMode}
+          onApplyModeChange={setApplyMode}
+          onOpenRulesModal={() => setShowRulesModal(true)}
+          ruleSuggestions={ruleSuggestions}
+          onSaveRuleSuggestion={onSaveRuleSuggestion}
+          onDismissRuleSuggestion={onDismissRuleSuggestion}
+        />
       </div>
 
       <div className="flex items-center justify-between gap-4 flex-wrap mt-5 px-5.5 py-4 rounded-lg border border-neutral-200 dark:border-white/10 bg-neutral-50 dark:bg-neutral-950">
-        <div className="flex gap-7 flex-wrap">
-          <div>
-            <div className="text-[11px] text-neutral-400">Total de Lançamentos</div>
-            <div className="font-display font-semibold text-lg">{totalCount}</div>
-          </div>
-          <div>
-            <div className="text-[11px] text-neutral-400">Soma de Entradas</div>
-            <div className="font-display font-semibold text-lg text-status-success">{fmt(entradasSum)}</div>
-          </div>
-          <div>
-            <div className="text-[11px] text-neutral-400">Soma de Saídas</div>
-            <div className="font-display font-semibold text-lg text-orla-coral">{fmt(saidasSum)}</div>
-          </div>
+        <div>
+          <div className="text-[11px] text-neutral-400">Total de Lançamentos</div>
+          <div className="font-display font-semibold text-lg">{totalCount}</div>
         </div>
         <button
           onClick={confirmSave}
@@ -516,7 +450,7 @@ export default function ImportacaoExtrato() {
           {isSaving ? (
             <>
               <Loader2 size={15} className="animate-spin" />
-              Gravando lançamentos…
+              Registrando lançamentos contábeis no banco de dados…
             </>
           ) : (
             <>
@@ -527,71 +461,13 @@ export default function ImportacaoExtrato() {
         </button>
       </div>
 
-      <div className="mt-6.5">
-        <h3 className="font-display font-semibold text-[15px] mb-3">Extratos Processados Recentemente</h3>
-        <Card padding="none">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] border-collapse text-xs">
-              <thead>
-                <tr className="text-left text-neutral-400">
-                  <th className="px-3.5 py-2.5 font-medium">Arquivo</th>
-                  <th className="px-3.5 py-2.5 font-medium">Mês/Ano de Referência</th>
-                  <th className="px-3.5 py-2.5 font-medium">Qtd. Transações</th>
-                  <th className="px-3.5 py-2.5 font-medium">Data de Importação</th>
-                  <th className="px-3.5 py-2.5 font-medium">Importado por</th>
-                  <th className="px-3.5 py-2.5 font-medium">Status</th>
-                  {(canEditHistory || canDeleteHistory) && (
-                    <th className="px-3.5 py-2.5 font-medium text-right">Ações</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {importHistory.map((h) => (
-                  <tr key={h.id} className="border-t border-neutral-200 dark:border-white/10">
-                    <td className="px-3.5 py-2.5 whitespace-nowrap">{h.filename}</td>
-                    <td className="px-3.5 py-2.5 text-neutral-500 dark:text-neutral-400 whitespace-nowrap">{h.monthLabel}</td>
-                    <td className="px-3.5 py-2.5 text-neutral-500 dark:text-neutral-400">{h.count}</td>
-                    <td className="px-3.5 py-2.5 text-neutral-500 dark:text-neutral-400 whitespace-nowrap">{h.importedAt}</td>
-                    <td className="px-3.5 py-2.5 text-neutral-500 dark:text-neutral-400 whitespace-nowrap">{h.importedBy}</td>
-                    <td className="px-3.5 py-2.5">
-                      <Badge tone="success" dot>
-                        Salvo / Registrado
-                      </Badge>
-                    </td>
-                    {(canEditHistory || canDeleteHistory) && (
-                      <td className="px-3.5 py-2.5 text-right">
-                        <div className="flex gap-1 justify-end">
-                          {canEditHistory && (
-                            <button
-                              onClick={() => openHistoryEdit(h)}
-                              title="Editar registro de importação"
-                              className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
-                            >
-                              <Pencil size={14} />
-                            </button>
-                          )}
-                          {canDeleteHistory && (
-                            <button
-                              onClick={() => setHistoryDeleteTarget(h)}
-                              title="Excluir registro de importação"
-                              className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 text-neutral-500 dark:text-neutral-400 hover:bg-status-error/10 hover:text-status-error hover:border-status-error"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {importHistory.length === 0 && (
-              <div className="p-6 text-center text-neutral-400 text-sm">Nenhuma importação registrada ainda.</div>
-            )}
-          </div>
-        </Card>
-      </div>
+      <ImportHistoryTable
+        items={importHistory}
+        canEdit={canEditHistory}
+        canDelete={canDeleteHistory}
+        onEdit={openHistoryEdit}
+        onDelete={setHistoryDeleteTarget}
+      />
 
       {showSuccessModal && (
         <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-4 sm:p-6">
@@ -628,44 +504,72 @@ export default function ImportacaoExtrato() {
       )}
 
       {duplicateWarning && (
-        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-4 sm:p-6">
-          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[480px] rounded-lg shadow-md p-5 sm:p-8">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="w-10 h-10 rounded-full bg-status-warning/15 flex items-center justify-center shrink-0">
-                <AlertTriangle size={20} className="text-status-warning" />
-              </span>
-              <h3 className="font-display font-semibold text-lg m-0">Possíveis lançamentos duplicados</h3>
-            </div>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed mb-4">
+        <ConfirmModal
+          title="Possíveis lançamentos duplicados"
+          description={
+            <>
               {duplicateWarning.length} lançamento(s) deste extrato já existem no Livro Caixa (mesma data, descrição
               e valor). Pode ser um extrato importado por engano duas vezes.
-            </p>
-            <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-white/10 rounded-md px-4 py-3 mb-6 max-h-[180px] overflow-y-auto text-sm">
-              {duplicateWarning.map((t) => (
-                <div key={t.id} className="flex justify-between py-1 border-b border-neutral-200 dark:border-white/10 last:border-0">
-                  <span className="text-neutral-400">{t.date}</span>
-                  <span className="flex-1 px-3 truncate">{t.desc}</span>
-                  <span className={t.value < 0 ? "text-orla-coral" : "text-status-success"}>{fmt(t.value)}</span>
-                </div>
-              ))}
+            </>
+          }
+          detail={duplicateWarning.map((t) => (
+            <div key={t.id} className="flex justify-between py-1 border-b border-neutral-200 dark:border-white/10 last:border-0">
+              <span className="text-neutral-400">{t.date}</span>
+              <span className="flex-1 px-3 truncate">{t.desc}</span>
+              <span className={t.value < 0 ? "text-orla-coral" : "text-status-success"}>{fmt(t.value)}</span>
             </div>
-            <div className="flex justify-end gap-2.5">
-              <button
-                onClick={() => setDuplicateWarning(null)}
-                className="px-4 py-2 rounded-md border border-neutral-300 dark:border-white/20 text-sm font-medium"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={doSave}
-                disabled={isSaving}
-                className="px-4 py-2 rounded-md bg-status-warning text-white text-sm font-medium hover:opacity-90 disabled:opacity-70"
-              >
-                {isSaving ? "Salvando…" : "Salvar Mesmo Assim"}
-              </button>
+          ))}
+          confirmLabel="Salvar Mesmo Assim"
+          confirmingLabel="Salvando…"
+          isConfirming={isSaving}
+          onConfirm={doSave}
+          onCancel={() => setDuplicateWarning(null)}
+        />
+      )}
+
+      {showClearConfirm && (
+        <ConfirmModal
+          title="Limpar Lançamentos"
+          description={`Isso descarta os ${stagedTransactions.length} lançamento(s) carregados deste extrato — nada foi salvo ainda no Livro Caixa. Quer continuar?`}
+          tone="error"
+          confirmLabel="Limpar Lançamentos"
+          onConfirm={() => {
+            setShowClearConfirm(false);
+            resetImport();
+          }}
+          onCancel={() => setShowClearConfirm(false)}
+        />
+      )}
+
+      {historyDeleteTarget && (
+        <ConfirmModal
+          title="Excluir Registro de Importação"
+          description={
+            <>
+              Isso exclui o registro do histórico de importação <strong>e todos os lançamentos deste extrato que
+              ainda estejam vinculados no Livro Caixa</strong>. É registrado de forma imutável na Trilha de
+              Auditoria.
+            </>
+          }
+          detail={
+            <div>
+              <div className="font-medium">{historyDeleteTarget.filename}</div>
+              <div className="text-xs text-neutral-400 mt-1">
+                {historyDeleteTarget.monthLabel} · {historyDeleteTarget.count} lançamentos serão excluídos do Livro Caixa
+              </div>
             </div>
-          </div>
-        </div>
+          }
+          tone="error"
+          confirmLabel="Confirmar Exclusão"
+          confirmingLabel="Excluindo…"
+          isConfirming={isDeletingHistory}
+          onConfirm={confirmHistoryDelete}
+          onCancel={() => setHistoryDeleteTarget(null)}
+        />
+      )}
+
+      {showRulesModal && (
+        <CategoryRulesModal churchId={effectiveChurchId} showToastMsg={showToastMsg} onClose={() => setShowRulesModal(false)} />
       )}
 
       {historyEdit && (
@@ -724,46 +628,6 @@ export default function ImportacaoExtrato() {
                 className="px-4 py-2 rounded-md bg-orla-blue text-white text-sm font-medium hover:bg-blue-600 disabled:opacity-70"
               >
                 {isSavingHistoryEdit ? "Salvando…" : "Salvar Alterações"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {historyDeleteTarget && (
-        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-4 sm:p-6">
-          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[440px] rounded-lg shadow-md p-5 sm:p-8">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="font-display font-semibold text-lg m-0">Excluir Registro de Importação</h3>
-              <button onClick={() => setHistoryDeleteTarget(null)} className="text-neutral-400 p-1">
-                <X size={18} />
-              </button>
-            </div>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed mb-4">
-              Isso exclui o registro do histórico de importação <strong>e todos os lançamentos deste extrato que
-              ainda estejam vinculados no Livro Caixa</strong>. É registrado de forma imutável na Trilha de
-              Auditoria.
-            </p>
-            <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-white/10 rounded-md px-4 py-3.5 mb-6 text-sm">
-              <div className="font-medium">{historyDeleteTarget.filename}</div>
-              <div className="text-xs text-neutral-400 mt-1">
-                {historyDeleteTarget.monthLabel} · {historyDeleteTarget.count} lançamentos serão excluídos do Livro
-                Caixa
-              </div>
-            </div>
-            <div className="flex justify-end gap-2.5">
-              <button
-                onClick={() => setHistoryDeleteTarget(null)}
-                className="px-4 py-2 rounded-md border border-neutral-300 dark:border-white/20 text-sm font-medium"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={confirmHistoryDelete}
-                disabled={isDeletingHistory}
-                className="px-4 py-2 rounded-md bg-status-error text-white text-sm font-medium hover:opacity-90 disabled:opacity-70"
-              >
-                {isDeletingHistory ? "Excluindo…" : "Confirmar Exclusão"}
               </button>
             </div>
           </div>

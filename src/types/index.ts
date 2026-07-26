@@ -108,3 +108,15 @@ export interface ImportHistoryItem {
   importedAt: string;
   importedBy: string;
 }
+
+export type CategorizationMode = "ai" | "strict";
+
+// Regra de mapeamento (De-Para): palavra-chave (fornecedor/descrição) →
+// categoria, salva por igreja para reaproveitar em importações futuras.
+export interface CategoryRule {
+  id: string;
+  keyword: string;
+  type: TransactionType;
+  category: string;
+  createdAt: string;
+}
