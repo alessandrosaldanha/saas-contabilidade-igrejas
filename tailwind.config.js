@@ -44,6 +44,15 @@ export default {
           error: "#d4453b",
           info: "#0057ff",
         },
+        // Paleta fixa dos fluxos financeiros nos gráficos (Dashboard/Análise
+        // Exploratória) — deliberadamente separada de `status.success`/`error`
+        // (usados em badges/toasts/botões para semântica genérica de
+        // sucesso/erro) para poder seguir o padrão financeiro clássico
+        // (verde/vermelho vivos) sem alterar nada fora dos gráficos.
+        flow: {
+          entrada: "#10b981",
+          saida: "#ef4444",
+        },
       },
       borderRadius: {
         sm: "6px",

@@ -7,20 +7,11 @@ import { useApp } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../services/supabase";
 import { CATEGORY_TONE, MONTHS_FULL } from "../services/mockData";
+import { ENTRADA_CATEGORIES, categoriesForType } from "../constants/accountingCategories";
 import { fmt, fmtPlain, brToIso } from "../utils/format";
 import type { LedgerRow, Transaction, TransactionType } from "../types";
 
 type ReportFormat = "pdf" | "word" | null;
-
-const TRANSACTION_CATEGORIES = [
-  "Dízimos e Ofertas",
-  "Prebenda Pastoral",
-  "Manutenção do Templo",
-  "Ação Social",
-  "Contas e Utilidades",
-  "Administrativo",
-  "Outros",
-];
 
 interface TransactionForm {
   mode: "create" | "edit";
@@ -95,7 +86,7 @@ export default function LivroCaixa() {
   };
 
   const openCreateModal = () => {
-    setFormModal({ mode: "create", date: todayIso(), desc: "", value: "", type: "entrada", category: "Dízimos e Ofertas" });
+    setFormModal({ mode: "create", date: todayIso(), desc: "", value: "", type: "entrada", category: ENTRADA_CATEGORIES[0] });
   };
   const openEditModal = (row: LedgerRow) => {
     setFormModal({
@@ -559,7 +550,10 @@ export default function LivroCaixa() {
                   <span className="block text-sm font-medium mb-1.5">Tipo</span>
                   <select
                     value={formModal.type}
-                    onChange={(e) => setFormModal({ ...formModal, type: e.target.value as TransactionType })}
+                    onChange={(e) => {
+                      const type = e.target.value as TransactionType;
+                      setFormModal({ ...formModal, type, category: categoriesForType(type)[0] });
+                    }}
                     className="w-full box-border border border-neutral-300 dark:border-white/20 bg-white dark:bg-neutral-900 rounded-md px-3.5 py-2.5 text-sm outline-none"
                   >
                     <option value="entrada">Entrada</option>
@@ -573,7 +567,7 @@ export default function LivroCaixa() {
                     onChange={(e) => setFormModal({ ...formModal, category: e.target.value })}
                     className="w-full box-border border border-neutral-300 dark:border-white/20 bg-white dark:bg-neutral-900 rounded-md px-3.5 py-2.5 text-sm outline-none"
                   >
-                    {TRANSACTION_CATEGORIES.map((c) => (
+                    {categoriesForType(formModal.type).map((c) => (
                       <option key={c} value={c}>
                         {c}
                       </option>

@@ -9,12 +9,21 @@ export const MONTHS_FULL = [
 ];
 
 export const CATEGORY_TONE: Record<string, "success" | "purple" | "info" | "warning" | "neutral"> = {
-  "Dízimos e Ofertas": "success",
-  "Prebenda Pastoral": "purple",
-  "Manutenção do Templo": "info",
-  "Ação Social": "warning",
-  "Contas e Utilidades": "neutral",
-  "Administrativo": "neutral",
+  // Entradas
+  "Dízimos": "success",
+  "Ofertas Gerais": "success",
+  "Ofertas Especiais/Missões": "purple",
+  "Campanhas/Eventos": "info",
+  "Outras Entradas": "neutral",
+  // Saídas
+  "Sustento Pastoral / Prebenda": "purple",
+  "Utilidades (Água, Luz, Internet)": "neutral",
+  "Manutenção de Templo": "info",
+  "Ação Social / Auxílio": "warning",
+  "Material de Escola Dominical / Departamentos": "info",
+  "Eventos / Conferências": "info",
+  "Taxas Bancárias / Impostos": "warning",
+  "Despesas Administrativas": "neutral",
 };
 
 export const CONF_TONE: Record<string, "success" | "warning" | "error"> = {

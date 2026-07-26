@@ -12,6 +12,7 @@ Projeto: `fumabywngmjfzsobmbjr` (região `ca-central-1`). Schema versionado em `
 | `import_history` | Registro de cada lote de extrato importado (arquivo, mês, contagem). `church_id NOT NULL DEFAULT current_church_id()`. Mesmo trigger `sync_church_id()` de `transactions`. |
 | `audit_logs` | Trilha de auditoria **append-only** (sem policy de `UPDATE`/`DELETE`). `church_id` nullable (ações globais do Master, ex. criar igreja, não pertencem a um tenant). |
 | `termo_aceite_registros` | Histórico imutável de aceite dos Termos de Uso (um registro por aceite, não por usuário) — **append-only**, sem policy de `UPDATE`/`DELETE`. `user_id`, `versao_termo`, `data_aceite`, `ip_usuario`, `user_agent`, `church_id`. |
+| `category_rules` | Regras de mapeamento (De-Para): `keyword` (fornecedor/descrição) → `category`, por `type` e `church_id`. Usadas pelo Modo Estrito da Edge Function `parse-statement` (correspondência por "contém", normalizada). `unique(church_id, keyword)`. Mesmo trigger `sync_church_id()` de `transactions`/`import_history`. Ver [`contabilidade-rules`](../.claude/skills/contabilidade-rules/SKILL.md) para a política completa. |
 
 ## Isolamento multi-tenant (RLS)
 
@@ -39,8 +40,8 @@ is_master() or (<regra original de role/status> and church_id = current_church_i
 | `master_update_profile(target_id, new_name, new_email, new_cpf)` | RPC (client) | Só Master — edita nome/e-mail/CPF de **qualquer** perfil. |
 | `accept_terms(p_versao_termo)` | RPC (client) | Única forma de registrar aceite dos Termos de Uso — grava em `termo_aceite_registros` (com IP/user-agent), ativa `profiles.termo_aceito` e loga `aceite_termos` em `audit_logs`. Chamada pelo `TermsAcceptanceModal` (bloqueante, ver `permissions-rbac.md`). |
 | `handle_new_user()` | Trigger (`auth.users` → `profiles`) | Cria o profile automaticamente na criação do usuário, lendo `name`/`role`/`church_id`/`cpf` do `user_metadata`. |
-| `log_transaction_insert/update/delete`, `log_import_history_update/delete`, `log_church_insert/update` | Triggers | Auditoria automática — toda escrita nessas tabelas gera um `audit_logs` correspondente, **sem depender do frontend lembrar de logar**. |
-| `sync_church_id()` | Trigger (`BEFORE INSERT OR UPDATE` em `transactions`/`import_history`) | Reforça `church_id` no servidor (não-master: sempre `current_church_id()`; master: exige valor explícito não-nulo). Ver nota em "Isolamento multi-tenant" acima. |
+| `log_transaction_insert/update/delete`, `log_import_history_update/delete`, `log_church_insert/update`, `log_category_rule_insert/update/delete` | Triggers | Auditoria automática — toda escrita nessas tabelas gera um `audit_logs` correspondente, **sem depender do frontend lembrar de logar**. |
+| `sync_church_id()` | Trigger (`BEFORE INSERT OR UPDATE` em `transactions`/`import_history`/`category_rules`) | Reforça `church_id` no servidor (não-master: sempre `current_church_id()`; master: exige valor explícito não-nulo). Ver nota em "Isolamento multi-tenant" acima. |
 
 ## Padrão arquitetural: auditoria via trigger de banco
 
@@ -52,7 +53,7 @@ Decisão deliberada desde a Fase 4: sempre que possível, o log de auditoria é 
 |---|---|---|
 | `invite-user` | Admin (própria igreja) ou `master` (qualquer igreja, `church_id` obrigatório no body) | Cria usuário via Admin API já com senha definida; valida que `role` nunca seja `master`. |
 | `generate-reset-link` | Admin (só usuários da própria igreja) ou `master` | Gera link de recovery real via Admin API; checa mesma-igreja **antes** de chamar a API (bypassa RLS via service-role). |
-| `parse-statement` | Admin/Tesoureiro/`master` | Envia o extrato (PDF nativo ou texto) ao Gemini com `responseSchema` estrito; modos `extract` e `refine`. |
+| `parse-statement` | Admin/Tesoureiro/`master` | Envia o extrato (PDF nativo ou texto) ao Gemini com `responseSchema` estrito; modos `extract` e `refine`. Recebe também `applyMode` (`"ai" \| "strict"`) e `churchId` — no Modo Estrito, consulta `category_rules` da igreja e sobrepõe a categoria da IA quando a descrição bate com uma regra salva (ver [`contabilidade-rules`](../.claude/skills/contabilidade-rules/SKILL.md)). |
 
 Todas leem segredos via `Deno.env.get(...)` (`GEMINI_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY` — este último injetado automaticamente pelo runtime, nunca configurado manualmente) e usam o CORS allow-list compartilhado (`_shared/cors.ts`).
 
