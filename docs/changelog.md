@@ -820,3 +820,14 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
 - Extração em componente (não só copiar o JSX): o pedido diz explicitamente "utilize o MESMO componente" — copiar o markup manteria duas cópias divergindo com o tempo; um componente compartilhado é a única forma de garantir que as duas telas naveguem por período de forma idêntica no futuro também.
 - Pílulas de ação (`ACTION_FILTERS`) e os selects de usuário/igreja (Master) mantidos como estavam — o pedido não menciona removê-los, e eles já seguiam o mesmo padrão visual de pílula/select usado no resto do app.
 - Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros/warnings novos) e smoke test via `npm run dev`. Teste visual real (abrir o popover, navegar meses, combinar filtro de ação com busca) não foi executado nesta sessão por falta de ambiente com browser automatizável.
+
+### [2026-07-26] Merge para `main` e Release v1.3.1
+
+**O que foi feito:**
+- Merge (`--no-ff`) de `hmg` em `main` (commit `eb785d3`), levando a padronização do filtro de Mês/Ano da Trilha de Auditoria com o Livro Caixa (`MonthYearPicker` compartilhado + correção dos cards de KPI) — validado com `npx tsc --noEmit`/`npm run build` limpos em `main` antes do push.
+- Tag anotada `v1.3.1` criada sobre `main` e Release publicado no GitHub (`gh release create`), notas em linguagem de usuário final.
+
+**Decisões técnicas:**
+- Versão `v1.3.1` (PATCH, SemVer): a mudança é padronização visual/UX + correção de um cálculo de KPI que não refletia os filtros — nenhuma funcionalidade nova foi adicionada, então não justifica MINOR.
+
+**Validação:** release publicada em `https://github.com/alessandrosaldanha/saas-contabilidade-igrejas/releases/tag/v1.3.1`.
