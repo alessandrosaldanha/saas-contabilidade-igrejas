@@ -676,3 +676,16 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
   - Duas referências descreviam `CLAUDE.md` como "log vivo de arquitetura, decisões técnicas e histórico do projeto" — desde a modularização da documentação (ver entradas anteriores deste changelog), o histórico vive em `docs/changelog.md` e o `CLAUDE.md` raiz contém só as diretrizes essenciais. Ambas as referências corrigidas para apontar a `docs/changelog.md`.
 
 **Validação:** `npx tsc --noEmit` rodado após as alterações (mudança é só de documentação/skills, sem código de aplicação alterado) — sem erros.
+
+### [2026-07-25] Merge para `main` e Release v1.2.0
+
+**O que foi feito:**
+- Merge (`--no-ff`) de `hmg` em `main` com a auditoria de documentação/skills acima (commit de merge `d703777`).
+- Ao revisar o histórico, identificado que a feature de Termos de Uso (commit `0d51444`, ver entrada anterior) e a adição da skill Clean Code (`22bdc75`) já estavam em `main` desde antes desta sessão, mas nunca haviam sido taggeadas/lançadas desde `v1.1.0` — pendência coberta junto nesta release.
+- Tag anotada `v1.2.0` criada sobre `main` (`d703777`) e Release publicado no GitHub (`gh release create`), cobrindo: aceite obrigatório dos Termos de Uso e a auditoria de documentação/skills desta sessão.
+
+**Decisões técnicas:**
+- Autenticação do `gh` feita via `gh auth login` (fluxo de navegador) diretamente pelo usuário no terminal local — dois tokens (PAT) colados por engano no chat durante a tentativa de autenticação foram tratados como comprometidos e nunca usados em nenhum comando; usuário orientado a revogá-los.
+- Versão `v1.2.0` (MINOR, SemVer) por incluir uma funcionalidade nova retrocompatível (Termos de Uso), não só a limpeza de documentação.
+
+**Validação:** release publicado com sucesso em `https://github.com/alessandrosaldanha/saas-contabilidade-igrejas/releases/tag/v1.2.0`.
