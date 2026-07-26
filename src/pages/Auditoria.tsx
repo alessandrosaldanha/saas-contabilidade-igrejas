@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, FileDown } from "lucide-react";
+import { FileDown } from "lucide-react";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Avatar from "../components/Avatar";
+import MonthYearPicker from "../components/MonthYearPicker";
 import { useApp } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../services/supabase";
@@ -120,25 +121,6 @@ export default function Auditoria() {
     };
   }, [year, month, usersById, isMaster, effectiveChurchId, churchFilter]);
 
-  const goPrevMonth = () => {
-    if (month === 0) {
-      setYear((y) => y - 1);
-      setMonth(11);
-    } else {
-      setMonth((m) => m - 1);
-    }
-    setPage(1);
-  };
-  const goNextMonth = () => {
-    if (month === 11) {
-      setYear((y) => y + 1);
-      setMonth(0);
-    } else {
-      setMonth((m) => m + 1);
-    }
-    setPage(1);
-  };
-
   const userOptions = useMemo(() => Array.from(new Set(logs.map((l) => l.user))).sort(), [logs]);
 
   const filtered = useMemo(() => {
@@ -157,10 +139,12 @@ export default function Auditoria() {
   const pageClamped = Math.min(page, totalPages);
   const pageRows = filtered.slice((pageClamped - 1) * AUDIT_PAGE_SIZE, pageClamped * AUDIT_PAGE_SIZE);
 
-  const kpiTotal = logs.length;
-  const kpiIa = logs.filter((l) => l.actionKey === "categorizacao_ia").length;
-  const kpiManual = logs.filter((l) => l.actionKey === "edicao_manual").length;
-  const kpiEstorno = logs.filter((l) => l.actionKey === "estorno").length;
+  // Reflete o filtro de data + pílula de ação + busca (não só o mês) — assim
+  // os cards batem com o que está de fato listado na tabela abaixo.
+  const kpiTotal = filtered.length;
+  const kpiIa = filtered.filter((l) => l.actionKey === "categorizacao_ia").length;
+  const kpiManual = filtered.filter((l) => l.actionKey === "edicao_manual").length;
+  const kpiEstorno = filtered.filter((l) => l.actionKey === "estorno").length;
 
   const changeFilters = (fn: () => void) => {
     fn();
@@ -195,34 +179,8 @@ export default function Auditoria() {
         </Badge>
       </div>
 
-      <div className="flex items-center gap-2 flex-wrap mb-4">
-        <button
-          onClick={goPrevMonth}
-          className="w-8 h-8 flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20"
-        >
-          <ChevronLeft size={15} />
-        </button>
-        <span className="font-display font-semibold text-sm min-w-[150px] text-center">
-          {MONTHS_FULL[month]} de {year}
-        </span>
-        <button
-          onClick={goNextMonth}
-          className="w-8 h-8 flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20"
-        >
-          <ChevronRight size={15} />
-        </button>
-        <select
-          value={month}
-          onChange={(e) => changeFilters(() => setMonth(parseInt(e.target.value, 10)))}
-          className="border border-neutral-300 dark:border-white/20 bg-white dark:bg-neutral-900 rounded-md text-xs px-3 py-2"
-        >
-          {MONTHS_FULL.map((label, i) => (
-            <option key={label} value={i}>
-              {label}
-            </option>
-          ))}
-        </select>
-        <div className="flex-1" />
+      <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
+        <MonthYearPicker year={year} month={month} onChange={(y, m) => changeFilters(() => { setYear(y); setMonth(m); })} />
         <button
           onClick={exportAuditReport}
           className="flex items-center gap-2 px-3.5 py-2 rounded-md border border-neutral-300 dark:border-white/20 bg-white dark:bg-neutral-900 text-xs font-medium hover:bg-neutral-50 dark:hover:bg-neutral-800"
@@ -237,7 +195,7 @@ export default function Auditoria() {
           value={search}
           onChange={(e) => changeFilters(() => setSearch(e.target.value))}
           placeholder="Buscar por usuário, evento, categoria ou ID…"
-          className="flex-1 min-w-[240px] bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/20 rounded-md px-3.5 py-2 text-sm outline-none"
+          className="flex-1 min-w-[240px] bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/20 rounded-md px-3.5 py-2.5 text-sm outline-none"
         />
         <select
           value={userFilter}

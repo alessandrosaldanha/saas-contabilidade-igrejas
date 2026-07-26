@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, FileText, FileType, Pencil, Plus, Sheet, Trash2, X } from "lucide-react";
+import { FileText, FileType, Pencil, Plus, Sheet, Trash2, X } from "lucide-react";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Avatar from "../components/Avatar";
+import MonthYearPicker from "../components/MonthYearPicker";
 import { useApp } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../services/supabase";
@@ -63,7 +64,6 @@ export default function LivroCaixa() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [formModal, setFormModal] = useState<TransactionForm | null>(null);
   const [isSavingForm, setIsSavingForm] = useState(false);
-  const [periodPickerOpen, setPeriodPickerOpen] = useState(false);
 
   // Master só gerencia/exclui lançamentos depois de escolher uma igreja no
   // seletor da Sidebar (sem isso não haveria church_id para gravar o lançamento).
@@ -139,23 +139,6 @@ export default function LivroCaixa() {
     showToastMsg(formModal.mode === "create" ? "Lançamento criado com sucesso" : "Lançamento atualizado com sucesso");
   };
 
-  const goPrevMonth = () => {
-    if (month === 0) {
-      setYear((y) => y - 1);
-      setMonth(11);
-    } else {
-      setMonth((m) => m - 1);
-    }
-  };
-  const goNextMonth = () => {
-    if (month === 11) {
-      setYear((y) => y + 1);
-      setMonth(0);
-    } else {
-      setMonth((m) => m + 1);
-    }
-  };
-
   const ledger = useMemo(() => computeLedger(transactions, year, month), [transactions, year, month]);
 
   const filteredRows = useMemo(
@@ -202,67 +185,7 @@ export default function LivroCaixa() {
       </div>
 
       <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={goPrevMonth}
-            className="w-8 h-8 flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20"
-          >
-            <ChevronLeft size={15} />
-          </button>
-          <div className="relative">
-            <button
-              onClick={() => setPeriodPickerOpen((v) => !v)}
-              className="flex items-center gap-2 font-display font-semibold text-sm min-w-[150px] justify-center px-3 py-1.5 rounded-md border border-transparent hover:border-neutral-300 dark:hover:border-white/20 hover:bg-neutral-100 dark:hover:bg-white/5"
-            >
-              <CalendarDays size={14} className="text-neutral-400" />
-              {MONTHS_FULL[month]} de {year}
-            </button>
-
-            {periodPickerOpen && (
-              <div className="absolute z-20 top-[calc(100%+6px)] left-1/2 -translate-x-1/2 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 rounded-lg shadow-md p-3.5 w-[260px]">
-                <div className="flex items-center justify-between mb-3">
-                  <button
-                    onClick={() => setYear((y) => y - 1)}
-                    className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-neutral-100 dark:hover:bg-white/5"
-                  >
-                    <ChevronLeft size={14} />
-                  </button>
-                  <span className="font-display font-semibold text-sm">{year}</span>
-                  <button
-                    onClick={() => setYear((y) => y + 1)}
-                    className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-neutral-100 dark:hover:bg-white/5"
-                  >
-                    <ChevronRight size={14} />
-                  </button>
-                </div>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {MONTHS_FULL.map((label, i) => (
-                    <button
-                      key={label}
-                      onClick={() => {
-                        setMonth(i);
-                        setPeriodPickerOpen(false);
-                      }}
-                      className={`text-xs py-2 rounded-md font-medium ${
-                        i === month
-                          ? "bg-orla-blue text-white"
-                          : "text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-white/5"
-                      }`}
-                    >
-                      {label.slice(0, 3)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-          <button
-            onClick={goNextMonth}
-            className="w-8 h-8 flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20"
-          >
-            <ChevronRight size={15} />
-          </button>
-        </div>
+        <MonthYearPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
         <div className="flex flex-wrap gap-2">
           {canManage && (
             <button
