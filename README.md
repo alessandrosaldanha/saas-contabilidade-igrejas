@@ -44,12 +44,14 @@ O diferencial da plataforma é a **leitura e categorização automática de extr
 
 | Módulo | Descrição |
 |---|---|
-| 🔐 **Autenticação & RBAC** | Login via Supabase Auth com 4 papéis (`Admin`, `Tesoureiro`, `Auditor`, `Conselho Fiscal`), reforçados a nível de banco (RLS + RPCs `SECURITY DEFINER`) — não só na interface. |
+| 🔐 **Autenticação & RBAC** | Login via Supabase Auth com 5 papéis (`master` + `Admin`, `Tesoureiro`, `Auditor`, `Conselho Fiscal` por igreja), reforçados a nível de banco (RLS + RPCs `SECURITY DEFINER`) — não só na interface. |
+| 🏢 **Multi-tenant & Governança** | Cada igreja é um tenant isolado por `church_id`; o papel `master` (Admin Master da SaaS) gerencia todas as igrejas a partir do módulo de Governança, com visão global de usuários e seletor de "Igreja em Gestão". |
 | 📊 **Dashboard executivo** | KPIs de entradas/saídas com variação vs. período anterior, saldo em caixa, gráfico Entradas × Saídas e donut de saídas por categoria — tudo calculado a partir de lançamentos reais. |
 | 📑 **Livro Caixa** | Extrato completo por mês/ano, saldo de abertura/fechamento calculado em runtime, lançamento manual (criar/editar/excluir) e exportação em CSV/Excel real + prévia de relatório em PDF/Word. |
 | 🤖 **Importação inteligente com IA** | Upload de extrato (PDF, OFX ou CSV) processado pelo Gemini, que extrai e categoriza os lançamentos automaticamente; chat em linguagem natural para refinar a categorização antes de salvar; detecção de duplicatas contra o Livro Caixa. |
 | 🔍 **Trilha de auditoria** | Log imutável (sem `DELETE`/`UPDATE` liberado) de todo acesso, criação, edição e exclusão de lançamentos — gerado automaticamente por *triggers* de banco, não por chamadas manuais do frontend. |
 | 👥 **Gestão de usuários** | Cadastro com senha definida pelo Admin, troca de papel/status com confirmação extra para promoções/rebaixamentos de Admin, geração de link de redefinição de senha, bloqueio em tempo real de contas desativadas (via Realtime). |
+| 📝 **Termos de Uso** | Aceite obrigatório e bloqueante no primeiro acesso de qualquer usuário, independente do papel, com registro do aceite no banco. |
 | 🌗 **Tema claro/escuro** | Alternância persistente via Tailwind `dark` mode. |
 | 📱 **Responsivo (mobile-first)** | Menu lateral em *drawer* no mobile, tabelas com scroll próprio, grids que colapsam por breakpoint — testado de 320px a desktop. |
 
@@ -99,24 +101,28 @@ flowchart LR
 .
 ├── src/
 │   ├── assets/            # SVGs e ilustrações estáticas
-│   ├── components/        # Sidebar, Layout, Card, Badge, Avatar, Toast, ProtectedRoute...
+│   ├── components/        # Sidebar, Layout, Card, Badge, Avatar, Toast, ProtectedRoute,
+│   │                      # TermsAcceptanceModal, Church*.tsx (módulo de Governança)...
 │   ├── context/           # AuthContext (sessão/RBAC) e AppContext (tema, toasts, dados globais)
 │   ├── pages/             # Login, ResetPassword, Dashboard, LivroCaixa, ImportacaoExtrato,
-│   │                      # Auditoria, Usuarios
+│   │                      # Auditoria, Usuarios, Governanca (CRUD de igrejas, só `master`)
 │   ├── services/          # supabase.ts (client) e mockData.ts (helpers legados)
-│   ├── types/             # Interfaces TypeScript (Transaction, ChurchUser, AuditLog...)
+│   ├── types/             # Interfaces TypeScript (Transaction, ChurchUser, Church, AuditLog...)
 │   └── utils/             # Formatação de moeda/data, agregações de métricas, gráficos
 ├── supabase/
-│   ├── migrations/        # 0001_init.sql ... 0006_rbac_status_hardening.sql
+│   ├── migrations/        # 0001_init.sql ... 0011_terms_acceptance.sql (ver docs/database.md)
 │   └── functions/
 │       ├── _shared/       # Helper de CORS compartilhado entre as functions
 │       ├── parse-statement/       # Extração + categorização de extratos via Gemini
 │       ├── invite-user/           # Criação de usuário (Admin API)
 │       └── generate-reset-link/   # Geração de link de redefinição de senha
 ├── legacy-static/         # Protótipo estático original (referência histórica)
-├── CLAUDE.md              # Log vivo de arquitetura, decisões técnicas e histórico do projeto
+├── docs/                  # Documentação modular (arquitetura, banco, RBAC, changelog)
+├── CLAUDE.md              # Diretrizes essenciais para o Claude Code (comandos, skills, índice)
 └── vercel.json            # Rewrite de rotas para SPA
 ```
+
+> Estrutura completa e detalhada em [`docs/architecture.md`](./docs/architecture.md).
 
 ---
 
@@ -187,7 +193,7 @@ flowchart LR
 | `npx tsc --noEmit` | Verificação de tipos isolada, sem gerar build |
 
 > [!NOTE]
-> O projeto ainda não possui uma suíte de testes automatizados (unitários/E2E). A validação de cada alteração é feita hoje via type-check, build e testes manuais/Playwright ad-hoc — ver histórico em [`CLAUDE.md`](./CLAUDE.md).
+> O projeto ainda não possui uma suíte de testes automatizados (unitários/E2E). A validação de cada alteração é feita hoje via type-check, build e testes manuais/Playwright ad-hoc — ver histórico em [`docs/changelog.md`](./docs/changelog.md).
 
 ---
 
@@ -206,7 +212,7 @@ flowchart LR
 - **CORS restrito por allow-list** — as Edge Functions respondem apenas às origens conhecidas (domínio de produção + `localhost` de desenvolvimento), em vez de aceitar qualquer site.
 - **Política de senha** — mínimo de 8 caracteres, validado tanto no cliente quanto no servidor.
 - **Bloqueio em tempo real** — desativar um usuário encerra a sessão dele imediatamente em qualquer aba/navegador aberto, via Supabase Realtime.
-- **Sem segredos versionados** — `.env`/`.env.local` estão no `.gitignore` e nunca foram commitados; o repositório passou por auditoria de segurança completa (frontend, dependências, segredos e rotas) documentada em [`CLAUDE.md`](./CLAUDE.md).
+- **Sem segredos versionados** — `.env`/`.env.local` estão no `.gitignore` e nunca foram commitados; o repositório passou por auditoria de segurança completa (frontend, dependências, segredos e rotas) documentada em [`docs/changelog.md`](./docs/changelog.md).
 
 ---
 
