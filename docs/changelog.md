@@ -802,3 +802,21 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
 - Notas da release escritas separadamente do changelog técnico (arquivo à parte usado só como `--notes-file`, não commitado): o changelog documenta decisões técnicas para quem mantém o código, a release fala com quem usa o produto — os dois públicos e formatos são diferentes o suficiente para não reaproveitar um como o outro diretamente.
 
 **Validação:** release publicada em `https://github.com/alessandrosaldanha/saas-contabilidade-igrejas/releases/tag/v1.3.0`.
+
+### [2026-07-26] Padronização do cabeçalho/filtros da Trilha de Auditoria com o Livro Caixa
+
+**O que foi pedido:** a tela de Auditoria tinha um seletor de mês/ano diferente do Livro Caixa (setas `<`/`>` + um `<select>` de mês redundante ao lado, em vez do popover de calendário), e o card "Total de Eventos no Mês" não refletia os filtros de ação/usuário/busca já aplicados — só o mês.
+
+**O que foi feito:**
+- **`src/components/MonthYearPicker.tsx`** (novo): extraído o componente de navegação Mês/Ano que já existia embutido em `LivroCaixa.tsx` (botão `<` + rótulo com ícone de calendário abrindo popover de ano/mês + botão `>`) — agora é o mesmo componente reutilizado nas duas telas, não uma cópia visual.
+- **`src/pages/LivroCaixa.tsx`**: troca o bloco de ~60 linhas de popover por `<MonthYearPicker year={year} month={month} onChange={...} />`; `goPrevMonth`/`goNextMonth`/`periodPickerOpen` (agora internos ao componente) removidos daqui.
+- **`src/pages/Auditoria.tsx`**:
+  - Removido o `<select>` de mês redundante ao lado das setas; troca pelo mesmo `MonthYearPicker`, na mesma estrutura de linha (`flex items-center justify-between gap-4 flex-wrap mb-4`, picker à esquerda + botão de exportar à direita) já usada no Livro Caixa.
+  - `kpiTotal`/`kpiIa`/`kpiManual`/`kpiEstorno` passam a derivar de `filtered` (já filtrado por ação + usuário + busca), não de `logs` (só filtrado por mês) — os 4 cards agora batem com o que está de fato listado na tabela, não só com o mês.
+  - Padding do input de busca ajustado de `py-2` para `py-2.5`, igual ao input do Livro Caixa.
+  - Busca por mês continua vindo direto do Supabase por período (`gte`/`lt` em `occurred_at`, já existia) — trocar de mês pelo novo picker aciona o mesmo `useEffect` de sempre, sem mudança de comportamento aí.
+
+**Decisões técnicas:**
+- Extração em componente (não só copiar o JSX): o pedido diz explicitamente "utilize o MESMO componente" — copiar o markup manteria duas cópias divergindo com o tempo; um componente compartilhado é a única forma de garantir que as duas telas naveguem por período de forma idêntica no futuro também.
+- Pílulas de ação (`ACTION_FILTERS`) e os selects de usuário/igreja (Master) mantidos como estavam — o pedido não menciona removê-los, e eles já seguiam o mesmo padrão visual de pílula/select usado no resto do app.
+- Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros/warnings novos) e smoke test via `npm run dev`. Teste visual real (abrir o popover, navegar meses, combinar filtro de ação com busca) não foi executado nesta sessão por falta de ambiente com browser automatizável.
