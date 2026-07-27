@@ -831,3 +831,14 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
 - Versão `v1.3.1` (PATCH, SemVer): a mudança é padronização visual/UX + correção de um cálculo de KPI que não refletia os filtros — nenhuma funcionalidade nova foi adicionada, então não justifica MINOR.
 
 **Validação:** release publicada em `https://github.com/alessandrosaldanha/saas-contabilidade-igrejas/releases/tag/v1.3.1`.
+
+### [2026-07-27] Adição da skill `frontend-design`
+
+**O que foi feito:**
+- Skill `frontend-design` (repositório `anthropics/skills`) instalada em `.agents/skills/frontend-design/` (`SKILL.md` + `LICENSE.txt`) e registrada em `skills-lock.json` (fonte GitHub, hash calculado).
+- Commit direto em `hmg` (`0174580`) e push para `origin/hmg`.
+
+**Decisões técnicas:**
+- Apenas adição de arquivos de skill/configuração — sem impacto em código da aplicação, então não houve necessidade de rodar `npx tsc --noEmit`/`npm run build`.
+
+**Validação:** `git push origin hmg` concluído sem erros.
