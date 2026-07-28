@@ -11,6 +11,7 @@ import {
   LogIn,
 } from "lucide-react";
 import ThemeToggle from "../components/ThemeToggle";
+import ForgotPasswordModal from "../components/ForgotPasswordModal";
 import { useAuth, consumeInactiveLogoutFlag } from "../context/AuthContext";
 import chapelIllustration from "../assets/chapel-illustration.svg";
 
@@ -26,6 +27,7 @@ export default function Login() {
   const [remember, setRemember] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
 
   // Se a conta foi desativada enquanto a sessão estava ativa em algum
   // navegador (via assinatura Realtime no AuthContext), o signOut forçado
@@ -171,12 +173,13 @@ export default function Login() {
                   />
                   Lembrar neste dispositivo
                 </label>
-                <a
-                  href="#"
-                  className="text-xs text-orla-blue hover:text-blue-400 no-underline"
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPasswordModal(true)}
+                  className="text-xs text-orla-blue hover:text-blue-400"
                 >
                   Esqueceu a senha?
-                </a>
+                </button>
               </div>
 
               <button
@@ -197,6 +200,10 @@ export default function Login() {
           </div>
         </div>
       </div>
+
+      {showForgotPasswordModal && (
+        <ForgotPasswordModal onClose={() => setShowForgotPasswordModal(false)} />
+      )}
     </div>
   );
 }
