@@ -857,3 +857,14 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
 - Apenas adição de arquivos de skill/configuração — sem impacto em código da aplicação, então não houve necessidade de rodar `npx tsc --noEmit`/`npm run build`.
 
 **Validação:** `git push origin hmg` concluído sem erros.
+
+### [2026-07-27] Merge para `main` e Release v1.4.0
+
+**O que foi feito:**
+- Merge (`--no-ff`) de `hmg` em `main` (commit `98366e9`), levando o fluxo de recuperação de senha (`ForgotPasswordModal` + link "Esqueceu a senha?" funcional) e a skill `frontend-design` — validado com `npx tsc --noEmit`/`npm run build` limpos em `main` antes do push.
+- Tag anotada `v1.4.0` criada sobre `main` e Release publicado no GitHub (`gh release create`), notas em linguagem de usuário final (funcionalidade de recuperação de senha + nota de segurança sobre a mensagem neutra de sucesso).
+
+**Decisões técnicas:**
+- Versão `v1.4.0` (MINOR, SemVer): a mudança introduz uma funcionalidade nova e retrocompatível (recuperação de senha) — não é apenas correção/ajuste visual (não justifica PATCH) e não quebra nenhum contrato existente (não justifica MAJOR).
+
+**Validação:** release publicada em `https://github.com/alessandrosaldanha/saas-contabilidade-igrejas/releases/tag/v1.4.0`.
