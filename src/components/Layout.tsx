@@ -17,7 +17,7 @@ export default function Layout() {
           <button
             onClick={openMobileNav}
             title="Abrir menu"
-            className="md:hidden mb-4 inline-flex items-center justify-center w-9 h-9 rounded-md border border-neutral-300 dark:border-white/20 bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-300"
+            className="md:hidden mb-4 inline-flex items-center justify-center w-9 h-9 rounded-md border border-neutral-300 dark:border-white/20 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300"
           >
             <Menu size={18} />
           </button>

@@ -42,7 +42,7 @@ export default function MonthYearPicker({ year, month, onChange }: MonthYearPick
         </button>
 
         {pickerOpen && (
-          <div className="absolute z-20 top-[calc(100%+6px)] left-1/2 -translate-x-1/2 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 rounded-lg shadow-md p-3.5 w-[260px]">
+          <div className="absolute z-20 top-[calc(100%+6px)] left-1/2 -translate-x-1/2 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 rounded-lg shadow-md p-3.5 w-[260px]">
             <div className="flex items-center justify-between mb-3">
               <button
                 onClick={() => onChange(year - 1, month)}
@@ -69,7 +69,7 @@ export default function MonthYearPicker({ year, month, onChange }: MonthYearPick
                   className={`text-xs py-2 rounded-md font-medium ${
                     i === month
                       ? "bg-orla-blue text-white"
-                      : "text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-white/5"
+                      : "text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-white/5"
                   }`}
                 >
                   {label.slice(0, 3)}

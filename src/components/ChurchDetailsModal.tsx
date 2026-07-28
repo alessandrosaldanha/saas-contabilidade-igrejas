@@ -152,7 +152,7 @@ export default function ChurchDetailsModal({ church, allChurches, onClose, onCha
               </Badge>
             </div>
           </div>
-          <button onClick={onClose} className="text-neutral-400 p-1">
+          <button onClick={onClose} className="text-neutral-700 dark:text-neutral-400 p-1">
             <X size={18} />
           </button>
         </div>
@@ -192,7 +192,7 @@ export default function ChurchDetailsModal({ church, allChurches, onClose, onCha
             <div className="overflow-x-auto">
               <table className="w-full min-w-[520px] border-collapse text-sm">
                 <thead>
-                  <tr className="text-left text-neutral-400">
+                  <tr className="text-left text-neutral-700 dark:text-neutral-400">
                     <th className="px-4 py-2.5 font-medium text-xs">Nome</th>
                     <th className="px-4 py-2.5 font-medium text-xs">E-mail</th>
                     <th className="px-4 py-2.5 font-medium text-xs">CPF</th>
@@ -201,20 +201,20 @@ export default function ChurchDetailsModal({ church, allChurches, onClose, onCha
                 </thead>
                 <tbody>
                   {pagedMembers.map((m) => (
-                    <tr key={m.id} className="border-t border-neutral-200 dark:border-white/10">
+                    <tr key={m.id} className="border-t border-neutral-300 dark:border-white/10">
                       <td className="px-4 py-2.5">
                         <div className="flex items-center gap-2">
                           <Avatar name={m.name} size="sm" />
                           {m.name}
                         </div>
                       </td>
-                      <td className="px-4 py-2.5 text-neutral-500 dark:text-neutral-400">{m.email}</td>
-                      <td className="px-4 py-2.5 text-neutral-500 dark:text-neutral-400">{m.cpf || "—"}</td>
+                      <td className="px-4 py-2.5 text-neutral-700 dark:text-neutral-400">{m.email}</td>
+                      <td className="px-4 py-2.5 text-neutral-700 dark:text-neutral-400">{m.cpf || "—"}</td>
                       <td className="px-4 py-2.5 text-right">
                         <button
                           onClick={() => setEditingMember(m)}
                           title="Editar Membro"
-                          className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
+                          className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 text-neutral-700 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
                         >
                           <Pencil size={14} />
                         </button>
@@ -225,7 +225,7 @@ export default function ChurchDetailsModal({ church, allChurches, onClose, onCha
               </table>
             </div>
             {members.length === 0 && (
-              <div className="p-6 text-center text-neutral-400 text-sm">Nenhum membro cadastrado nesta igreja.</div>
+              <div className="p-6 text-center text-neutral-700 dark:text-neutral-400 text-sm">Nenhum membro cadastrado nesta igreja.</div>
             )}
             {members.length > 0 && (
               <Pagination page={membersPage} totalItems={members.length} pageSize={MEMBERS_PAGE_SIZE} onPageChange={setMembersPage} />
@@ -240,7 +240,7 @@ export default function ChurchDetailsModal({ church, allChurches, onClose, onCha
             <h3 className="font-display font-semibold text-lg m-0 mb-3">
               {church.isActive ? "Desativar Igreja" : "Ativar Igreja"}
             </h3>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed mb-6">
+            <p className="text-sm text-neutral-700 dark:text-neutral-400 leading-relaxed mb-6">
               {church.isActive
                 ? "Ao desativar esta igreja, todos os membros vinculados a ela perderão acesso imediatamente à plataforma (login bloqueado e sessões ativas encerradas)."
                 : "Ao ativar esta igreja, os membros vinculados a ela voltam a conseguir acessar a plataforma normalmente."}
@@ -320,7 +320,7 @@ function AddMemberModal({ churchId, onClose, onAdded }: AddMemberModalProps) {
       <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[440px] rounded-lg shadow-md p-5 sm:p-8">
         <div className="flex items-center justify-between mb-5">
           <h3 className="font-display font-semibold text-lg m-0">Adicionar Membro</h3>
-          <button onClick={onClose} className="text-neutral-400 p-1">
+          <button onClick={onClose} className="text-neutral-700 dark:text-neutral-400 p-1">
             <X size={18} />
           </button>
         </div>

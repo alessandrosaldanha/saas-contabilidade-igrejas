@@ -21,7 +21,7 @@ function RuleSuggestionCard({ suggestion, onSave, onDismiss }: RuleSuggestionCar
   const [keyword, setKeyword] = useState(suggestion.desc);
   return (
     <div className="rounded-lg border border-orla-blue/30 bg-orla-blue/5 px-3.5 py-3 flex flex-col gap-2">
-      <p className="text-xs text-neutral-500 dark:text-neutral-400 m-0">
+      <p className="text-xs text-neutral-700 dark:text-neutral-400 m-0">
         Salvar <strong className="text-black dark:text-white">"{suggestion.newCategory}"</strong> como padrão para
         lançamentos parecidos com:
       </p>
@@ -77,32 +77,32 @@ export default function AiChatPanel({
 }: AiChatPanelProps) {
   return (
     <Card padding="none" className="flex flex-col min-h-0 h-[420px] lg:h-auto">
-      <div className="flex items-center justify-between gap-2 px-4.5 py-4 border-b border-neutral-200 dark:border-white/10">
+      <div className="flex items-center justify-between gap-2 px-4.5 py-4 border-b border-neutral-300 dark:border-white/10">
         <div className="flex items-center gap-2.5 min-w-0">
           <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-orla-blue shrink-0">
             <Award size={14} className="text-white" />
           </span>
           <div className="min-w-0">
             <div className="text-sm font-medium">Agente de IA · Categorização</div>
-            <div className="text-[11px] text-neutral-400">Ajuste categorias por linguagem natural</div>
+            <div className="text-[11px] text-neutral-700 dark:text-neutral-400">Ajuste categorias por linguagem natural</div>
           </div>
         </div>
         <button
           onClick={onOpenRulesModal}
           title="Gerenciar regras de mapeamento salvas"
-          className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5 shrink-0"
+          className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 text-neutral-700 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5 shrink-0"
         >
           <Settings2 size={15} />
         </button>
       </div>
 
-      <div className="flex items-center gap-1.5 px-4.5 py-2.5 border-b border-neutral-200 dark:border-white/10 text-xs">
+      <div className="flex items-center gap-1.5 px-4.5 py-2.5 border-b border-neutral-300 dark:border-white/10 text-xs">
         <button
           onClick={() => onApplyModeChange("ai")}
           className={`px-2.5 py-1.5 rounded-md font-medium transition-colors ${
             applyMode === "ai"
               ? "bg-orla-blue text-white"
-              : "text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
+              : "text-neutral-700 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
           }`}
         >
           IA Autônoma
@@ -112,7 +112,7 @@ export default function AiChatPanel({
           className={`px-2.5 py-1.5 rounded-md font-medium transition-colors ${
             applyMode === "strict"
               ? "bg-orla-blue text-white"
-              : "text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
+              : "text-neutral-700 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
           }`}
         >
           Modo Estrito (Regras Salvas)
@@ -148,7 +148,7 @@ export default function AiChatPanel({
         ))}
       </div>
 
-      <div className="flex gap-2 px-4 py-3.5 border-t border-neutral-200 dark:border-white/10">
+      <div className="flex gap-2 px-4 py-3.5 border-t border-neutral-300 dark:border-white/10">
         <input
           value={chatInput}
           onChange={(e) => onChatInputChange(e.target.value)}

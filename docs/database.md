@@ -7,7 +7,7 @@ Projeto: `fumabywngmjfzsobmbjr` (região `ca-central-1`). Schema versionado em `
 | Tabela | Descrição |
 |---|---|
 | `churches` | Igrejas (tenants). Nome, endereço completo, CNPJ/telefone/e-mail opcionais, `parent_church_id` (hierarquia principal/filha, só organizacional), `is_active`. Sem policy de `DELETE` — só ativar/desativar. |
-| `profiles` | Estende `auth.users`. `role`, `status`, `church_id` (nulo só para `master`), `cpf` opcional, `termo_aceito` (flag rápida de aceite dos Termos de Uso, default `false`). Toda escrita passa por RPC `SECURITY DEFINER` — não há policy de `UPDATE` direta. |
+| `profiles` | Estende `auth.users`. `role`, `status`, `church_id` (nulo só para `master`), `cpf` opcional, `termo_aceito` (flag rápida de aceite dos Termos de Uso, default `false`), `theme` (`'light'`\|`'dark'`, default `'dark'`, preferência de tema sincronizada entre dispositivos). Toda escrita passa por RPC `SECURITY DEFINER` — não há policy de `UPDATE` direta. |
 | `transactions` | Lançamentos do Livro Caixa. `church_id NOT NULL DEFAULT current_church_id()`, `import_id` (FK opcional para `import_history`, `ON DELETE CASCADE`). Trigger `sync_church_id()` (`BEFORE INSERT OR UPDATE`) reforça `church_id` no servidor — ver nota abaixo. |
 | `import_history` | Registro de cada lote de extrato importado (arquivo, mês, contagem). `church_id NOT NULL DEFAULT current_church_id()`. Mesmo trigger `sync_church_id()` de `transactions`. |
 | `audit_logs` | Trilha de auditoria **append-only** (sem policy de `UPDATE`/`DELETE`). `church_id` nullable (ações globais do Master, ex. criar igreja, não pertencem a um tenant). |
@@ -37,6 +37,7 @@ is_master() or (<regra original de role/status> and church_id = current_church_i
 | `admin_update_user_role(target_id, new_role)` | RPC (client) | Só Admin (mesma igreja do alvo) ou Master. Nunca aceita `new_role = 'master'`. Grava log com `church_id` do alvo. |
 | `admin_set_user_status(target_id, new_status)` | RPC (client) | Mesma regra de acesso acima, para `Ativo`/`Inativo`/`Convite Pendente`. |
 | `update_own_profile(new_name, new_email)` | RPC (client) | Autoedição de nome/e-mail (qualquer role, só a própria linha). |
+| `update_own_theme(new_theme)` | RPC (client) | Autoedição da preferência de tema (`'light'`\|`'dark'`, valida o valor e rejeita qualquer outro). Chamada pelo `toggleTheme` do `AppContext` sempre que a igreja/usuário troca de tema pela Sidebar; fire-and-forget (não bloqueia a UI, erro só vai pro console). |
 | `master_update_profile(target_id, new_name, new_email, new_cpf)` | RPC (client) | Só Master — edita nome/e-mail/CPF de **qualquer** perfil. |
 | `accept_terms(p_versao_termo)` | RPC (client) | Única forma de registrar aceite dos Termos de Uso — grava em `termo_aceite_registros` (com IP/user-agent), ativa `profiles.termo_aceito` e loga `aceite_termos` em `audit_logs`. Chamada pelo `TermsAcceptanceModal` (bloqueante, ver `permissions-rbac.md`). |
 | `handle_new_user()` | Trigger (`auth.users` → `profiles`) | Cria o profile automaticamente na criação do usuário, lendo `name`/`role`/`church_id`/`cpf` do `user_metadata`. |

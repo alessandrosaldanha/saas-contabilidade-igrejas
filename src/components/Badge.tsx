@@ -7,7 +7,7 @@ const TONE_SOLID: Record<BadgeTone, string> = {
   warning: "bg-status-warning/15 text-status-warning",
   error: "bg-status-error/15 text-status-error",
   info: "bg-orla-blue/15 text-orla-blue",
-  neutral: "bg-neutral-500/15 text-neutral-600 dark:text-neutral-400",
+  neutral: "bg-neutral-500/15 text-neutral-700 dark:text-neutral-400",
   purple: "bg-[#7c3aed]/15 text-[#7c3aed]",
 };
 
@@ -16,7 +16,7 @@ const TONE_OUTLINE: Record<BadgeTone, string> = {
   warning: "border-status-warning text-status-warning",
   error: "border-status-error text-status-error",
   info: "border-orla-blue text-orla-blue",
-  neutral: "border-neutral-400 dark:border-white/25 text-neutral-600 dark:text-neutral-300",
+  neutral: "border-neutral-400 dark:border-white/25 text-neutral-700 dark:text-neutral-300",
   purple: "border-[#7c3aed] text-[#7c3aed]",
 };
 

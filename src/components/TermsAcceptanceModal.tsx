@@ -37,13 +37,13 @@ export default function TermsAcceptanceModal() {
   return (
     <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-[3px] flex items-center justify-center p-4 sm:p-6">
       <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[640px] max-h-[90vh] flex flex-col rounded-lg shadow-md">
-        <div className="flex items-center gap-3 p-5 sm:p-8 pb-4 sm:pb-4 border-b border-neutral-200 dark:border-white/10">
+        <div className="flex items-center gap-3 p-5 sm:p-8 pb-4 sm:pb-4 border-b border-neutral-300 dark:border-white/10">
           <span className="w-10 h-10 rounded-full bg-orla-blue/15 flex items-center justify-center shrink-0">
             <ShieldAlert size={20} className="text-orla-blue" />
           </span>
           <div>
             <h3 className="font-display font-semibold text-lg m-0">Termos de Uso e Responsabilidade</h3>
-            <p className="text-xs text-neutral-400 mt-0.5">
+            <p className="text-xs text-neutral-700 dark:text-neutral-400 mt-0.5">
               Versão {TERMS_VERSION} — leitura obrigatória antes de continuar
             </p>
           </div>
@@ -115,7 +115,7 @@ export default function TermsAcceptanceModal() {
           </div>
         </div>
 
-        <div className="p-5 sm:p-8 pt-4 border-t border-neutral-200 dark:border-white/10">
+        <div className="p-5 sm:p-8 pt-4 border-t border-neutral-300 dark:border-white/10">
           <label className="flex items-start gap-2.5 text-sm mb-4 cursor-pointer select-none">
             <input
               type="checkbox"

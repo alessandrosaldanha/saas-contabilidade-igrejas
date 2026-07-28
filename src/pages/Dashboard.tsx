@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { Presentation } from "lucide-react";
 import Card from "../components/Card";
 import MetricCard from "../components/MetricCard";
-import ThemeToggle from "../components/ThemeToggle";
 import ExploratoryChart from "../components/ExploratoryChart";
 import { useApp } from "../context/AppContext";
 import { fmtPlain } from "../utils/format";
@@ -100,28 +99,22 @@ export default function Dashboard() {
 
   return (
     <div>
-      {!isPresenting && (
-        <div className="flex justify-end mb-4">
-          <ThemeToggle />
-        </div>
-      )}
-
       <div className="flex items-start justify-between gap-5 flex-wrap mb-6">
         <div>
           <h1 className="font-display font-semibold text-2xl m-0 tracking-tight">Dashboard Executivo</h1>
-          <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1.5">
+          <p className="text-sm text-neutral-700 dark:text-neutral-400 mt-1.5">
             Visão geral da saúde financeira da igreja
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          <div className="flex flex-wrap gap-1 bg-neutral-100 dark:bg-neutral-950 p-1 rounded-md border border-neutral-200 dark:border-white/10">
+          <div className="flex flex-wrap gap-1 bg-neutral-100 dark:bg-neutral-950 p-1 rounded-md border border-neutral-300 dark:border-white/10">
             {(Object.keys(PERIOD_LABELS) as Period[]).map((id) => (
               <button
                 key={id}
                 onClick={() => setPeriod(id)}
                 className={`border-none px-3.5 py-1.5 rounded-sm text-xs font-medium cursor-pointer transition-colors ${
-                  period === id ? "bg-orla-blue text-white" : "bg-transparent text-neutral-600 dark:text-neutral-400"
+                  period === id ? "bg-orla-blue text-white" : "bg-transparent text-neutral-700 dark:text-neutral-400"
                 }`}
               >
                 {PERIOD_LABELS[id]}
@@ -159,7 +152,7 @@ export default function Dashboard() {
                 } hover:opacity-100`}
               >
                 <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: FLOW_COLORS.entrada }} />
-                <span className="text-neutral-600 dark:text-neutral-300">Entradas</span>
+                <span className="text-neutral-700 dark:text-neutral-300">Entradas</span>
               </button>
               <button
                 onClick={() => toggleFlowFocus("saidas")}
@@ -169,7 +162,7 @@ export default function Dashboard() {
                 } hover:opacity-100`}
               >
                 <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: FLOW_COLORS.saida }} />
-                <span className="text-neutral-600 dark:text-neutral-300">Saídas</span>
+                <span className="text-neutral-700 dark:text-neutral-300">Saídas</span>
               </button>
             </div>
           </div>
@@ -179,7 +172,7 @@ export default function Dashboard() {
                 {gridLines.map((gl, i) => (
                   <g key={i}>
                     <line x1={0} x2={600} y1={gl.y} y2={gl.y} stroke="currentColor" className="text-neutral-200 dark:text-white/10" strokeWidth={1} />
-                    <text x={0} y={gl.y - 3} fill="currentColor" className="text-neutral-400" fontSize={10}>
+                    <text x={0} y={gl.y - 3} fill="currentColor" className="text-neutral-700 dark:text-neutral-400" fontSize={10}>
                       {gl.label}
                     </text>
                   </g>
@@ -227,14 +220,14 @@ export default function Dashboard() {
               </svg>
               <div className="flex justify-between mt-1 px-0.5">
                 {labels.map((label) => (
-                  <span key={label} className="text-[9px] text-neutral-400">
+                  <span key={label} className="text-[9px] text-neutral-700 dark:text-neutral-400">
                     {label}
                   </span>
                 ))}
               </div>
             </>
           ) : (
-            <div className="py-16 text-center text-sm text-neutral-400">Sem lançamentos no período selecionado.</div>
+            <div className="py-16 text-center text-sm text-neutral-700 dark:text-neutral-400">Sem lançamentos no período selecionado.</div>
           )}
         </Card>
 
@@ -251,12 +244,12 @@ export default function Dashboard() {
                     {highlighted ? (
                       <>
                         <span className="font-display font-semibold text-sm leading-tight">{fmtPlain(highlighted.value)}</span>
-                        <span className="text-[9px] text-neutral-400 leading-tight mt-0.5">{highlighted.pct}% · {highlighted.name}</span>
+                        <span className="text-[9px] text-neutral-700 dark:text-neutral-400 leading-tight mt-0.5">{highlighted.pct}% · {highlighted.name}</span>
                       </>
                     ) : (
                       <>
                         <span className="font-display font-semibold text-lg">{fmtPlain(donutTotalValue)}</span>
-                        <span className="text-[10px] text-neutral-400">total</span>
+                        <span className="text-[10px] text-neutral-700 dark:text-neutral-400">total</span>
                       </>
                     )}
                   </div>
@@ -274,13 +267,13 @@ export default function Dashboard() {
                   >
                     <span
                       className={`flex items-center gap-2 min-w-0 truncate ${
-                        highlightedCategory === cat.name ? "text-black dark:text-white font-medium" : "text-neutral-600 dark:text-neutral-300"
+                        highlightedCategory === cat.name ? "text-black dark:text-white font-medium" : "text-neutral-700 dark:text-neutral-300"
                       }`}
                     >
                       <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ backgroundColor: cat.color }} />
                       <span className="truncate">{cat.name}</span>
                     </span>
-                    <span className="flex items-center gap-2 shrink-0 text-neutral-400 whitespace-nowrap">
+                    <span className="flex items-center gap-2 shrink-0 text-neutral-700 dark:text-neutral-400 whitespace-nowrap">
                       <span>{fmtPlain(cat.value)}</span>
                       <span className="w-9 text-right">{cat.pct}%</span>
                     </span>
@@ -289,7 +282,7 @@ export default function Dashboard() {
               </div>
             </>
           ) : (
-            <div className="py-10 text-center text-sm text-neutral-400">Sem saídas no período.</div>
+            <div className="py-10 text-center text-sm text-neutral-700 dark:text-neutral-400">Sem saídas no período.</div>
           )}
         </Card>
       </div>

@@ -868,3 +868,66 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
 - Versão `v1.4.0` (MINOR, SemVer): a mudança introduz uma funcionalidade nova e retrocompatível (recuperação de senha) — não é apenas correção/ajuste visual (não justifica PATCH) e não quebra nenhum contrato existente (não justifica MAJOR).
 
 **Validação:** release publicada em `https://github.com/alessandrosaldanha/saas-contabilidade-igrejas/releases/tag/v1.4.0`.
+
+### [2026-07-27] Move o toggle de tema do Dashboard para o menu lateral (Sidebar)
+
+**O que foi pedido:** o botão de alternância de tema (`ThemeToggle`) estava fixo no topo do Dashboard, poluindo uma tela que deveria focar só em métricas; movê-lo para um local mais global, acessível de qualquer tela.
+
+**O que foi feito:**
+- **`src/pages/Dashboard.tsx`**: removido o `<ThemeToggle />` (e o import correspondente) do topo da tela.
+- **`src/components/Sidebar.tsx`**: nenhuma mudança necessária — o popover de perfil (aberto ao clicar no avatar/nome no rodapé da Sidebar) **já tinha** o item "Alternar Tema Claro/Escuro" (ícone Sol/Lua, chamando o mesmo `toggleTheme` do `AppContext`), adicionado em sessão anterior. Item 2 do pedido já estava implementado.
+- `ThemeToggle.tsx` (componente em si) não foi removido do projeto — continua em uso em `Login.tsx` e `ResetPassword.tsx`, telas públicas que ficam fora da árvore do `Layout`/`Sidebar` e por isso ainda precisam de um controle de tema próprio.
+
+**Decisões técnicas:**
+- `CLAUDE.md` raiz **não foi alterado** para registrar este detalhe de implementação, apesar do pedido explícito — a própria regra de auto-documentação definida nele restringe o que motiva uma edição desse arquivo a mudanças na diretriz essencial (comandos, a própria regra de auto-documentação, índice), não a onde um componente específico está renderizado; esse tipo de decisão é exatamente o que o changelog existe para registrar, então ficou só aqui.
+- Persistência de tema não foi alterada: `theme` em `AppContext.tsx` já era (antes e depois desta mudança) um estado em memória, sem `localStorage` — sobrevive a navegação entre rotas dentro da mesma sessão, mas volta para o padrão (`dark`) num F5/nova aba. Mover o gatilho de UI não altera esse comportamento; adicionar persistência entre reloads não fazia parte do pedido.
+- Validado com `npx tsc --noEmit` e `npm run build` (sem erros). Teste visual real (abrir o popover de perfil, alternar tema, confirmar que o Dashboard não exibe mais nenhum botão de tema) não foi executado nesta sessão por falta de ambiente com browser automatizável.
+
+### [2026-07-27] Ajuste fino de contraste/legibilidade do Modo Claro (sem tocar `dark:*`)
+
+**O que foi pedido:** o Modo Claro tinha textos secundários e bordas "apagados" (baixo contraste) — pedido para escurecer textos/bordas do light mode usando tons de alto contraste (equivalente a `slate-900`/`slate-600`/`slate-200` do Tailwind), sem alterar nenhuma classe `dark:*`.
+
+**O que foi feito:**
+- **Causa raiz:** a paleta `neutral` deste projeto é customizada em `tailwind.config.js` (não é a `neutral`/`gray`/`slate` padrão do Tailwind) — `neutral-500` (`#aeaeb2`) e `neutral-400` (`#d7dce0`) são muito claros para uso como cor de texto (contraste ~2:1–2:3:1 contra branco, bem abaixo do mínimo de 4.5:1 do WCAG AA), enquanto `neutral-700` (`#474747`) é o tom que efetivamente corresponde ao nível de escurecimento pedido (equivalente a `slate-600`/`gray-600` do Tailwind padrão, que são bem mais escuros do que os números sugerem por comparação direta de dígito).
+- Varredura em todo `src/**/*.tsx` (30 arquivos) trocando, **somente na classe sem prefixo** (a que comanda o Modo Claro): `text-neutral-500`/`text-neutral-400`/`text-neutral-600` → `text-neutral-700` (texto secundário/legendas/rótulos/células de tabela) e `border-neutral-200` → `border-neutral-300` (bordas de cards, tabelas, modais, divisores) — em todo par já existente como `text-neutral-500 dark:text-neutral-400` a classe `dark:*` foi preservada byte a byte.
+- Casos sem par `dark:*` explícito (a classe era usada igual nos dois temas, ex.: cabeçalhos de tabela, KPIs, mensagens de estado vazio, botões de fechar `×`) — em vez de só troca simples, foi **adicionado** um `dark:text-neutral-400` fixo ao lado do novo `text-neutral-700`, fixando o Modo Escuro exatamente como já renderizava antes (a classe sem prefixo, que valia pros dois temas, agora vale só para o Claro).
+- **Exceção deliberada:** ícones puramente decorativos (`Mail`/`Lock`/`Search`/`CalendarDays`/`Upload`/`ArrowRight` usados como acento ao lado de labels/inputs já escuros) foram mantidos em `text-neutral-400` nos dois temas — não são texto de leitura, e escurecê-los pesaria visualmente o design sem ganho de acessibilidade real (ícone decorativo ao lado de texto já legível é isento da regra de contraste do WCAG).
+- Botões/ícones funcionais (fechar modal `×`, alternar visibilidade de senha, excluir regra) que usavam `text-neutral-400` sem nenhum par `dark:*` **foram incluídos** no ajuste (ficaram quase invisíveis no Modo Claro) — mesmo tratamento de "fixar dark, escurecer claro" acima.
+- Não foram alterados os valores hexadecimais da paleta `neutral` em `tailwind.config.js` — trocar os hex mudaria os dois temas ao mesmo tempo (o Modo Escuro reusa exatamente os mesmos tokens numéricos via `dark:*`); o ajuste é só em qual token cada classe referencia.
+
+**Decisões técnicas:**
+- Optou-se por continuar usando a paleta `neutral` já customizada do projeto (não introduzir `slate`/`gray` como família nova de cor) — os tons pedidos (`slate-900`/`slate-600`/`slate-200`) já têm equivalente direto dentro da própria escala `neutral` deste projeto (`900`/`700`/`300` respectivamente); misturar duas famias de cinza no mesmo design system criaria inconsistência sem necessidade.
+- `bg-white`/`bg-neutral-50` como fundo de telas/cards não precisou de ajuste — já é o padrão em todo o app (`Card.tsx`, `Layout.tsx`, `Sidebar.tsx`) e `neutral-50` (`#fbfcf6`) já é um branco quase puro, equivalente ao `slate-50`/`gray-50` pedido.
+- Validado com `npx tsc --noEmit` e `npm run build` (sem erros) e um diff completo revisado à mão confirmando que nenhuma classe `dark:*` foi alterada. Teste visual real (percorrer Sidebar, tabelas, cards do Dashboard, modais e botões no Modo Claro e comparar com o Modo Escuro) não foi executado nesta sessão por falta de ambiente com browser automatizável.
+
+### [2026-07-27] Fecha o popover de perfil/logout da Sidebar ao clicar fora
+
+**O que foi pedido:** o popover de perfil/configurações/logout no rodapé da `Sidebar.tsx` só fechava clicando de novo no próprio gatilho (avatar/nome) — pedido para fechar também ao clicar em qualquer lugar fora do popover.
+
+**O que foi feito:**
+- **`src/components/Sidebar.tsx`**: adicionados `profileMenuRef` (no `<div>` do popover) e `profileTriggerRef` (no `<div>` clicável do avatar/nome que abre/fecha o popover).
+- `useEffect` que, só enquanto `showProfileMenu` é `true`, registra um listener `mousedown` em `document`: se o alvo do clique não está dentro do popover nem do gatilho (`ref.current.contains(target)`), fecha o popover (`setShowProfileMenu(false)`). O listener é removido no cleanup do `useEffect` (e reavaliado a cada mudança de `showProfileMenu`), então não fica registrado à toa enquanto o popover está fechado.
+
+**Decisões técnicas:**
+- Listener condicionado a `showProfileMenu` (early return + dependência no array do `useEffect`) em vez de registrar um único listener global no mount do componente — evita rodar a checagem de `contains()` em todo clique da aplicação quando o popover nem está aberto.
+- `mousedown` (não `click`) para consistência com o padrão já usado no backdrop mobile da própria Sidebar (`onClick={closeMobileNav}` no overlay) e para fechar o quanto antes no gesto de clique, sem esperar o `click` completo disparar depois de um possível `mouseup` fora do elemento.
+- Validado com `npx tsc --noEmit` e `npm run build` (sem erros). Teste visual real (abrir o popover, clicar fora, confirmar que fecha; clicar dentro do popover e nos seus botões, confirmar que não fecha precocemente) não foi executado nesta sessão por falta de ambiente com browser automatizável.
+
+### [2026-07-28] Persistência da preferência de Tema (Claro/Escuro) no Supabase
+
+**O que foi pedido:** o tema (claro/escuro) só vivia em memória (`AppContext`) — pedido para persistir em `profiles.theme` no Supabase, carregado no login e sincronizado entre dispositivos, sem "piscar" a tela antes de aplicar o tema certo.
+
+**O que foi feito:**
+- **Migration `0014_add_theme_preference_to_profiles.sql`** (aplicada via MCP `apply_migration`, backfill automático via `DEFAULT` para as 7 linhas já existentes): coluna `profiles.theme text not null default 'dark' check (theme in ('light','dark'))`.
+- **RPC `update_own_theme(new_theme)`** (`SECURITY DEFINER`, mesmo padrão de `update_own_profile`): valida `new_theme` e faz `update profiles set theme = new_theme where id = auth.uid()`. Necessária porque `profiles` **não tem policy de `UPDATE`** — um `supabase.from('profiles').update(...)` direto do client (como pedido originalmente) seria bloqueado pela RLS; abrir uma policy de `UPDATE` genérica (`id = auth.uid()`) teria sido pior — deixaria o próprio usuário reescrever `role`/`status`/`church_id` da própria linha via uma chamada REST manual, já que RLS não filtra por coluna.
+- **`src/types/index.ts`**: `ChurchUser.theme?: "light" | "dark"`. **`src/context/AuthContext.tsx`**: `fetchProfile` passa a buscar a coluna `theme`.
+- **`src/context/AppContext.tsx`**: estado `theme` agora inicializa lendo um cache em `localStorage` (`theme_preference`) em vez de sempre `"dark"` fixo; um `useEffect` com dependência só em `profile?.id` adota `profile.theme` (Supabase) assim que o profile da sessão carrega — dispara uma vez por login, não em todo `refreshProfile()`, para não sobrescrever um toggle manual feito depois. `toggleTheme` passou a, além de trocar o estado local, gravar o novo valor no cache local e chamar `supabase.rpc('update_own_theme', { new_theme })` de forma fire-and-forget (erro só vai pro console, nunca bloqueia a troca visual nem trava a UI esperando a rede).
+- **`src/App.tsx`**: `ThemeRoot` troca `useEffect` por `useLayoutEffect` ao aplicar a classe `dark` no `<html>` — roda antes do browser pintar o frame, então quando o `theme` muda (ex.: sync do profile após o primeiro render) não há um frame visível com o tema errado.
+
+**Decisões técnicas:**
+- Persistência centralizada em `toggleTheme` (dentro do `AppContext`), não duplicada em cada componente que dispara a troca — tanto o botão da Sidebar quanto o `ThemeToggle.tsx` (usado em `Login`/`ResetPassword`, onde não há sessão) chamam a mesma função; nas telas públicas `session?.user.id` é `undefined` e a chamada ao Supabase simplesmente não dispara, sem necessidade de guarda extra em cada tela.
+- Cache em `localStorage` mantido como complemento, não substituto, do Supabase: evita o "flash" de tema errado em visitas seguintes no mesmo aparelho *antes* do profile carregar, mas o Supabase é sempre a fonte da verdade — o cache é sobrescrito assim que `profile.theme` chega, inclusive se o usuário trocou de tema em outro dispositivo.
+- Efeito de sync com dependência só em `profile?.id` (não em `profile.theme`/`profile` inteiro) — garante que o valor do Supabase é adotado uma vez por login e nunca reaplicado por cima de um toggle manual feito na mesma sessão (ex.: uma chamada a `refreshProfile()` em outra tela, que não deveria "puxar" o tema de volta).
+- Troca de tema não gera entrada em `audit_logs` (diferente de `update_own_profile`, que loga nome/e-mail) — é uma preferência de UI de baixo risco, sem valor de governança, e nenhum dos `action_key` existentes (`categorizacao_ia`, `edicao_manual`, `aprovacao_caixa`, `estorno`, `acesso`, `aceite_termos`) se aplica sem forçar um encaixe artificial.
+- `get_advisors` (security) confirma que `update_own_theme` gera os mesmos dois avisos `WARN` (`anon`/`authenticated` podem executar a função `SECURITY DEFINER`) que já existem para `update_own_profile` — aceitável pelo mesmo motivo: para um caller anônimo `auth.uid()` é `null`, então o `UPDATE` afeta zero linhas (no-op inofensivo).
+- Validado com `npx tsc --noEmit` e `npm run build` (sem erros), migration aplicada e conferida via `execute_sql` (coluna criada, função criada, backfill correto nas 7 linhas existentes). Teste visual real (login em dois dispositivos/navegadores diferentes, confirmar sincronização; medir ausência de flash) não foi executado nesta sessão por falta de ambiente com browser automatizável.

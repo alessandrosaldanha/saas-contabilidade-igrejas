@@ -403,7 +403,7 @@ export default function ImportacaoExtrato() {
       <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
         <div>
           <h1 className="font-display font-semibold text-2xl m-0 tracking-tight">Extratos e Importação IA</h1>
-          <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1.5">
+          <p className="text-sm text-neutral-700 dark:text-neutral-400 mt-1.5">
             Envie o extrato bancário e revise as sugestões da IA
           </p>
         </div>
@@ -437,9 +437,9 @@ export default function ImportacaoExtrato() {
         />
       </div>
 
-      <div className="flex items-center justify-between gap-4 flex-wrap mt-5 px-5.5 py-4 rounded-lg border border-neutral-200 dark:border-white/10 bg-neutral-50 dark:bg-neutral-950">
+      <div className="flex items-center justify-between gap-4 flex-wrap mt-5 px-5.5 py-4 rounded-lg border border-neutral-300 dark:border-white/10 bg-neutral-50 dark:bg-neutral-950">
         <div>
-          <div className="text-[11px] text-neutral-400">Total de Lançamentos</div>
+          <div className="text-[11px] text-neutral-700 dark:text-neutral-400">Total de Lançamentos</div>
           <div className="font-display font-semibold text-lg">{totalCount}</div>
         </div>
         <button
@@ -476,7 +476,7 @@ export default function ImportacaoExtrato() {
               <Check size={26} strokeWidth={2.5} className="text-white" />
             </div>
             <h3 className="font-display font-semibold text-lg mb-2.5">Lançamentos Efetivados com Sucesso!</h3>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed mb-6.5">
+            <p className="text-sm text-neutral-700 dark:text-neutral-400 leading-relaxed mb-6.5">
               O extrato foi registrado e vinculado ao mês correspondente no Livro Caixa.
             </p>
             <div className="flex gap-2.5 justify-center">
@@ -513,8 +513,8 @@ export default function ImportacaoExtrato() {
             </>
           }
           detail={duplicateWarning.map((t) => (
-            <div key={t.id} className="flex justify-between py-1 border-b border-neutral-200 dark:border-white/10 last:border-0">
-              <span className="text-neutral-400">{t.date}</span>
+            <div key={t.id} className="flex justify-between py-1 border-b border-neutral-300 dark:border-white/10 last:border-0">
+              <span className="text-neutral-700 dark:text-neutral-400">{t.date}</span>
               <span className="flex-1 px-3 truncate">{t.desc}</span>
               <span className={t.value < 0 ? "text-orla-coral" : "text-status-success"}>{fmt(t.value)}</span>
             </div>
@@ -554,7 +554,7 @@ export default function ImportacaoExtrato() {
           detail={
             <div>
               <div className="font-medium">{historyDeleteTarget.filename}</div>
-              <div className="text-xs text-neutral-400 mt-1">
+              <div className="text-xs text-neutral-700 dark:text-neutral-400 mt-1">
                 {historyDeleteTarget.monthLabel} · {historyDeleteTarget.count} lançamentos serão excluídos do Livro Caixa
               </div>
             </div>
@@ -577,7 +577,7 @@ export default function ImportacaoExtrato() {
           <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[440px] rounded-lg shadow-md p-5 sm:p-8">
             <div className="flex items-center justify-between mb-5">
               <h3 className="font-display font-semibold text-lg m-0">Editar Registro de Importação</h3>
-              <button onClick={() => setHistoryEdit(null)} className="text-neutral-400 p-1">
+              <button onClick={() => setHistoryEdit(null)} className="text-neutral-700 dark:text-neutral-400 p-1">
                 <X size={18} />
               </button>
             </div>

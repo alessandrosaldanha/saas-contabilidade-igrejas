@@ -19,7 +19,7 @@ export default function ImportHistoryTable({ items, canEdit, canDelete, onEdit, 
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] border-collapse text-xs">
             <thead>
-              <tr className="text-left text-neutral-400">
+              <tr className="text-left text-neutral-700 dark:text-neutral-400">
                 <th className="px-3.5 py-2.5 font-medium">Arquivo</th>
                 <th className="px-3.5 py-2.5 font-medium">Mês/Ano de Referência</th>
                 <th className="px-3.5 py-2.5 font-medium">Qtd. Transações</th>
@@ -31,12 +31,12 @@ export default function ImportHistoryTable({ items, canEdit, canDelete, onEdit, 
             </thead>
             <tbody>
               {items.map((h) => (
-                <tr key={h.id} className="border-t border-neutral-200 dark:border-white/10">
+                <tr key={h.id} className="border-t border-neutral-300 dark:border-white/10">
                   <td className="px-3.5 py-2.5 whitespace-nowrap">{h.filename}</td>
-                  <td className="px-3.5 py-2.5 text-neutral-500 dark:text-neutral-400 whitespace-nowrap">{h.monthLabel}</td>
-                  <td className="px-3.5 py-2.5 text-neutral-500 dark:text-neutral-400">{h.count}</td>
-                  <td className="px-3.5 py-2.5 text-neutral-500 dark:text-neutral-400 whitespace-nowrap">{h.importedAt}</td>
-                  <td className="px-3.5 py-2.5 text-neutral-500 dark:text-neutral-400 whitespace-nowrap">{h.importedBy}</td>
+                  <td className="px-3.5 py-2.5 text-neutral-700 dark:text-neutral-400 whitespace-nowrap">{h.monthLabel}</td>
+                  <td className="px-3.5 py-2.5 text-neutral-700 dark:text-neutral-400">{h.count}</td>
+                  <td className="px-3.5 py-2.5 text-neutral-700 dark:text-neutral-400 whitespace-nowrap">{h.importedAt}</td>
+                  <td className="px-3.5 py-2.5 text-neutral-700 dark:text-neutral-400 whitespace-nowrap">{h.importedBy}</td>
                   <td className="px-3.5 py-2.5">
                     <Badge tone="success" dot>
                       Salvo / Registrado
@@ -49,7 +49,7 @@ export default function ImportHistoryTable({ items, canEdit, canDelete, onEdit, 
                           <button
                             onClick={() => onEdit(h)}
                             title="Editar registro de importação"
-                            className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
+                            className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 text-neutral-700 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
                           >
                             <Pencil size={14} />
                           </button>
@@ -58,7 +58,7 @@ export default function ImportHistoryTable({ items, canEdit, canDelete, onEdit, 
                           <button
                             onClick={() => onDelete(h)}
                             title="Excluir registro de importação"
-                            className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 text-neutral-500 dark:text-neutral-400 hover:bg-status-error/10 hover:text-status-error hover:border-status-error"
+                            className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 text-neutral-700 dark:text-neutral-400 hover:bg-status-error/10 hover:text-status-error hover:border-status-error"
                           >
                             <Trash2 size={14} />
                           </button>
@@ -71,7 +71,7 @@ export default function ImportHistoryTable({ items, canEdit, canDelete, onEdit, 
             </tbody>
           </table>
           {items.length === 0 && (
-            <div className="p-6 text-center text-neutral-400 text-sm">Nenhuma importação registrada ainda.</div>
+            <div className="p-6 text-center text-neutral-700 dark:text-neutral-400 text-sm">Nenhuma importação registrada ainda.</div>
           )}
         </div>
       </Card>

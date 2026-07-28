@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppProvider, useApp } from "./context/AppContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -28,7 +28,10 @@ const IMPORTACAO_ROLES: UserRole[] = ["Admin", "Tesoureiro", "master"];
 
 function ThemeRoot({ children }: { children: React.ReactNode }) {
   const { isDark } = useApp();
-  useEffect(() => {
+  // useLayoutEffect (não useEffect): aplica a classe antes do browser pintar o
+  // frame, para a troca de tema vinda do profile (Supabase) não gerar um
+  // flash de "tema errado" entre o primeiro render e o sync do profile.
+  useLayoutEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
   }, [isDark]);
   return <>{children}</>;

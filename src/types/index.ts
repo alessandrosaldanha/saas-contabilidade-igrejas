@@ -47,6 +47,10 @@ export interface ChurchUser {
   // para o profile da própria sessão (AuthContext); listagens de outros
   // membros (Usuarios/ChurchDetailsModal) não a preenchem.
   termoAceito?: boolean;
+  // Preferência de tema (claro/escuro) persistida em profiles.theme — mesma
+  // ressalva do termoAceito acima: só buscada/relevante para o profile da
+  // própria sessão (AuthContext), não para listagens de outros membros.
+  theme?: "light" | "dark";
 }
 
 export interface Church {

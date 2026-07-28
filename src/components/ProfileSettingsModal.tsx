@@ -103,7 +103,7 @@ export default function ProfileSettingsModal({ onClose }: ProfileSettingsModalPr
         <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[480px] max-h-[90vh] overflow-y-auto rounded-lg shadow-md p-5 sm:p-8">
           <div className="flex items-center justify-between mb-5">
             <h3 className="font-display font-semibold text-lg m-0">Configurações de Perfil</h3>
-            <button onClick={requestClose} disabled={isSaving} className="text-neutral-400 p-1">
+            <button onClick={requestClose} disabled={isSaving} className="text-neutral-700 dark:text-neutral-400 p-1">
               <X size={18} />
             </button>
           </div>
@@ -129,14 +129,14 @@ export default function ProfileSettingsModal({ onClose }: ProfileSettingsModalPr
               />
             </label>
 
-            <div className="border-t border-neutral-200 dark:border-white/10 pt-3.5 mt-1">
+            <div className="border-t border-neutral-300 dark:border-white/10 pt-3.5 mt-1">
               <label className="block mb-3.5">
                 <span className="block text-sm font-medium mb-1.5">Senha Atual</span>
                 <input
                   type="password"
                   value="••••••••"
                   disabled
-                  className="w-full box-border border border-neutral-200 dark:border-white/10 bg-neutral-50 dark:bg-neutral-950 text-neutral-400 rounded-md px-3.5 py-2.5 text-sm outline-none cursor-not-allowed"
+                  className="w-full box-border border border-neutral-300 dark:border-white/10 bg-neutral-50 dark:bg-neutral-950 text-neutral-700 dark:text-neutral-400 rounded-md px-3.5 py-2.5 text-sm outline-none cursor-not-allowed"
                 />
               </label>
 
@@ -162,7 +162,7 @@ export default function ProfileSettingsModal({ onClose }: ProfileSettingsModalPr
                   />
                 </label>
               </div>
-              <p className="text-xs text-neutral-400 mt-2">
+              <p className="text-xs text-neutral-700 dark:text-neutral-400 mt-2">
                 Mínimo de 8 caracteres. Deixe os dois campos em branco para manter a senha atual.
               </p>
             </div>
@@ -201,7 +201,7 @@ export default function ProfileSettingsModal({ onClose }: ProfileSettingsModalPr
               </span>
               <h3 className="font-display font-semibold text-lg m-0">Alterações não salvas</h3>
             </div>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed mb-6">
+            <p className="text-sm text-neutral-700 dark:text-neutral-400 leading-relaxed mb-6">
               Você tem alterações não salvas. Deseja realmente sair sem salvar?
             </p>
             <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5">

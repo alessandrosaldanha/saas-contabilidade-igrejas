@@ -170,7 +170,7 @@ export default function Auditoria() {
       <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
         <div>
           <h1 className="font-display font-semibold text-2xl m-0 tracking-tight">Trilha de Auditoria</h1>
-          <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1.5">
+          <p className="text-sm text-neutral-700 dark:text-neutral-400 mt-1.5">
             Histórico completo e imutável de alterações
           </p>
         </div>
@@ -233,7 +233,7 @@ export default function Auditoria() {
             className={`px-3.5 py-1.5 rounded-full text-xs font-medium border transition-colors ${
               actionFilter === af.id
                 ? "bg-orla-blue text-white border-transparent"
-                : "bg-transparent text-neutral-600 dark:text-neutral-400 border-neutral-300 dark:border-white/20"
+                : "bg-transparent text-neutral-700 dark:text-neutral-400 border-neutral-300 dark:border-white/20"
             }`}
           >
             {af.label}
@@ -242,16 +242,16 @@ export default function Auditoria() {
       </div>
 
       <div className="grid gap-3 mb-5.5" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
-        <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-white/10 rounded-md px-4 py-3.5">
-          <div className="text-[11px] text-neutral-400 mb-1">Total de Eventos no Mês</div>
+        <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-white/10 rounded-md px-4 py-3.5">
+          <div className="text-[11px] text-neutral-700 dark:text-neutral-400 mb-1">Total de Eventos no Mês</div>
           <div className="font-display font-semibold text-xl">{kpiTotal}</div>
         </div>
-        <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-white/10 rounded-md px-4 py-3.5">
-          <div className="text-[11px] text-neutral-400 mb-1">Categorizações da IA</div>
+        <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-white/10 rounded-md px-4 py-3.5">
+          <div className="text-[11px] text-neutral-700 dark:text-neutral-400 mb-1">Categorizações da IA</div>
           <div className="font-display font-semibold text-xl text-orla-blue">{kpiIa}</div>
         </div>
-        <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-white/10 rounded-md px-4 py-3.5">
-          <div className="text-[11px] text-neutral-400 mb-1">Ajustes Manuais / RBAC</div>
+        <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-white/10 rounded-md px-4 py-3.5">
+          <div className="text-[11px] text-neutral-700 dark:text-neutral-400 mb-1">Ajustes Manuais / RBAC</div>
           <div className="font-display font-semibold text-xl">{kpiManual}</div>
         </div>
         <div className="bg-status-error/10 border border-status-error rounded-md px-4 py-3.5">
@@ -264,7 +264,7 @@ export default function Auditoria() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] border-collapse text-sm">
             <thead>
-              <tr className="text-left text-neutral-400">
+              <tr className="text-left text-neutral-700 dark:text-neutral-400">
                 <th className="px-4.5 py-3 font-medium text-xs">Data/Hora</th>
                 <th className="px-4.5 py-3 font-medium text-xs">Usuário</th>
                 {isMaster && <th className="px-4.5 py-3 font-medium text-xs">Igreja</th>}
@@ -275,14 +275,14 @@ export default function Auditoria() {
             </thead>
             <tbody>
               {pageRows.map((log) => (
-                <tr key={log.id} className="border-t border-neutral-200 dark:border-white/10">
-                  <td className="px-4.5 py-3 text-neutral-500 dark:text-neutral-400 whitespace-nowrap text-xs">{log.datetime}</td>
+                <tr key={log.id} className="border-t border-neutral-300 dark:border-white/10">
+                  <td className="px-4.5 py-3 text-neutral-700 dark:text-neutral-400 whitespace-nowrap text-xs">{log.datetime}</td>
                   <td className="px-4.5 py-3">
                     <div className="flex items-center gap-2">
                       <Avatar name={log.user} size="xs" />
                       <div>
                         <div className="text-xs">{log.user}</div>
-                        <div className="text-neutral-400 text-[10px]">{log.role}</div>
+                        <div className="text-neutral-700 dark:text-neutral-400 text-[10px]">{log.role}</div>
                       </div>
                     </div>
                   </td>
@@ -297,11 +297,11 @@ export default function Auditoria() {
                     <Badge tone={ACTION_TYPES[log.actionKey].tone}>{log.actionLabel}</Badge>
                   </td>
                   <td className="px-4.5 py-3 text-xs">
-                    <span className="text-neutral-400">{log.before}</span>
-                    <span className="text-neutral-400 mx-1">→</span>
+                    <span className="text-neutral-700 dark:text-neutral-400">{log.before}</span>
+                    <span className="text-neutral-700 dark:text-neutral-400 mx-1">→</span>
                     <span>{log.after}</span>
                   </td>
-                  <td className="px-4.5 py-3 text-neutral-400 text-xs whitespace-nowrap">
+                  <td className="px-4.5 py-3 text-neutral-700 dark:text-neutral-400 text-xs whitespace-nowrap">
                     {log.ip} · {log.device}
                   </td>
                 </tr>
@@ -310,10 +310,10 @@ export default function Auditoria() {
           </table>
         </div>
         {!loading && pageRows.length === 0 && (
-          <div className="p-8 text-center text-neutral-400 text-sm">Nenhum log encontrado para este filtro.</div>
+          <div className="p-8 text-center text-neutral-700 dark:text-neutral-400 text-sm">Nenhum log encontrado para este filtro.</div>
         )}
-        {loading && <div className="p-8 text-center text-neutral-400 text-sm">Carregando…</div>}
-        <div className="flex items-center justify-between px-4.5 py-3.5 border-t border-neutral-200 dark:border-white/10 text-xs text-neutral-400">
+        {loading && <div className="p-8 text-center text-neutral-700 dark:text-neutral-400 text-sm">Carregando…</div>}
+        <div className="flex items-center justify-between px-4.5 py-3.5 border-t border-neutral-300 dark:border-white/10 text-xs text-neutral-700 dark:text-neutral-400">
           <span>
             Página {pageClamped} de {totalPages} · {filtered.length} registros
           </span>

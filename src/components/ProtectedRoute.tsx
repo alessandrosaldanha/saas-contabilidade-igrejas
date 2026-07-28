@@ -20,7 +20,7 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center text-sm text-neutral-400">
+      <div className="flex h-screen items-center justify-center text-sm text-neutral-700 dark:text-neutral-400">
         Carregando sessão…
       </div>
     );

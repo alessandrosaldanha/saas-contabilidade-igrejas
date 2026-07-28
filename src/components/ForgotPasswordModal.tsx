@@ -42,7 +42,7 @@ export default function ForgotPasswordModal({ onClose }: ForgotPasswordModalProp
           type="button"
           onClick={onClose}
           aria-label="Fechar"
-          className="absolute top-4 right-4 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
+          className="absolute top-4 right-4 text-neutral-700 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
         >
           <X size={18} />
         </button>
@@ -53,7 +53,7 @@ export default function ForgotPasswordModal({ onClose }: ForgotPasswordModalProp
               <CheckCircle2 size={22} className="text-status-success" />
             </span>
             <h3 className="font-display font-semibold text-lg m-0">Verifique seu e-mail</h3>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed">
+            <p className="text-sm text-neutral-700 dark:text-neutral-400 leading-relaxed">
               Se o e-mail estiver cadastrado, você receberá um link de recuperação em instantes.
             </p>
             <button
@@ -67,7 +67,7 @@ export default function ForgotPasswordModal({ onClose }: ForgotPasswordModalProp
         ) : (
           <>
             <h3 className="font-display font-semibold text-lg mb-1.5 m-0">Recuperar senha</h3>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed mb-5">
+            <p className="text-sm text-neutral-700 dark:text-neutral-400 leading-relaxed mb-5">
               Informe seu e-mail cadastrado para receber um link de redefinição de senha.
             </p>
 

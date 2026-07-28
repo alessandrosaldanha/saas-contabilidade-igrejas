@@ -68,13 +68,13 @@ export default function ExploratoryChart({ metrics, labels }: ExploratoryChartPr
     <Card padding="lg">
       <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
         <h3 className="font-display font-semibold text-base m-0">Análise Exploratória de Fluxos e Categorias</h3>
-        <div className="flex gap-1 bg-neutral-100 dark:bg-neutral-950 p-1 rounded-md border border-neutral-200 dark:border-white/10">
+        <div className="flex gap-1 bg-neutral-100 dark:bg-neutral-950 p-1 rounded-md border border-neutral-300 dark:border-white/10">
           {CHART_TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setChartType(tab.id)}
               className={`border-none px-3.5 py-1.5 rounded-sm text-xs font-medium cursor-pointer transition-colors ${
-                chartType === tab.id ? "bg-orla-blue text-white" : "bg-transparent text-neutral-600 dark:text-neutral-400"
+                chartType === tab.id ? "bg-orla-blue text-white" : "bg-transparent text-neutral-700 dark:text-neutral-400"
               }`}
             >
               {tab.label}
@@ -84,7 +84,7 @@ export default function ExploratoryChart({ metrics, labels }: ExploratoryChartPr
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-5">
-        <span className="text-[11px] text-neutral-400 mr-1">Clique para ligar/desligar uma série:</span>
+        <span className="text-[11px] text-neutral-700 dark:text-neutral-400 mr-1">Clique para ligar/desligar uma série:</span>
         {metrics.map((m) => {
           const isActive = selectedSeries.has(m.id);
           return (
@@ -95,7 +95,7 @@ export default function ExploratoryChart({ metrics, labels }: ExploratoryChartPr
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                 isActive
                   ? "text-white border-transparent"
-                  : "bg-neutral-100 dark:bg-neutral-950 text-neutral-500 dark:text-neutral-400 border-neutral-300 dark:border-white/20"
+                  : "bg-neutral-100 dark:bg-neutral-950 text-neutral-700 dark:text-neutral-400 border-neutral-300 dark:border-white/20"
               }`}
               style={isActive ? { backgroundColor: m.color } : undefined}
             >
@@ -109,20 +109,20 @@ export default function ExploratoryChart({ metrics, labels }: ExploratoryChartPr
 
         <button
           onClick={selectAll}
-          className="px-3 py-1.5 rounded-full text-xs font-medium border border-neutral-300 dark:border-white/20 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
+          className="px-3 py-1.5 rounded-full text-xs font-medium border border-neutral-300 dark:border-white/20 text-neutral-700 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
         >
           Selecionar Todas
         </button>
         <button
           onClick={clearAll}
-          className="px-3 py-1.5 rounded-full text-xs font-medium border border-neutral-300 dark:border-white/20 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
+          className="px-3 py-1.5 rounded-full text-xs font-medium border border-neutral-300 dark:border-white/20 text-neutral-700 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
         >
           Limpar Seleção
         </button>
       </div>
 
       {!hasData && (
-        <div className="py-10 text-center text-sm text-neutral-400">
+        <div className="py-10 text-center text-sm text-neutral-700 dark:text-neutral-400">
           {selectedSeries.size === 0
             ? "Nenhuma série selecionada — clique em uma pílula acima para exibir o gráfico."
             : "Sem lançamentos suficientes neste período para exibir o gráfico."}
@@ -137,7 +137,7 @@ export default function ExploratoryChart({ metrics, labels }: ExploratoryChartPr
                 <title>{bar.title}</title>
               </rect>
               {bar.showLabel && (
-                <text x={bar.labelX} y={bar.labelY} textAnchor="middle" fontSize={9} fontWeight={600} fill="currentColor" className="text-neutral-600 dark:text-neutral-300 pointer-events-none">
+                <text x={bar.labelX} y={bar.labelY} textAnchor="middle" fontSize={9} fontWeight={600} fill="currentColor" className="text-neutral-700 dark:text-neutral-300 pointer-events-none">
                   {bar.valueLabel}
                 </text>
               )}
@@ -194,7 +194,7 @@ export default function ExploratoryChart({ metrics, labels }: ExploratoryChartPr
             {radar.axes.map((ax, i) => (
               <g key={i}>
                 <line x1={ax.x1} y1={ax.y1} x2={ax.x2} y2={ax.y2} stroke="currentColor" className="text-neutral-200 dark:text-white/10" strokeWidth={1} />
-                <text x={ax.labelX} y={ax.labelY} fill="currentColor" className="text-neutral-400" fontSize={9} textAnchor="middle">
+                <text x={ax.labelX} y={ax.labelY} fill="currentColor" className="text-neutral-700 dark:text-neutral-400" fontSize={9} textAnchor="middle">
                   {ax.label}
                 </text>
               </g>
@@ -223,7 +223,7 @@ export default function ExploratoryChart({ metrics, labels }: ExploratoryChartPr
       {hasData && chartType !== "radar" && (
         <div className="flex justify-between mt-1 px-0.5">
           {labels.map((label) => (
-            <span key={label} className="text-[9px] text-neutral-400">
+            <span key={label} className="text-[9px] text-neutral-700 dark:text-neutral-400">
               {label}
             </span>
           ))}

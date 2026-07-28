@@ -51,9 +51,9 @@ export default function ConfirmModal({
           </span>
           <h3 className="font-display font-semibold text-lg m-0">{title}</h3>
         </div>
-        <div className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed mb-4">{description}</div>
+        <div className="text-sm text-neutral-700 dark:text-neutral-400 leading-relaxed mb-4">{description}</div>
         {detail && (
-          <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-white/10 rounded-md px-4 py-3 mb-6 max-h-[180px] overflow-y-auto text-sm">
+          <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-white/10 rounded-md px-4 py-3 mb-6 max-h-[180px] overflow-y-auto text-sm">
             {detail}
           </div>
         )}
