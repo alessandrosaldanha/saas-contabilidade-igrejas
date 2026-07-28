@@ -101,7 +101,7 @@ export default function MemberEditModal({ member, onClose, onSaved }: MemberEdit
               {pendingRole === "Admin" ? "Promover a Administrador" : "Remover acesso de Administrador"}
             </h3>
           </div>
-          <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed mb-6">
+          <p className="text-sm text-neutral-700 dark:text-neutral-400 leading-relaxed mb-6">
             {pendingRole === "Admin"
               ? "Atenção: Ao tornar este usuário Administrador, ele terá acesso total ao sistema, incluindo exclusão e convite de novos membros nesta igreja."
               : "Atenção: Ao remover o acesso de Administrador, este usuário perderá todos os privilégios administrativos nesta igreja."}
@@ -132,7 +132,7 @@ export default function MemberEditModal({ member, onClose, onSaved }: MemberEdit
       <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[480px] rounded-lg shadow-md p-5 sm:p-8">
         <div className="flex items-center justify-between mb-5">
           <h3 className="font-display font-semibold text-lg m-0">Editar Membro</h3>
-          <button onClick={onClose} className="text-neutral-400 p-1">
+          <button onClick={onClose} className="text-neutral-700 dark:text-neutral-400 p-1">
             <X size={18} />
           </button>
         </div>

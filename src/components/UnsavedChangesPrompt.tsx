@@ -15,7 +15,7 @@ export default function UnsavedChangesPrompt() {
           </span>
           <h3 className="font-display font-semibold text-lg m-0">Lançamentos não salvos</h3>
         </div>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed mb-6">
+        <p className="text-sm text-neutral-700 dark:text-neutral-400 leading-relaxed mb-6">
           Você importou um extrato e ainda não salvou os lançamentos no Livro Caixa. Se sair agora sem salvar, essas
           informações serão perdidas.
         </p>

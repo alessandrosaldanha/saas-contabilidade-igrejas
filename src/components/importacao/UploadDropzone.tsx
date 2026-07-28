@@ -33,7 +33,7 @@ export default function UploadDropzone({ isUploading, hasUploaded, onFileSelecte
         {isUploading ? (
           <div className="flex flex-col items-center gap-2.5">
             <Loader2 size={26} className="text-orla-blue animate-spin" />
-            <span className="text-sm text-neutral-500 dark:text-neutral-300">
+            <span className="text-sm text-neutral-700 dark:text-neutral-300">
               Lendo e categorizando lançamentos do PDF/Imagem…
             </span>
           </div>
@@ -44,7 +44,7 @@ export default function UploadDropzone({ isUploading, hasUploaded, onFileSelecte
               <div className="text-sm font-medium">
                 {hasUploaded ? "Enviar outro extrato bancário" : "Arraste o extrato ou clique para enviar"}
               </div>
-              <div className="text-xs text-neutral-400 mt-0.5">PDF, OFX ou CSV, até 10MB</div>
+              <div className="text-xs text-neutral-700 dark:text-neutral-400 mt-0.5">PDF, OFX ou CSV, até 10MB</div>
             </div>
           </div>
         )}

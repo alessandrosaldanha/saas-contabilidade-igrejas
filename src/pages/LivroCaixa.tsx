@@ -178,7 +178,7 @@ export default function LivroCaixa() {
       <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
         <div>
           <h1 className="font-display font-semibold text-2xl m-0 tracking-tight">Livro Caixa</h1>
-          <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1.5">
+          <p className="text-sm text-neutral-700 dark:text-neutral-400 mt-1.5">
             Lançamentos confirmados e saldo em caixa
           </p>
         </div>
@@ -213,8 +213,8 @@ export default function LivroCaixa() {
 
       <div className="grid gap-3 mb-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
         {stats.map((st) => (
-          <div key={st.label} className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-white/10 rounded-md px-4 py-3">
-            <div className="text-[11px] text-neutral-400 mb-1">{st.label}</div>
+          <div key={st.label} className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-white/10 rounded-md px-4 py-3">
+            <div className="text-[11px] text-neutral-700 dark:text-neutral-400 mb-1">{st.label}</div>
             <div className={`font-display font-semibold text-base ${st.color}`}>{st.value}</div>
           </div>
         ))}
@@ -231,7 +231,7 @@ export default function LivroCaixa() {
         <div className="overflow-auto max-h-[780px]">
           <table className="w-full min-w-[920px] border-collapse text-sm">
             <thead className="sticky top-0 z-10 bg-white dark:bg-neutral-900">
-              <tr className="text-left text-neutral-400 border-b border-neutral-200 dark:border-white/10">
+              <tr className="text-left text-neutral-700 dark:text-neutral-400 border-b border-neutral-300 dark:border-white/10">
                 <th className="px-4.5 py-3 font-medium text-xs">Data</th>
                 <th className="px-4.5 py-3 font-medium text-xs">Descrição</th>
                 <th className="px-4.5 py-3 font-medium text-xs">Categoria</th>
@@ -244,8 +244,8 @@ export default function LivroCaixa() {
             </thead>
             <tbody>
               {filteredRows.map((row) => (
-                <tr key={row.id} className="border-t border-neutral-200 dark:border-white/10">
-                  <td className="px-4.5 py-3.5 text-neutral-500 dark:text-neutral-400 whitespace-nowrap">{row.date}</td>
+                <tr key={row.id} className="border-t border-neutral-300 dark:border-white/10">
+                  <td className="px-4.5 py-3.5 text-neutral-700 dark:text-neutral-400 whitespace-nowrap">{row.date}</td>
                   <td className="px-4.5 py-3.5">{row.desc}</td>
                   <td className="px-4.5 py-3.5">
                     <Badge tone={CATEGORY_TONE[row.category] || "neutral"}>{row.category}</Badge>
@@ -262,7 +262,7 @@ export default function LivroCaixa() {
                   <td className="px-4.5 py-3.5">
                     <div className="flex items-center gap-2">
                       <Avatar name={row.createdBy} size="xs" />
-                      <span className="text-xs text-neutral-400">{row.createdBy}</span>
+                      <span className="text-xs text-neutral-700 dark:text-neutral-400">{row.createdBy}</span>
                     </div>
                   </td>
                   {(canManage || canDelete) && (
@@ -272,7 +272,7 @@ export default function LivroCaixa() {
                           <button
                             onClick={() => openEditModal(row)}
                             title="Editar lançamento"
-                            className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
+                            className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 text-neutral-700 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
                           >
                             <Pencil size={14} />
                           </button>
@@ -281,7 +281,7 @@ export default function LivroCaixa() {
                           <button
                             onClick={() => setDeleteTarget(row)}
                             title="Excluir lançamento"
-                            className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 text-neutral-500 dark:text-neutral-400 hover:bg-status-error/10 hover:text-status-error hover:border-status-error"
+                            className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 text-neutral-700 dark:text-neutral-400 hover:bg-status-error/10 hover:text-status-error hover:border-status-error"
                           >
                             <Trash2 size={14} />
                           </button>
@@ -295,7 +295,7 @@ export default function LivroCaixa() {
           </table>
         </div>
         {filteredRows.length === 0 && (
-          <div className="p-8 text-center text-neutral-400 text-sm">Nenhum lançamento encontrado para este mês/busca.</div>
+          <div className="p-8 text-center text-neutral-700 dark:text-neutral-400 text-sm">Nenhum lançamento encontrado para este mês/busca.</div>
         )}
       </Card>
 
@@ -303,20 +303,20 @@ export default function LivroCaixa() {
         <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-4 sm:p-6">
           <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[680px] max-h-[90vh] overflow-y-auto rounded-lg shadow-md p-5 sm:p-9">
             <div className="flex items-center justify-between mb-5.5">
-              <span className="text-xs text-neutral-400 uppercase tracking-wide">
+              <span className="text-xs text-neutral-700 dark:text-neutral-400 uppercase tracking-wide">
                 {reportModal === "pdf" ? "Relatório PDF" : "Relatório Word"}
               </span>
-              <button onClick={() => setReportModal(null)} className="text-neutral-400 p-1">
+              <button onClick={() => setReportModal(null)} className="text-neutral-700 dark:text-neutral-400 p-1">
                 <X size={18} />
               </button>
             </div>
 
-            <div className="border-b border-neutral-200 dark:border-white/10 pb-4 mb-4">
+            <div className="border-b border-neutral-300 dark:border-white/10 pb-4 mb-4">
               <h2 className="font-display font-semibold text-xl m-0">Igreja Comunidade da Fé</h2>
-              <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+              <div className="text-xs text-neutral-700 dark:text-neutral-400 mt-1">
                 CNPJ 12.345.678/0001-90 · Relatório Contábil — Livro Caixa
               </div>
-              <div className="flex gap-5 mt-2.5 text-xs text-neutral-400">
+              <div className="flex gap-5 mt-2.5 text-xs text-neutral-700 dark:text-neutral-400">
                 <span>Período: {MONTHS_FULL[month]} de {year}</span>
                 <span>Emitido em: {new Date().toLocaleDateString("pt-BR")}</span>
               </div>
@@ -325,7 +325,7 @@ export default function LivroCaixa() {
             <div className="overflow-x-auto mb-4.5">
               <table className="w-full min-w-[520px] border-collapse text-xs">
                 <thead>
-                  <tr className="text-left text-neutral-400 border-b border-neutral-200 dark:border-white/10">
+                  <tr className="text-left text-neutral-700 dark:text-neutral-400 border-b border-neutral-300 dark:border-white/10">
                     <th className="py-1.5 px-2 font-medium">Data</th>
                     <th className="py-1.5 px-2 font-medium">Descrição</th>
                     <th className="py-1.5 px-2 font-medium">Categoria</th>
@@ -335,7 +335,7 @@ export default function LivroCaixa() {
                 </thead>
                 <tbody>
                   {ledger.rows.map((row) => (
-                    <tr key={row.id} className="border-b border-neutral-200 dark:border-white/10">
+                    <tr key={row.id} className="border-b border-neutral-300 dark:border-white/10">
                       <td className="py-1.5 px-2 whitespace-nowrap">{row.date}</td>
                       <td className="py-1.5 px-2">{row.desc}</td>
                       <td className="py-1.5 px-2">{row.category}</td>
@@ -349,17 +349,17 @@ export default function LivroCaixa() {
 
             <div className="bg-neutral-50 dark:bg-neutral-950 rounded-md p-4 mb-6.5">
               <div className="font-semibold text-sm mb-2">Resumo Financeiro do Mês</div>
-              <div className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
+              <div className="text-xs text-neutral-700 dark:text-neutral-400 leading-relaxed">
                 Entradas: {fmtPlain(ledger.entradasTotal)} · Saídas: {fmtPlain(Math.abs(ledger.saidasTotal))} · Saldo final:{" "}
                 {fmtPlain(ledger.saldoFinal)}
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-10 mt-8">
-              <div className="border-t border-neutral-300 dark:border-white/20 pt-2 text-center text-xs text-neutral-400">
+              <div className="border-t border-neutral-300 dark:border-white/20 pt-2 text-center text-xs text-neutral-700 dark:text-neutral-400">
                 Assinatura do Tesoureiro
               </div>
-              <div className="border-t border-neutral-300 dark:border-white/20 pt-2 text-center text-xs text-neutral-400">
+              <div className="border-t border-neutral-300 dark:border-white/20 pt-2 text-center text-xs text-neutral-700 dark:text-neutral-400">
                 Assinatura do Pastor / Conselho Fiscal
               </div>
             </div>
@@ -387,21 +387,21 @@ export default function LivroCaixa() {
           <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[440px] rounded-lg shadow-md p-5 sm:p-8">
             <div className="flex items-center justify-between mb-5">
               <h3 className="font-display font-semibold text-lg m-0">Excluir Lançamento</h3>
-              <button onClick={() => setDeleteTarget(null)} className="text-neutral-400 p-1">
+              <button onClick={() => setDeleteTarget(null)} className="text-neutral-700 dark:text-neutral-400 p-1">
                 <X size={18} />
               </button>
             </div>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed mb-4">
+            <p className="text-sm text-neutral-700 dark:text-neutral-400 leading-relaxed mb-4">
               Esta ação remove o lançamento do Livro Caixa e recalcula o saldo. É registrada de forma imutável na
               Trilha de Auditoria.
             </p>
-            <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-white/10 rounded-md px-4 py-3.5 mb-6 text-sm">
+            <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-white/10 rounded-md px-4 py-3.5 mb-6 text-sm">
               <div className="flex justify-between mb-1">
-                <span className="text-neutral-400">{deleteTarget.date}</span>
+                <span className="text-neutral-700 dark:text-neutral-400">{deleteTarget.date}</span>
                 <span className={deleteTarget.value < 0 ? "text-orla-coral" : "text-status-success"}>{fmt(deleteTarget.value)}</span>
               </div>
               <div>{deleteTarget.desc}</div>
-              <div className="text-xs text-neutral-400 mt-1">{deleteTarget.category}</div>
+              <div className="text-xs text-neutral-700 dark:text-neutral-400 mt-1">{deleteTarget.category}</div>
             </div>
             <div className="flex justify-end gap-2.5">
               <button
@@ -429,7 +429,7 @@ export default function LivroCaixa() {
               <h3 className="font-display font-semibold text-lg m-0">
                 {formModal.mode === "create" ? "Novo Lançamento" : "Editar Lançamento"}
               </h3>
-              <button onClick={() => setFormModal(null)} className="text-neutral-400 p-1">
+              <button onClick={() => setFormModal(null)} className="text-neutral-700 dark:text-neutral-400 p-1">
                 <X size={18} />
               </button>
             </div>

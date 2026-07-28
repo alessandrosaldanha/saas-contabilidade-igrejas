@@ -96,31 +96,31 @@ export default function CategoryRulesModal({ churchId, showToastMsg, onClose }: 
         <div className="flex items-start justify-between gap-4 mb-6 shrink-0">
           <div>
             <h3 className="font-display font-semibold text-xl m-0">Regras de Categorização Automática (De-Para)</h3>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1.5 leading-relaxed">
+            <p className="text-sm text-neutral-700 dark:text-neutral-400 mt-1.5 leading-relaxed">
               Ensine a IA a reconhecer fornecedores/descrições recorrentes — usadas automaticamente no Modo Estrito.
             </p>
           </div>
           <button
             onClick={onClose}
             title="Fechar"
-            className="w-8 h-8 inline-flex items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/10 shrink-0"
+            className="w-8 h-8 inline-flex items-center justify-center rounded-md text-neutral-700 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/10 shrink-0"
           >
             <X size={18} />
           </button>
         </div>
 
         {!churchId ? (
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+          <p className="text-sm text-neutral-700 dark:text-neutral-400">
             Selecione uma igreja no menu lateral para gerenciar as regras.
           </p>
         ) : (
           <div className="flex flex-col min-h-0 gap-6">
             {/* Adicionar Nova Regra */}
-            <div className="shrink-0 rounded-lg border border-neutral-200 dark:border-white/10 bg-neutral-50 dark:bg-neutral-950 p-4 sm:p-5">
+            <div className="shrink-0 rounded-lg border border-neutral-300 dark:border-white/10 bg-neutral-50 dark:bg-neutral-950 p-4 sm:p-5">
               <h4 className="text-sm font-semibold mb-3.5">Adicionar Nova Regra</h4>
               <div className="flex flex-col gap-3.5">
                 <label className="block">
-                  <span className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1.5">
+                  <span className="block text-xs font-medium text-neutral-700 dark:text-neutral-400 mb-1.5">
                     Se a descrição contiver...
                   </span>
                   <input
@@ -133,7 +133,7 @@ export default function CategoryRulesModal({ churchId, showToastMsg, onClose }: 
 
                 <div className="flex flex-col sm:flex-row gap-3">
                   <label className="block w-full sm:w-[140px] shrink-0">
-                    <span className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1.5">Tipo</span>
+                    <span className="block text-xs font-medium text-neutral-700 dark:text-neutral-400 mb-1.5">Tipo</span>
                     <select
                       value={newType}
                       onChange={(e) => onTypeChange(e.target.value as TransactionType)}
@@ -144,7 +144,7 @@ export default function CategoryRulesModal({ churchId, showToastMsg, onClose }: 
                     </select>
                   </label>
                   <label className="block flex-1">
-                    <span className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1.5">
+                    <span className="block text-xs font-medium text-neutral-700 dark:text-neutral-400 mb-1.5">
                       Categorizar como...
                     </span>
                     <select
@@ -190,23 +190,23 @@ export default function CategoryRulesModal({ churchId, showToastMsg, onClose }: 
                 </div>
               )}
 
-              <div className="max-h-[300px] overflow-y-auto border border-neutral-200 dark:border-white/10 rounded-md">
+              <div className="max-h-[300px] overflow-y-auto border border-neutral-300 dark:border-white/10 rounded-md">
                 {isLoading ? (
-                  <div className="p-6 text-center text-neutral-400 text-sm">Carregando regras…</div>
+                  <div className="p-6 text-center text-neutral-700 dark:text-neutral-400 text-sm">Carregando regras…</div>
                 ) : filteredRules.length === 0 ? (
-                  <div className="p-6 text-center text-neutral-400 text-sm">
+                  <div className="p-6 text-center text-neutral-700 dark:text-neutral-400 text-sm">
                     {rules.length === 0 ? "Nenhuma regra salva ainda." : "Nenhuma regra corresponde à busca."}
                   </div>
                 ) : (
                   filteredRules.map((r) => (
                     <div
                       key={r.id}
-                      className="flex items-center justify-between gap-3 px-4 py-3 border-b border-neutral-200 dark:border-white/10 last:border-0 hover:bg-neutral-50 dark:hover:bg-white/5"
+                      className="flex items-center justify-between gap-3 px-4 py-3 border-b border-neutral-300 dark:border-white/10 last:border-0 hover:bg-neutral-50 dark:hover:bg-white/5"
                     >
                       <div className="flex items-center gap-2.5 min-w-0 flex-1 text-sm">
                         <span className="font-medium truncate shrink-0 max-w-[35%]">{r.keyword}</span>
                         <ArrowRight size={14} className="text-neutral-400 shrink-0" />
-                        <span className="text-neutral-500 dark:text-neutral-400 truncate">{r.category}</span>
+                        <span className="text-neutral-700 dark:text-neutral-400 truncate">{r.category}</span>
                         <Badge tone={r.type === "entrada" ? "success" : "error"}>
                           {r.type === "entrada" ? "Entrada" : "Saída"}
                         </Badge>
@@ -215,7 +215,7 @@ export default function CategoryRulesModal({ churchId, showToastMsg, onClose }: 
                         onClick={() => deleteRule(r.id)}
                         disabled={deletingId === r.id}
                         title="Excluir regra"
-                        className="w-8 h-8 inline-flex items-center justify-center rounded-md text-neutral-400 hover:bg-status-error/10 hover:text-status-error disabled:opacity-50 shrink-0"
+                        className="w-8 h-8 inline-flex items-center justify-center rounded-md text-neutral-700 dark:text-neutral-400 hover:bg-status-error/10 hover:text-status-error disabled:opacity-50 shrink-0"
                       >
                         <Trash2 size={14} />
                       </button>

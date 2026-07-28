@@ -156,9 +156,49 @@ function mapImportHistoryRow(
 
 const AppContext = createContext<AppContextValue | null>(null);
 
+// Preferência de tema é persistida em profiles.theme (Supabase, sincroniza
+// entre dispositivos) — este cache local em localStorage existe só para
+// pintar o tema certo já na primeira renderização em visitas seguintes no
+// mesmo aparelho, sem esperar o profile carregar (evita o "flash" de tema
+// errado); o Supabase continua sendo a fonte da verdade e reconcilia esse
+// cache assim que o profile chega.
+const THEME_CACHE_KEY = "theme_preference";
+
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
-  const toggleTheme = useCallback(() => setTheme((t) => (t === "dark" ? "light" : "dark")), []);
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    const cached = localStorage.getItem(THEME_CACHE_KEY);
+    return cached === "light" || cached === "dark" ? cached : "dark";
+  });
+
+  const { session, profile } = useAuth();
+
+  // Assim que o profile da sessão carrega (login ou refresh de página), adota
+  // o tema salvo no Supabase para este usuário — roda só quando o `id` muda
+  // (novo login), não em todo refreshProfile(), para não sobrescrever um
+  // toggle manual feito depois do carregamento inicial.
+  useEffect(() => {
+    if (!profile?.theme) return;
+    setTheme(profile.theme);
+    localStorage.setItem(THEME_CACHE_KEY, profile.theme);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((t) => {
+      const next = t === "dark" ? "light" : "dark";
+      localStorage.setItem(THEME_CACHE_KEY, next);
+      if (session?.user.id) {
+        // Fire-and-forget: não bloqueia a troca visual do tema, e uma falha
+        // (rede lenta, offline) só significa que o próximo dispositivo/login
+        // não vai ver a preferência mais recente — não é motivo pra travar a
+        // UI nem mostrar erro para uma ação tão de baixo risco.
+        supabase.rpc("update_own_theme", { new_theme: next }).then(({ error }) => {
+          if (error) console.error("Falha ao salvar preferência de tema:", error.message);
+        });
+      }
+      return next;
+    });
+  }, [session?.user.id]);
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const toggleSidebar = useCallback(() => setSidebarCollapsed((v) => !v), []);
@@ -221,8 +261,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [transactions, setTransactionsState] = useState<Transaction[]>([]);
   const [importHistory, setImportHistoryState] = useState<ImportHistoryItem[]>([]);
   const [usersList, setUsersList] = useState<ChurchUser[]>([]);
-
-  const { session, profile } = useAuth();
 
   const usersById = useMemo(() => new Map(usersList.map((u) => [u.id, u.name])), [usersList]);
 

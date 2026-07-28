@@ -27,7 +27,7 @@ const STATUS_TONE: Record<UserStatus, "success" | "neutral" | "warning"> = {
 const ROLE_ORDER = ASSIGNABLE_ROLES;
 
 const iconBtnCls =
-  "w-8 h-8 flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5";
+  "w-8 h-8 flex items-center justify-center rounded-md border border-neutral-300 dark:border-white/20 text-neutral-700 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5";
 
 interface RoleEditState {
   user: ChurchUser;
@@ -210,20 +210,20 @@ export default function Usuarios() {
     <div>
       <div className="mb-6">
         <h1 className="font-display font-semibold text-2xl m-0 tracking-tight">Governança e Usuários</h1>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1.5">Controle de acesso via Supabase Auth</p>
+        <p className="text-sm text-neutral-700 dark:text-neutral-400 mt-1.5">Controle de acesso via Supabase Auth</p>
       </div>
 
       <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
-        <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-white/10 rounded-md px-4 py-3.5">
-          <div className="text-[11px] text-neutral-400 mb-1">Total de Usuários Cadastrados</div>
+        <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-white/10 rounded-md px-4 py-3.5">
+          <div className="text-[11px] text-neutral-700 dark:text-neutral-400 mb-1">Total de Usuários Cadastrados</div>
           <div className="font-display font-semibold text-xl">{kpiTotal}</div>
         </div>
-        <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-white/10 rounded-md px-4 py-3.5">
-          <div className="text-[11px] text-neutral-400 mb-1">Ativos (últimos 30 dias)</div>
+        <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-white/10 rounded-md px-4 py-3.5">
+          <div className="text-[11px] text-neutral-700 dark:text-neutral-400 mb-1">Ativos (últimos 30 dias)</div>
           <div className="font-display font-semibold text-xl text-status-success">{kpiActive}</div>
         </div>
-        <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-white/10 rounded-md px-4 py-3.5">
-          <div className="text-[11px] text-neutral-400 mb-1">Perfis com Privilégio Admin</div>
+        <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-white/10 rounded-md px-4 py-3.5">
+          <div className="text-[11px] text-neutral-700 dark:text-neutral-400 mb-1">Perfis com Privilégio Admin</div>
           <div className="font-display font-semibold text-xl text-[#7c3aed]">{kpiAdmins}</div>
         </div>
       </div>
@@ -286,7 +286,7 @@ export default function Usuarios() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[860px] border-collapse text-sm">
             <thead>
-              <tr className="text-left text-neutral-400">
+              <tr className="text-left text-neutral-700 dark:text-neutral-400">
                 <th className="px-4.5 py-3 font-medium text-xs">Usuário</th>
                 {isMaster && <th className="px-4.5 py-3 font-medium text-xs">Igreja</th>}
                 <th className="px-4.5 py-3 font-medium text-xs">Função (Role)</th>
@@ -297,13 +297,13 @@ export default function Usuarios() {
             </thead>
             <tbody>
               {filtered.map((u) => (
-                <tr key={u.id} className="border-t border-neutral-200 dark:border-white/10">
+                <tr key={u.id} className="border-t border-neutral-300 dark:border-white/10">
                   <td className="px-4.5 py-3">
                     <div className="flex items-center gap-2.5">
                       <Avatar name={u.name} size="sm" />
                       <div>
                         <div>{u.name}</div>
-                        <div className="text-neutral-400 text-xs">{u.email}</div>
+                        <div className="text-neutral-700 dark:text-neutral-400 text-xs">{u.email}</div>
                       </div>
                     </div>
                   </td>
@@ -328,7 +328,7 @@ export default function Usuarios() {
                       {u.status}
                     </Badge>
                   </td>
-                  <td className="px-4.5 py-3 text-neutral-400 text-xs">{u.lastAccess}</td>
+                  <td className="px-4.5 py-3 text-neutral-700 dark:text-neutral-400 text-xs">{u.lastAccess}</td>
                   <td className="px-4.5 py-3 text-right">
                     <div className="flex gap-1 justify-end">
                       <button
@@ -354,7 +354,7 @@ export default function Usuarios() {
           </table>
         </div>
         {filtered.length === 0 && (
-          <div className="p-8 text-center text-neutral-400 text-sm">Nenhum usuário encontrado para este filtro.</div>
+          <div className="p-8 text-center text-neutral-700 dark:text-neutral-400 text-sm">Nenhum usuário encontrado para este filtro.</div>
         )}
       </Card>
 
@@ -363,7 +363,7 @@ export default function Usuarios() {
           <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[440px] rounded-lg shadow-md p-5 sm:p-8">
             <div className="flex items-center justify-between mb-5">
               <h3 className="font-display font-semibold text-lg m-0">Convidar Novo Usuário</h3>
-              <button onClick={() => setShowInviteModal(false)} className="text-neutral-400 p-1">
+              <button onClick={() => setShowInviteModal(false)} className="text-neutral-700 dark:text-neutral-400 p-1">
                 <X size={18} />
               </button>
             </div>
@@ -451,7 +451,7 @@ export default function Usuarios() {
                   />
                 </label>
               </div>
-              <p className="text-xs text-neutral-400 -mt-2">
+              <p className="text-xs text-neutral-700 dark:text-neutral-400 -mt-2">
                 O usuário já é criado com esta senha e pode entrar direto — use "Resetar Senha / Enviar Link" na
                 tabela se ele precisar trocá-la depois.
               </p>
@@ -481,11 +481,11 @@ export default function Usuarios() {
           <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[480px] rounded-lg shadow-md p-5 sm:p-8">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-display font-semibold text-lg m-0">Link de Redefinição de Senha</h3>
-              <button onClick={() => setResetLinkModal(null)} className="text-neutral-400 p-1">
+              <button onClick={() => setResetLinkModal(null)} className="text-neutral-700 dark:text-neutral-400 p-1">
                 <X size={18} />
               </button>
             </div>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed mb-4">
+            <p className="text-sm text-neutral-700 dark:text-neutral-400 leading-relaxed mb-4">
               Não foi possível copiar automaticamente. Copie o link abaixo e envie manualmente para{" "}
               <strong>{resetLinkModal.email}</strong> — o link é de uso único e expira em algumas horas.
             </p>
@@ -530,11 +530,11 @@ export default function Usuarios() {
               <>
                 <div className="flex items-center justify-between mb-5">
                   <h3 className="font-display font-semibold text-lg m-0">Alterar Permissão</h3>
-                  <button onClick={() => setRoleEdit(null)} className="text-neutral-400 p-1">
+                  <button onClick={() => setRoleEdit(null)} className="text-neutral-700 dark:text-neutral-400 p-1">
                     <X size={18} />
                   </button>
                 </div>
-                <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
+                <p className="text-sm text-neutral-700 dark:text-neutral-400 mb-4">
                   Selecione a nova função de acesso para <strong>{roleEdit.user.name}</strong>.
                 </p>
                 <div className="flex flex-col gap-2">
@@ -549,7 +549,7 @@ export default function Usuarios() {
                       }`}
                     >
                       <Badge tone={ROLE_TONE[role]}>{role}</Badge>
-                      {role === roleEdit.user.role && <span className="text-xs text-neutral-400">Atual</span>}
+                      {role === roleEdit.user.role && <span className="text-xs text-neutral-700 dark:text-neutral-400">Atual</span>}
                     </button>
                   ))}
                 </div>
@@ -564,7 +564,7 @@ export default function Usuarios() {
                     {roleEdit.selectedRole === "Admin" ? "Promover a Administrador" : "Remover acesso de Administrador"}
                   </h3>
                 </div>
-                <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed mb-6">
+                <p className="text-sm text-neutral-700 dark:text-neutral-400 leading-relaxed mb-6">
                   {roleEdit.selectedRole === "Admin"
                     ? "Atenção: Ao tornar este usuário Administrador, ele terá acesso total ao sistema, incluindo exclusão e convite de novos membros."
                     : "Atenção: Ao remover o acesso de Administrador, este usuário perderá todos os privilégios administrativos e o acesso à aba de Governança e Usuários."}

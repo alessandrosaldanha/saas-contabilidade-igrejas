@@ -66,7 +66,7 @@ export default function ChurchCreateModal({ parentOptions, onClose, onCreated }:
       <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[560px] max-h-[90vh] overflow-y-auto rounded-lg shadow-md p-5 sm:p-8">
         <div className="flex items-center justify-between mb-5">
           <h3 className="font-display font-semibold text-lg m-0">Nova Igreja</h3>
-          <button onClick={onClose} className="text-neutral-400 p-1">
+          <button onClick={onClose} className="text-neutral-700 dark:text-neutral-400 p-1">
             <X size={18} />
           </button>
         </div>

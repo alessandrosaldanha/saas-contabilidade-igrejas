@@ -143,7 +143,7 @@ export default function ResetPassword() {
             {status === "checking" && (
               <div className="flex flex-col items-center gap-3 text-center py-10">
                 <Loader2 size={24} className="text-orla-blue animate-spin" />
-                <p className="text-sm text-neutral-500 dark:text-neutral-400">Validando link de redefinição…</p>
+                <p className="text-sm text-neutral-700 dark:text-neutral-400">Validando link de redefinição…</p>
               </div>
             )}
 
@@ -153,8 +153,8 @@ export default function ResetPassword() {
                   <AlertTriangle size={22} className="text-status-error" />
                 </span>
                 <h1 className="font-display font-semibold text-xl tracking-tight">Link inválido ou expirado</h1>
-                <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed">{invalidReason}</p>
-                <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                <p className="text-sm text-neutral-700 dark:text-neutral-400 leading-relaxed">{invalidReason}</p>
+                <p className="text-sm text-neutral-700 dark:text-neutral-400">
                   Peça ao administrador para gerar um novo link de redefinição de senha.
                 </p>
                 <button
@@ -172,22 +172,22 @@ export default function ResetPassword() {
                   <CheckCircle2 size={22} className="text-status-success" />
                 </span>
                 <h1 className="font-display font-semibold text-xl tracking-tight">Senha redefinida com sucesso</h1>
-                <p className="text-sm text-neutral-500 dark:text-neutral-400">Redirecionando para o login…</p>
+                <p className="text-sm text-neutral-700 dark:text-neutral-400">Redirecionando para o login…</p>
               </div>
             )}
 
             {status === "ready" && (
               <>
                 <h1 className="font-display font-semibold text-[27px] tracking-tight mb-1.5">Redefinir senha</h1>
-                <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-6">
+                <p className="text-sm text-neutral-700 dark:text-neutral-400 mb-6">
                   Escolha uma nova senha de acesso para a sua conta
                 </p>
 
                 {user && (
-                  <div className="flex items-center gap-3 border border-neutral-200 dark:border-white/10 bg-neutral-50 dark:bg-neutral-950 rounded-md px-3.5 py-3 mb-6">
+                  <div className="flex items-center gap-3 border border-neutral-300 dark:border-white/10 bg-neutral-50 dark:bg-neutral-950 rounded-md px-3.5 py-3 mb-6">
                     <div className="min-w-0">
                       <div className="text-sm font-medium truncate">{user.name}</div>
-                      <div className="text-neutral-400 text-xs truncate">{user.email}</div>
+                      <div className="text-neutral-700 dark:text-neutral-400 text-xs truncate">{user.email}</div>
                     </div>
                   </div>
                 )}
@@ -213,7 +213,7 @@ export default function ResetPassword() {
                         placeholder="••••••••"
                         className="flex-1 min-w-0 bg-transparent outline-none text-sm"
                       />
-                      <button type="button" onClick={() => setShowPassword((v) => !v)} className="text-neutral-400 shrink-0">
+                      <button type="button" onClick={() => setShowPassword((v) => !v)} className="text-neutral-700 dark:text-neutral-400 shrink-0">
                         {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                       </button>
                     </span>

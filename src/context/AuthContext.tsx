@@ -43,7 +43,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 async function fetchProfile(userId: string): Promise<ChurchUser | null> {
   const { data } = await supabase
     .from("profiles")
-    .select("id, name, email, role, status, last_access, cpf, church_id, termo_aceito")
+    .select("id, name, email, role, status, last_access, cpf, church_id, termo_aceito, theme")
     .eq("id", userId)
     .single();
 
@@ -58,6 +58,7 @@ async function fetchProfile(userId: string): Promise<ChurchUser | null> {
     cpf: data.cpf,
     churchId: data.church_id,
     termoAceito: data.termo_aceito,
+    theme: data.theme,
   };
 }
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutGrid,
@@ -61,12 +61,30 @@ export default function Sidebar() {
   const { profile, signOut } = useAuth();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+  const profileTriggerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const expanded = !sidebarCollapsed;
   const navItems = NAV_ITEMS.filter(
     (item) => !item.allowedRoles || item.allowedRoles.includes(currentUser.role)
   );
+
+  // Fecha o popover de perfil ao clicar fora dele (fora do popover e do
+  // botão que o abre) — sem isso, só fechava clicando de novo no gatilho.
+  useEffect(() => {
+    if (!showProfileMenu) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (profileMenuRef.current?.contains(target)) return;
+      if (profileTriggerRef.current?.contains(target)) return;
+      setShowProfileMenu(false);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showProfileMenu]);
 
   const performLogout = async () => {
     if (profile) {
@@ -97,7 +115,7 @@ export default function Sidebar() {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 h-full bg-neutral-50 dark:bg-neutral-950 border-r border-neutral-200 dark:border-white/10 flex flex-col py-5 px-3 transition-transform duration-200 w-[248px] ${
+        className={`fixed inset-y-0 left-0 z-50 h-full bg-neutral-50 dark:bg-neutral-950 border-r border-neutral-300 dark:border-white/10 flex flex-col py-5 px-3 transition-transform duration-200 w-[248px] ${
           mobileNavOpen ? "translate-x-0" : "-translate-x-full"
         } md:static md:translate-x-0 md:transition-[width] md:shrink-0 ${expanded ? "md:w-[248px]" : "md:w-[76px]"}`}
       >
@@ -115,7 +133,7 @@ export default function Sidebar() {
           <button
             onClick={closeMobileNav}
             title="Fechar menu"
-            className="ml-auto p-1.5 rounded-md text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5 md:hidden"
+            className="ml-auto p-1.5 rounded-md text-neutral-700 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5 md:hidden"
           >
             <X size={18} />
           </button>
@@ -123,7 +141,7 @@ export default function Sidebar() {
 
         {currentUser.role === "master" && (
           <div className={`px-1 pb-4 ${expanded ? "" : "md:hidden"}`}>
-            <label className="block text-[10px] font-semibold tracking-wider uppercase text-neutral-400 dark:text-neutral-500 mb-1.5">
+            <label className="block text-[10px] font-semibold tracking-wider uppercase text-neutral-700 dark:text-neutral-500 mb-1.5">
               Igreja em Gestão
             </label>
             <select
@@ -144,7 +162,7 @@ export default function Sidebar() {
         <button
           onClick={toggleSidebar}
           title="Recolher menu"
-          className={`hidden md:flex items-center gap-2 border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900 text-neutral-500 dark:text-neutral-400 rounded-md px-2.5 py-1.5 text-[11px] mb-4 hover:bg-neutral-100 dark:hover:bg-neutral-800 ${
+          className={`hidden md:flex items-center gap-2 border border-neutral-300 dark:border-white/10 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-400 rounded-md px-2.5 py-1.5 text-[11px] mb-4 hover:bg-neutral-100 dark:hover:bg-neutral-800 ${
             expanded ? "justify-start" : "justify-center"
           }`}
         >
@@ -153,7 +171,7 @@ export default function Sidebar() {
         </button>
 
         <div
-          className={`text-[10px] font-semibold tracking-wider uppercase text-neutral-400 dark:text-neutral-500 px-3 pb-2 ${expanded ? "" : "md:hidden"}`}
+          className={`text-[10px] font-semibold tracking-wider uppercase text-neutral-700 dark:text-neutral-500 px-3 pb-2 ${expanded ? "" : "md:hidden"}`}
         >
           Menu
         </div>
@@ -173,7 +191,7 @@ export default function Sidebar() {
                 `flex items-center gap-2.5 rounded-r-sm border-l-[2.5px] px-3 py-2.5 text-sm transition-colors ${
                   isActive
                     ? "border-orla-blue bg-orla-blue/10 text-black dark:text-white font-semibold"
-                    : "border-transparent text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
+                    : "border-transparent text-neutral-700 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
                 } ${expanded ? "" : "md:justify-center"}`
               }
             >
@@ -194,12 +212,15 @@ export default function Sidebar() {
 
         <div className="mt-auto relative">
           {showProfileMenu && (
-            <div className="absolute bottom-[calc(100%+8px)] left-0 right-0 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/10 rounded-lg shadow-md p-4 z-[60] min-w-[240px] max-w-[calc(100vw-2rem)]">
-            <div className="flex items-center gap-3 pb-3.5 border-b border-neutral-200 dark:border-white/10 mb-2">
+            <div
+              ref={profileMenuRef}
+              className="absolute bottom-[calc(100%+8px)] left-0 right-0 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/10 rounded-lg shadow-md p-4 z-[60] min-w-[240px] max-w-[calc(100vw-2rem)]"
+            >
+            <div className="flex items-center gap-3 pb-3.5 border-b border-neutral-300 dark:border-white/10 mb-2">
               <Avatar name={currentUser.name} size="lg" />
               <div className="min-w-0">
                 <div className="text-black dark:text-white text-sm font-medium truncate">{currentUser.name}</div>
-                <div className="text-neutral-500 dark:text-neutral-400 text-xs truncate">{currentUser.email}</div>
+                <div className="text-neutral-700 dark:text-neutral-400 text-xs truncate">{currentUser.email}</div>
                 <div className="mt-1">
                   <Badge tone="purple" size="sm">
                     {currentUser.role}
@@ -224,7 +245,7 @@ export default function Sidebar() {
               {isDark ? <Moon size={15} /> : <Sun size={15} />}
               Alternar Tema Claro/Escuro
             </button>
-            <div className="border-t border-neutral-200 dark:border-white/10 my-1.5" />
+            <div className="border-t border-neutral-300 dark:border-white/10 my-1.5" />
             <button
               onClick={logout}
               className="flex items-center gap-2.5 w-full text-left px-2 py-2 rounded-md text-sm text-status-error hover:bg-status-error/10"
@@ -236,8 +257,9 @@ export default function Sidebar() {
         )}
 
         <div
+          ref={profileTriggerRef}
           onClick={() => setShowProfileMenu((v) => !v)}
-          className="flex items-center gap-2.5 px-2 py-2.5 rounded-md cursor-pointer border-t border-neutral-200 dark:border-white/10 hover:bg-neutral-100 dark:hover:bg-white/5"
+          className="flex items-center gap-2.5 px-2 py-2.5 rounded-md cursor-pointer border-t border-neutral-300 dark:border-white/10 hover:bg-neutral-100 dark:hover:bg-white/5"
         >
           <Avatar name={currentUser.name} size="md" />
           <div className={`min-w-0 flex-1 ${expanded ? "" : "md:hidden"}`}>

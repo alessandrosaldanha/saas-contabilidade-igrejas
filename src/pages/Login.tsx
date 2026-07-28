@@ -103,7 +103,7 @@ export default function Login() {
             <h1 className="font-display font-semibold text-[27px] tracking-tight mb-1.5">
               Bem-vindo de volta
             </h1>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-7">
+            <p className="text-sm text-neutral-700 dark:text-neutral-400 mb-7">
               Acesse o painel financeiro da sua igreja
             </p>
 
@@ -155,7 +155,7 @@ export default function Login() {
                     <button
                       type="button"
                       onClick={() => setShowPassword((v) => !v)}
-                      className="text-neutral-400 shrink-0"
+                      className="text-neutral-700 dark:text-neutral-400 shrink-0"
                     >
                       {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                     </button>
@@ -164,7 +164,7 @@ export default function Login() {
               </div>
 
               <div className="flex items-center justify-between my-4">
-                <label className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400 cursor-pointer select-none">
+                <label className="flex items-center gap-2 text-xs text-neutral-700 dark:text-neutral-400 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={remember}

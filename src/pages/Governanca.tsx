@@ -114,7 +114,7 @@ export default function Governanca() {
     <div>
       <div className="mb-6">
         <h1 className="font-display font-semibold text-2xl m-0 tracking-tight">Governança</h1>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1.5">
+        <p className="text-sm text-neutral-700 dark:text-neutral-400 mt-1.5">
           Administração de todas as igrejas cadastradas na plataforma
         </p>
       </div>
@@ -165,7 +165,7 @@ export default function Governanca() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] border-collapse text-sm">
             <thead>
-              <tr className="text-left text-neutral-400">
+              <tr className="text-left text-neutral-700 dark:text-neutral-400">
                 <th className="px-4.5 py-3 font-medium text-xs">Nome da Igreja</th>
                 <th className="px-4.5 py-3 font-medium text-xs">E-mail</th>
                 <th className="px-4.5 py-3 font-medium text-xs">Status</th>
@@ -175,7 +175,7 @@ export default function Governanca() {
             </thead>
             <tbody>
               {paged.map((c) => (
-                <tr key={c.id} className="border-t border-neutral-200 dark:border-white/10">
+                <tr key={c.id} className="border-t border-neutral-300 dark:border-white/10">
                   <td className="px-4.5 py-3">
                     <div className="flex items-center gap-2.5">
                       <span className="w-7 h-7 rounded-md bg-orla-blue/15 flex items-center justify-center shrink-0">
@@ -183,17 +183,17 @@ export default function Governanca() {
                       </span>
                       <div>
                         <div>{c.name}</div>
-                        {c.parentChurchId && <div className="text-neutral-400 text-xs">Igreja Filha</div>}
+                        {c.parentChurchId && <div className="text-neutral-700 dark:text-neutral-400 text-xs">Igreja Filha</div>}
                       </div>
                     </div>
                   </td>
-                  <td className="px-4.5 py-3 text-neutral-500 dark:text-neutral-400">{c.email || "—"}</td>
+                  <td className="px-4.5 py-3 text-neutral-700 dark:text-neutral-400">{c.email || "—"}</td>
                   <td className="px-4.5 py-3">
                     <Badge tone={c.isActive ? "success" : "neutral"} appearance="outline" dot>
                       {c.isActive ? "Ativa" : "Desativada"}
                     </Badge>
                   </td>
-                  <td className="px-4.5 py-3 text-neutral-400 text-xs">
+                  <td className="px-4.5 py-3 text-neutral-700 dark:text-neutral-400 text-xs">
                     {new Date(c.createdAt).toLocaleDateString("pt-BR")}
                   </td>
                   <td className="px-4.5 py-3 text-right">
@@ -214,11 +214,11 @@ export default function Governanca() {
           <div className="p-10 text-center">
             <Building2 size={28} className="mx-auto mb-3 text-neutral-300 dark:text-neutral-700" />
             <div className="text-sm font-medium mb-1">Nenhuma igreja cadastrada ainda</div>
-            <div className="text-xs text-neutral-400">Clique em "Nova Igreja" para cadastrar a primeira.</div>
+            <div className="text-xs text-neutral-700 dark:text-neutral-400">Clique em "Nova Igreja" para cadastrar a primeira.</div>
           </div>
         )}
         {!loading && churches.length > 0 && filtered.length === 0 && (
-          <div className="p-10 text-center text-neutral-400 text-sm">Nenhum resultado encontrado para este filtro.</div>
+          <div className="p-10 text-center text-neutral-700 dark:text-neutral-400 text-sm">Nenhum resultado encontrado para este filtro.</div>
         )}
         {filtered.length > 0 && (
           <Pagination page={page} totalItems={filtered.length} pageSize={CHURCHES_PAGE_SIZE} onPageChange={setPage} />
