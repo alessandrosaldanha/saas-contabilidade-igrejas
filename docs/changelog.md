@@ -931,3 +931,16 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
 - Troca de tema não gera entrada em `audit_logs` (diferente de `update_own_profile`, que loga nome/e-mail) — é uma preferência de UI de baixo risco, sem valor de governança, e nenhum dos `action_key` existentes (`categorizacao_ia`, `edicao_manual`, `aprovacao_caixa`, `estorno`, `acesso`, `aceite_termos`) se aplica sem forçar um encaixe artificial.
 - `get_advisors` (security) confirma que `update_own_theme` gera os mesmos dois avisos `WARN` (`anon`/`authenticated` podem executar a função `SECURITY DEFINER`) que já existem para `update_own_profile` — aceitável pelo mesmo motivo: para um caller anônimo `auth.uid()` é `null`, então o `UPDATE` afeta zero linhas (no-op inofensivo).
 - Validado com `npx tsc --noEmit` e `npm run build` (sem erros), migration aplicada e conferida via `execute_sql` (coluna criada, função criada, backfill correto nas 7 linhas existentes). Teste visual real (login em dois dispositivos/navegadores diferentes, confirmar sincronização; medir ausência de flash) não foi executado nesta sessão por falta de ambiente com browser automatizável.
+
+### [2026-07-28] Merge para `main` e Release v1.5.0
+
+**O que foi feito:**
+- Commit único em `hmg` (`01112bf`) reunindo todo o trabalho da sessão: toggle de tema movido do Dashboard para o popover de perfil da Sidebar, popover fechando ao clicar fora, persistência da preferência de tema no Supabase (`profiles.theme` + RPC `update_own_theme`) e ajuste de contraste do Modo Claro em toda a aplicação — ver entradas anteriores deste changelog para o detalhe técnico de cada parte.
+- Merge (`--no-ff`) de `hmg` em `main` (commit `41a3054`), validado com `npx tsc --noEmit`/`npm run build` limpos em `main` antes do push.
+- Tag anotada `v1.5.0` criada sobre `main` e Release publicado no GitHub (`gh release create`), notas em linguagem de usuário final.
+
+**Decisões técnicas:**
+- Versão `v1.5.0` (MINOR, SemVer): a sessão inclui uma funcionalidade nova retrocompatível (persistência de tema entre dispositivos via Supabase), além de correções/ajustes (popover, contraste) — não se limita a PATCH e não há nenhum breaking change de schema/API para quem já usa o sistema (a migration só adiciona coluna com `DEFAULT`).
+- Trabalho da sessão foi commitado em um único commit em `hmg` em vez de granularizado por feature — as quatro mudanças (mover toggle, corrigir popover, persistir tema, ajustar contraste) tocaram os mesmos arquivos em sequência dentro da mesma sessão, sem checkpoints intermediários separados; separar a posteriori via `git add -p` teria custo alto e risco de deixar algum estado intermediário sem compilar no meio do histórico.
+
+**Validação:** release publicada em `https://github.com/alessandrosaldanha/saas-contabilidade-igrejas/releases/tag/v1.5.0`.
