@@ -830,6 +830,21 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
 **Decisões técnicas:**
 - Versão `v1.3.1` (PATCH, SemVer): a mudança é padronização visual/UX + correção de um cálculo de KPI que não refletia os filtros — nenhuma funcionalidade nova foi adicionada, então não justifica MINOR.
 
+### [2026-07-27] Fluxo de "Esqueceu a senha?" (recuperação de senha via Supabase Auth)
+
+**O que foi pedido:** ligar o link morto "Esqueceu a senha?" da tela de Login a um fluxo completo de recuperação de senha usando `supabase.auth.resetPasswordForEmail` + `updateUser`.
+
+**O que foi feito:**
+- **`src/components/ForgotPasswordModal.tsx`** (novo): modal (mesmo padrão visual do `ConfirmModal`) com campo de e-mail; no submit chama `supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` })` e, independente do e-mail existir ou não na base, mostra a mesma mensagem de sucesso ("Se o e-mail estiver cadastrado, você receberá um link de recuperação em instantes.") — evita enumeração de e-mails cadastrados. Erro de envio mostra um banner inline (`bg-status-error/10`), mesmo padrão do Login/ResetPassword.
+- **`src/pages/Login.tsx`**: o link `<a href="#">Esqueceu a senha?</a>` foi trocado por um `<button>` que abre o `ForgotPasswordModal` (estado local `showForgotPasswordModal`).
+- A tela de confirmação de nova senha (`/reset-password` → `src/pages/ResetPassword.tsx`) **já existia e já implementava** o restante do pedido — captura da sessão temporária de recovery (`onAuthStateChange` + `getSession()`), campos "Nova Senha"/"Confirmar Nova Senha" com botão de olhinho, validação de senhas iguais, `updateUser({ password })`, `signOut()` e redirecionamento para `/login` — não foi necessário criar nada novo aqui, só o passo anterior (solicitação do e-mail) estava faltando.
+
+**Decisões técnicas:**
+- Nenhum toast global foi usado no `ForgotPasswordModal`: o `<Toast />` do `AppContext` só é montado dentro de `Layout` (árvore protegida) — `Login.tsx` fica fora dela. Mensagens de sucesso/erro seguem o mesmo padrão inline já usado em `Login.tsx`/`ResetPassword.tsx` (banners `bg-status-success/10`/`bg-status-error/10`), mantendo a mesma linguagem visual do restante do fluxo de autenticação.
+- Validação de senha mínima **não foi alterada para 6 caracteres** como pedido originalmente — o padrão de 8 caracteres já é aplicado de forma consistente em todo o app (`ResetPassword.tsx`, `ProfileSettingsModal.tsx`, `ChurchDetailsModal.tsx`, `Usuarios.tsx`); reduzir só neste fluxo criaria uma inconsistência de segurança entre telas de troca de senha.
+- `redirectTo` usa `window.location.origin` (não hardcoded) para funcionar tanto em produção quanto nos previews de `hmg` na Vercel — assume que a URL de callback (`/reset-password`) já está na allowlist de Redirect URLs do Supabase Auth, o que já era necessário para o fluxo de recovery pré-existente funcionar.
+- Validado com `npx tsc --noEmit` e `npm run build` (sem erros). Teste visual real do fluxo ponta a ponta (enviar e-mail, abrir link, trocar senha) não foi executado nesta sessão por falta de ambiente com browser automatizável e caixa de e-mail real.
+
 **Validação:** release publicada em `https://github.com/alessandrosaldanha/saas-contabilidade-igrejas/releases/tag/v1.3.1`.
 
 ### [2026-07-27] Adição da skill `frontend-design`
