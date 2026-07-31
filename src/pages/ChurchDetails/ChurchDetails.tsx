@@ -6,9 +6,11 @@ import Badge from "../../components/Badge";
 import Avatar from "../../components/Avatar";
 import Pagination from "../../components/Pagination";
 import ChurchFormFields, { ChurchFormState, EMPTY_CHURCH_FORM } from "../../components/ChurchFormFields";
+import PricingModal from "../../components/PricingModal";
 import AddChildChurchModal from "./components/AddChildChurchModal";
 import { useApp } from "../../context/AppContext";
 import { useAuth } from "../../context/AuthContext";
+import { usePlanLimits } from "../../hooks/usePlanLimits";
 import { supabase, getFunctionErrorMessage } from "../../services/supabase";
 import { ASSIGNABLE_ROLES } from "../../types";
 import type { Church, ChurchUser, UserRole, UserStatus } from "../../types";
@@ -147,6 +149,7 @@ export default function ChurchDetails() {
   const [childrenPage, setChildrenPage] = useState(1);
 
   const [showAddChild, setShowAddChild] = useState(false);
+  const [showChildLimitModal, setShowChildLimitModal] = useState(false);
   const [showAddMember, setShowAddMember] = useState(false);
   const [roleEdit, setRoleEdit] = useState<{ user: ChurchUser; role: UserRole; step: "select" | "confirm" } | null>(null);
   const [isSavingRole, setIsSavingRole] = useState(false);
@@ -209,6 +212,18 @@ export default function ChurchDetails() {
   // inclusive master (reforçado também no servidor, ver create_child_church).
   const isRootChurch = !church?.parentChurchId;
   const canAddChild = canEdit && !!church && isRootChurch && (isMaster || church.id === profile?.churchId);
+  // Limite de subcongregações do plano — reforçado também no servidor
+  // (create_child_church), master sempre isento (mesma regra da RPC).
+  const { canAddSubchurch } = usePlanLimits(isRootChurch ? (church?.id ?? null) : null);
+  const childLimitReached = canAddChild && !isMaster && !canAddSubchurch();
+
+  const onAddChildClick = () => {
+    if (childLimitReached) {
+      setShowChildLimitModal(true);
+      return;
+    }
+    setShowAddChild(true);
+  };
 
   const parentOptions = useMemo(
     () => rootChurches.filter((c) => c.id !== church?.id),
@@ -474,8 +489,13 @@ export default function ChurchDetails() {
           <h4 className="font-display font-semibold text-base m-0">Igrejas Filhas / Subcongregações</h4>
           {canAddChild && (
             <button
-              onClick={() => setShowAddChild(true)}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-md bg-orla-blue text-white text-xs font-medium hover:bg-blue-600"
+              onClick={onAddChildClick}
+              title={childLimitReached ? "Limite de subcongregações do plano atual atingido — faça upgrade para adicionar mais" : undefined}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-md text-xs font-medium ${
+                childLimitReached
+                  ? "bg-neutral-200 dark:bg-white/10 text-neutral-700 dark:text-neutral-400 cursor-not-allowed"
+                  : "bg-orla-blue text-white hover:bg-blue-600"
+              }`}
             >
               <Plus size={13} />
               Adicionar Igreja Filha / Subcongregação
@@ -566,6 +586,15 @@ export default function ChurchDetails() {
           parentChurchId={church.id}
           onClose={() => setShowAddChild(false)}
           onCreated={refreshChildren}
+        />
+      )}
+
+      {showChildLimitModal && church && (
+        <PricingModal
+          churchId={church.id}
+          title="Limite de subcongregações atingido"
+          description="Sua igreja atingiu o limite de igrejas filhas do plano atual. Faça upgrade para cadastrar mais subcongregações."
+          onClose={() => setShowChildLimitModal(false)}
         />
       )}
 

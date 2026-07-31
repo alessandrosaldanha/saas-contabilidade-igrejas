@@ -1,15 +1,36 @@
 import { useRef } from "react";
 import type { ChangeEvent } from "react";
 import { Upload, Loader2 } from "lucide-react";
+import type { ImportFormat } from "../../../types";
+
+const FORMAT_EXTENSIONS: Record<ImportFormat, string> = {
+  csv: ".csv",
+  pdf: ".pdf",
+  ofx: ".ofx,.qfx",
+  image: ".jpg,.jpeg,.png",
+};
+
+const FORMAT_HINT: Record<ImportFormat, string> = {
+  csv: "CSV",
+  pdf: "PDF",
+  ofx: "OFX",
+  image: "Imagem",
+};
 
 interface UploadDropzoneProps {
   isUploading: boolean;
   hasUploaded: boolean;
   onFileSelected: (file: File) => void;
+  // null enquanto o plano ainda carrega — nesse intervalo aceita qualquer
+  // formato (mesma postura permissiva de canImportFormat em usePlanLimits).
+  allowedFormats: ImportFormat[] | null;
 }
 
-export default function UploadDropzone({ isUploading, hasUploaded, onFileSelected }: UploadDropzoneProps) {
+export default function UploadDropzone({ isUploading, hasUploaded, onFileSelected, allowedFormats }: UploadDropzoneProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const formats = allowedFormats ?? (["csv", "pdf", "ofx", "image"] as ImportFormat[]);
+  const acceptAttr = formats.map((f) => FORMAT_EXTENSIONS[f]).join(",");
+  const hintText = formats.map((f) => FORMAT_HINT[f]).join(", ");
 
   const onDropzoneClick = () => {
     if (isUploading) return;
@@ -24,7 +45,7 @@ export default function UploadDropzone({ isUploading, hasUploaded, onFileSelecte
 
   return (
     <>
-      <input ref={fileInputRef} type="file" accept=".pdf,.ofx,.qfx,.csv" onChange={onInputChange} className="hidden" />
+      <input ref={fileInputRef} type="file" accept={acceptAttr} onChange={onInputChange} className="hidden" />
       <div
         onClick={onDropzoneClick}
         className="border-[1.5px] border-dashed border-neutral-300 dark:border-white/20 rounded-lg text-center cursor-pointer bg-black/[0.02] dark:bg-white/[0.02] hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors"
@@ -44,7 +65,7 @@ export default function UploadDropzone({ isUploading, hasUploaded, onFileSelecte
               <div className="text-sm font-medium">
                 {hasUploaded ? "Enviar outro extrato bancário" : "Arraste o extrato ou clique para enviar"}
               </div>
-              <div className="text-xs text-neutral-700 dark:text-neutral-400 mt-0.5">PDF, OFX ou CSV, até 10MB</div>
+              <div className="text-xs text-neutral-700 dark:text-neutral-400 mt-0.5">{hintText}, até 10MB</div>
             </div>
           </div>
         )}

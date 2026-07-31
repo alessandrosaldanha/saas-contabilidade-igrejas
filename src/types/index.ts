@@ -81,16 +81,35 @@ export interface Church {
 // plano Free no autocadastro); `displayName` é o rótulo comercial exibido na UI.
 export type PlanName = "free" | "pro" | "unlimited";
 
+// Formatos de importação de extrato aceitos pela Edge Function
+// `parse-statement` — controlados por plano via `allowed_import_formats`.
+export type ImportFormat = "csv" | "pdf" | "ofx" | "image";
+
 export interface Plan {
   id: string;
   name: PlanName;
   displayName: string;
+  // Frase curta exibida no card de /planos, abaixo do nome.
+  description: string;
   priceMonthly: number;
   priceYearly: number;
+  // -1 é o sentinela de "ilimitado" (ver `isUnlimited` em utils/plans.ts).
   maxAiReads: number;
   maxCsvRowsDaily: number;
-  maxChurches: number;
+  maxChildChurches: number;
   maxPdfDownloads: number;
+  allowedImportFormats: ImportFormat[];
+  allowStrictMode: boolean;
+  // Bullets de benefícios exibidos no card — copy livre, editado pelo master
+  // no Painel de Governança (não é recalculado a partir dos limites acima).
+  features: string[];
+  // Dados bancários/Pix de recebimento para o checkout manual (PixPaymentModal)
+  // — nulos até o master configurar o plano pago no Painel de Governança.
+  bankName: string | null;
+  accountHolder: string | null;
+  accountDocument: string | null;
+  pixKey: string | null;
+  pixQrCodeUrl: string | null;
 }
 
 export interface UsageCounter {

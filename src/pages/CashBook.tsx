@@ -69,13 +69,15 @@ export default function LivroCaixa() {
   const [formModal, setFormModal] = useState<TransactionForm | null>(null);
   const [isSavingForm, setIsSavingForm] = useState(false);
 
-  const openPdfExport = async () => {
+  const openPdfExport = () => {
     if (!canDownloadPDF()) {
       setShowPricingModal(true);
       return;
     }
-    await registerPDFUsage();
+    // Só conta a cota depois que o relatório é de fato exibido — nunca antes,
+    // para não descontar do plano se essa etapa vier a falhar no futuro.
     setReportModal("pdf");
+    registerPDFUsage();
   };
 
   // Master só gerencia/exclui lançamentos depois de escolher uma igreja no

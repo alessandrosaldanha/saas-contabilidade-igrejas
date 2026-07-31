@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Award, Send, Loader2, Check, Settings2 } from "lucide-react";
+import { Award, Send, Loader2, Check, Settings2, Lock } from "lucide-react";
 import Card from "../../../components/Card";
 import type { CategorizationMode, ChatMessage, TransactionType } from "../../../types";
 
@@ -55,6 +55,7 @@ interface AiChatPanelProps {
   onSend: () => void;
   applyMode: CategorizationMode;
   onApplyModeChange: (mode: CategorizationMode) => void;
+  strictModeLocked: boolean;
   onOpenRulesModal: () => void;
   ruleSuggestions: RuleSuggestion[];
   onSaveRuleSuggestion: (suggestion: RuleSuggestion, keyword: string) => void;
@@ -70,6 +71,7 @@ export default function AiChatPanel({
   onSend,
   applyMode,
   onApplyModeChange,
+  strictModeLocked,
   onOpenRulesModal,
   ruleSuggestions,
   onSaveRuleSuggestion,
@@ -108,14 +110,22 @@ export default function AiChatPanel({
           IA Autônoma
         </button>
         <button
-          onClick={() => onApplyModeChange("strict")}
-          className={`px-2.5 py-1.5 rounded-md font-medium transition-colors ${
-            applyMode === "strict"
+          onClick={() => !strictModeLocked && onApplyModeChange("strict")}
+          disabled={strictModeLocked}
+          title={strictModeLocked ? "Modo Estrito é exclusivo dos planos pagos — faça upgrade para liberar" : undefined}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+            applyMode === "strict" && !strictModeLocked
               ? "bg-orla-blue text-white"
-              : "text-neutral-700 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
+              : "text-neutral-700 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5 disabled:hover:bg-transparent"
           }`}
         >
           Modo Estrito (Regras Salvas)
+          {strictModeLocked && (
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-orla-blue/15 text-orla-blue text-[10px] font-semibold">
+              <Lock size={9} />
+              Pro
+            </span>
+          )}
         </button>
       </div>
 
