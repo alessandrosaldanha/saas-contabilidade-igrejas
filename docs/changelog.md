@@ -1041,3 +1041,12 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
 - Antes, Tesoureiro/Auditor/Conselho Fiscal tinham acesso de **leitura** à página (o `canEdit` interno de `ChurchDetails.tsx` já os excluía de editar) — a regra de negócio pedida é mais restritiva: nenhuma visão para esses papéis, nem pelo menu nem pela URL direta. Não foi necessário alterar `ChurchDetails.tsx` em si: como só Admin/master agora chegam à rota, o `canEdit`/`isAdmin`/`isMaster` já existentes continuam corretos sem mudança de lógica interna.
 - Nenhuma RLS/RPC do banco foi alterada — a página só lê/escreve `churches`/`profiles` já protegidos por RLS que exige Admin/master para mutação; a restrição de **visualização** vive inteiramente no guard de rota do frontend, igual ao padrão já usado por `/usuarios` e `/governanca`.
 - Validado com `npx tsc --noEmit` e `npm run build` (sem erros). Teste visual real (logar como Tesoureiro/Auditor/Conselho Fiscal e confirmar que o item não aparece e a URL redireciona) não foi executado nesta sessão por falta de ambiente com browser automatizável.
+
+### [2026-07-31] Merge para main e release v1.6.0
+
+**O que foi feito:**
+- Merge de `hmg` em `main` (`git merge --no-ff`) trazendo: planos de assinatura com checkout Pix (`PricingPlans`/`PricingModal`/`PixPaymentModal`, `usePlanLimits`, migrations `0015`/`0016`), hierarquia de igrejas filhas self-service (`AddChildChurchModal`, RPC `create_child_church`, migrations `0017`–`0020`, suporte do `invite-user`), a restrição de RBAC de "Detalhes da Igreja" a Admin/master, e a reorganização feature-driven de `src/pages`/`src/components`.
+- Tag `v1.6.0` criada e Release publicada no GitHub (`gh release create`).
+
+**Decisões técnicas:**
+- Validado com `npx tsc --noEmit` e `npm run build` direto em `main` pós-merge (sem erros) antes do push, seguindo o mesmo procedimento das releases anteriores.
