@@ -12,6 +12,8 @@ export interface ChurchFormState {
   city: string;
   uf: string;
   parentChurchId: string; // "" = nenhuma (Igreja Principal)
+  // Só relevante para igrejas filhas/subcongregações (ainda sem login próprio).
+  responsibleName: string;
 }
 
 export const EMPTY_CHURCH_FORM: ChurchFormState = {
@@ -26,6 +28,7 @@ export const EMPTY_CHURCH_FORM: ChurchFormState = {
   city: "",
   uf: "",
   parentChurchId: "",
+  responsibleName: "",
 };
 
 const inputCls =
@@ -36,9 +39,21 @@ interface ChurchFormFieldsProps {
   values: ChurchFormState;
   onChange: (patch: Partial<ChurchFormState>) => void;
   parentOptions: { id: string; name: string }[];
+  // Oculto para quem não é master (reatribuir a hierarquia é uma operação de
+  // governança global, não algo que o Admin de uma igreja deva fazer sozinho).
+  showParentChurchSelector?: boolean;
+  // Só exibido ao editar uma igreja filha/subcongregação (cadastro rápido, que
+  // normalmente ainda não tem nenhum membro/login próprio para representá-la).
+  showResponsibleName?: boolean;
 }
 
-export default function ChurchFormFields({ values, onChange, parentOptions }: ChurchFormFieldsProps) {
+export default function ChurchFormFields({
+  values,
+  onChange,
+  parentOptions,
+  showParentChurchSelector = true,
+  showResponsibleName = false,
+}: ChurchFormFieldsProps) {
   const handleCepBlur = async () => {
     const result = await lookupCep(values.cep);
     if (result) {
@@ -62,6 +77,18 @@ export default function ChurchFormFields({ values, onChange, parentOptions }: Ch
           className={inputCls}
         />
       </label>
+
+      {showResponsibleName && (
+        <label className="block">
+          <span className={labelCls}>Nome do Responsável</span>
+          <input
+            value={values.responsibleName}
+            onChange={(e) => onChange({ responsibleName: e.target.value })}
+            placeholder="Responsável pela subcongregação"
+            className={inputCls}
+          />
+        </label>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-3">
         <label className="block sm:w-[160px]">
@@ -139,6 +166,7 @@ export default function ChurchFormFields({ values, onChange, parentOptions }: Ch
         <input value={values.cnpj} onChange={(e) => onChange({ cnpj: e.target.value })} className={inputCls} />
       </label>
 
+      {showParentChurchSelector && (
       <label className="block">
         <span className={labelCls}>Igreja Mãe</span>
         <select
@@ -154,6 +182,7 @@ export default function ChurchFormFields({ values, onChange, parentOptions }: Ch
           ))}
         </select>
       </label>
+      )}
     </div>
   );
 }

@@ -45,13 +45,15 @@ export interface ChurchUser {
   // bloquear o acesso até o aceite explícito (histórico completo em
   // termo_aceite_registros, ver docs/database.md). Só é buscada/relevante
   // para o profile da própria sessão (AuthContext); listagens de outros
-  // membros (Usuarios/ChurchDetailsModal) não a preenchem.
+  // membros (Usuarios/ChurchDetails) não a preenchem.
   termoAceito?: boolean;
   // Preferência de tema (claro/escuro) persistida em profiles.theme — mesma
   // ressalva do termoAceito acima: só buscada/relevante para o profile da
   // própria sessão (AuthContext), não para listagens de outros membros.
   theme?: "light" | "dark";
 }
+
+export type SubscriptionStatus = "active" | "pending_approval" | "expired";
 
 export interface Church {
   id: string;
@@ -67,6 +69,50 @@ export interface Church {
   uf: string;
   parentChurchId: string | null;
   isActive: boolean;
+  createdAt: string;
+  planId: string;
+  subscriptionStatus: SubscriptionStatus;
+  // Só preenchido em igrejas filhas/subcongregações cadastradas via
+  // "Adicionar Igreja Filha" (cadastro rápido, ainda sem login próprio).
+  responsibleName: string | null;
+}
+
+// Nome técnico (`name`) usado no banco/regras de negócio (ex.: seleção do
+// plano Free no autocadastro); `displayName` é o rótulo comercial exibido na UI.
+export type PlanName = "free" | "pro" | "unlimited";
+
+export interface Plan {
+  id: string;
+  name: PlanName;
+  displayName: string;
+  priceMonthly: number;
+  priceYearly: number;
+  maxAiReads: number;
+  maxCsvRowsDaily: number;
+  maxChurches: number;
+  maxPdfDownloads: number;
+}
+
+export interface UsageCounter {
+  churchId: string;
+  monthYear: string;
+  aiReadsCount: number;
+  pdfDownloadsCount: number;
+}
+
+export type BillingCycle = "monthly" | "yearly";
+export type PaymentRequestStatus = "pending" | "approved" | "rejected";
+
+export interface PaymentRequest {
+  id: string;
+  churchId: string;
+  churchName: string;
+  userId: string;
+  userName: string;
+  planId: string;
+  planDisplayName: string;
+  billingCycle: BillingCycle;
+  status: PaymentRequestStatus;
   createdAt: string;
 }
 

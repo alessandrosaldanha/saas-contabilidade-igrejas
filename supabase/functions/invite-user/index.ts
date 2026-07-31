@@ -50,9 +50,10 @@ Deno.serve(async (req) => {
       return new Response("Perfil de acesso inválido", { status: 400, headers: CORS_HEADERS });
     }
 
-    // Um Admin comum só cadastra membros da própria igreja (o church_id enviado
-    // pelo corpo da requisição é ignorado para ele); só o Master pode escolher a
-    // igreja de destino, e precisa informá-la explicitamente.
+    // Um Admin comum só cadastra membros da própria igreja OU de uma igreja
+    // FILHA direta dela (subcongregação sob a mesma assinatura — hierarquia de
+    // só 2 níveis); o Master pode escolher qualquer igreja, mas precisa
+    // informá-la explicitamente.
     let effectiveChurchId: string | null;
     if (callerIsMaster) {
       if (!church_id) {
@@ -61,6 +62,20 @@ Deno.serve(async (req) => {
       const { data: churchRow } = await callerClient.from("churches").select("id").eq("id", church_id).single();
       if (!churchRow) {
         return new Response("Igreja não encontrada", { status: 400, headers: CORS_HEADERS });
+      }
+      effectiveChurchId = church_id;
+    } else if (church_id && church_id !== callerProfile!.church_id) {
+      const { data: childRow } = await callerClient
+        .from("churches")
+        .select("id")
+        .eq("id", church_id)
+        .eq("parent_church_id", callerProfile!.church_id)
+        .single();
+      if (!childRow) {
+        return new Response("Você só pode convidar membros da sua igreja ou de suas igrejas filhas", {
+          status: 403,
+          headers: CORS_HEADERS,
+        });
       }
       effectiveChurchId = church_id;
     } else {
