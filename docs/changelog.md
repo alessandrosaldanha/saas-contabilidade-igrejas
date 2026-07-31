@@ -1100,3 +1100,12 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
 - **Preço continua `price_monthly`/`price_yearly` (não um `price`/`billing_cycle` único como o pedido original sugeria):** a tela já tem um toggle Mensal/Anual funcionando ponta a ponta (`PricingPlans.tsx`, `PixPaymentModal.tsx`); colapsar em um único preço seria uma regressão do recurso existente para atender um formato de coluna que não se encaixa no produto atual.
 - **Dados bancários deixados em branco pela migration, nunca inventados:** diferente de `description`/`features` (só copy de marketing, seguro herdar do que já existia), banco/titular/CPF-CNPJ/chave Pix são dados financeiros reais — a migration não fabrica nenhum, o master preenche pelo novo formulário antes do primeiro checkout real. O `PixPaymentModal` já foi escrito para lidar com `pix_key IS NULL` sem quebrar (mostra aviso em vez de dado vazio).
 - Validado com `npx tsc --noEmit` (root `tsconfig.json` é só um arquivo de projeto-solução — `--noEmit` sem `-b` não checa nenhum arquivo de verdade nesta configuração, então o cheque que efetivamente importa é sempre `npm run build`, que roda `tsc -b`) e `npm run build`/`npm run lint` (sem erros; mesmos 6 warnings pré-existentes, nenhum novo). Migration + bucket aplicados via MCP (`apply_migration`) e conferidos com `execute_sql`. Teste visual real (editar um plano, fazer upload de um QR Code, abrir o checkout Pix e conferir os dados) não foi executado nesta sessão por falta de ambiente com browser automatizável — recomenda-se validar antes de promover para `main`, e preencher os dados bancários reais dos planos pagos antes do primeiro checkout de verdade.
+
+### [2026-07-31] Merge para main e release v1.7.0
+
+**O que foi feito:**
+- Merge de `hmg` em `main` (`git merge --no-ff`) trazendo: novos limites/regras por plano (leituras de IA, PDFs, subcongregações, formatos de importação, Modo Estrito) com `-1` como sentinela de ilimitado, correção do incremento de cota de IA/PDF para só contar após sucesso confirmado, renomeação dos planos pagos para Profissional/Premium, e a nova aba "Gestão de Planos & Dados Bancários" no Painel de Governança (edição completa de nome/descrição/preço/benefícios/limites e dados bancários/Pix, com upload de QR Code) — migrations `0021`–`0023`.
+- Tag `v1.7.0` criada e Release publicada no GitHub (`gh release create`).
+
+**Decisões técnicas:**
+- Validado com `npm run build` direto em `main` pós-merge (sem erros) antes do push, seguindo o mesmo procedimento das releases anteriores.
