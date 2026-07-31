@@ -45,14 +45,15 @@ O diferencial da plataforma é a **leitura e categorização automática de extr
 | Módulo | Descrição |
 |---|---|
 | 🔐 **Autenticação & RBAC** | Login via Supabase Auth com 5 papéis (`master` + `Admin`, `Tesoureiro`, `Auditor`, `Conselho Fiscal` por igreja), reforçados a nível de banco (RLS + RPCs `SECURITY DEFINER`) — não só na interface. |
-| 🏢 **Multi-tenant & Governança** | Cada igreja é um tenant isolado por `church_id`; o papel `master` (Admin Master da SaaS) gerencia todas as igrejas a partir do módulo de Governança, com visão global de usuários e seletor de "Igreja em Gestão". |
+| 🏢 **Multi-tenant & Hierarquia de Igrejas** | Cada igreja é um tenant isolado por `church_id`, com suporte a hierarquia de 2 níveis (igreja matriz → igrejas filhas/subcongregações, autosserviço para o Admin da igreja mãe, limitado pelo plano de assinatura). O papel `master` (Admin Master da SaaS) gerencia todas as igrejas a partir do módulo de Governança, com visão global de usuários e seletor de "Igreja em Gestão". |
+| 💳 **Planos de Assinatura & Pagamento Pix** | 3 planos (Gratuito/Profissional/Premium) com limites de leituras de IA, exportações de PDF, subcongregações, formatos de importação e Modo Estrito de categorização. Checkout manual via Pix (QR Code + chave + comprovante por WhatsApp) com aprovação do Admin Master; o próprio Master edita nome, preço, benefícios, limites e dados bancários/Pix de cada plano em um painel dedicado na Governança. |
 | 📊 **Dashboard executivo** | KPIs de entradas/saídas com variação vs. período anterior, saldo em caixa, gráfico Entradas × Saídas e donut de saídas por categoria — tudo calculado a partir de lançamentos reais. |
 | 📑 **Livro Caixa** | Extrato completo por mês/ano, saldo de abertura/fechamento calculado em runtime, lançamento manual (criar/editar/excluir) e exportação em CSV/Excel real + prévia de relatório em PDF/Word. |
-| 🤖 **Importação inteligente com IA** | Upload de extrato (PDF, OFX ou CSV) processado pelo Gemini, que extrai e categoriza os lançamentos automaticamente; chat em linguagem natural para refinar a categorização antes de salvar; detecção de duplicatas contra o Livro Caixa. |
+| 🤖 **Importação inteligente com IA** | Upload de extrato (PDF, OFX, CSV ou imagem — formato liberado conforme o plano) processado pelo Gemini, que extrai e categoriza os lançamentos automaticamente; chat em linguagem natural para refinar a categorização antes de salvar; Modo Estrito com regras de categorização salvas por igreja; detecção de duplicatas contra o Livro Caixa. |
 | 🔍 **Trilha de auditoria** | Log imutável (sem `DELETE`/`UPDATE` liberado) de todo acesso, criação, edição e exclusão de lançamentos — gerado automaticamente por *triggers* de banco, não por chamadas manuais do frontend. |
 | 👥 **Gestão de usuários** | Cadastro com senha definida pelo Admin, troca de papel/status com confirmação extra para promoções/rebaixamentos de Admin, geração de link de redefinição de senha, bloqueio em tempo real de contas desativadas (via Realtime). |
 | 📝 **Termos de Uso** | Aceite obrigatório e bloqueante no primeiro acesso de qualquer usuário, independente do papel, com registro do aceite no banco. |
-| 🌗 **Tema claro/escuro** | Alternância persistente via Tailwind `dark` mode. |
+| 🌗 **Tema claro/escuro** | Alternância persistente via Tailwind `dark` mode, sincronizada entre dispositivos (`profiles.theme`). |
 | 📱 **Responsivo (mobile-first)** | Menu lateral em *drawer* no mobile, tabelas com scroll próprio, grids que colapsam por breakpoint — testado de 320px a desktop. |
 
 ---
@@ -77,9 +78,9 @@ flowchart LR
     A -- "supabase-js" --> B
     A -- "supabase-js" --> C
     A -- "supabase.functions.invoke" --> E
+    A -- "QR Code Pix (plan-assets)" --> D
     E -- "service-role key" --> B
     E -- "extração + categorização" --> F
-    A -.-> D
 ```
 
 | Camada | Tecnologia |
@@ -90,7 +91,7 @@ flowchart LR
 | **Backend / Banco** | [Supabase](https://supabase.com/) — PostgreSQL, Row Level Security, RPCs `SECURITY DEFINER`, Realtime |
 | **Autenticação** | Supabase Auth (e-mail/senha) |
 | **Funções server-side** | Supabase Edge Functions (Deno) — `parse-statement`, `invite-user`, `generate-reset-link` |
-| **Inteligência Artificial** | [Google Gemini API](https://ai.google.dev/) (alias `gemini-flash-latest`) — leitura nativa de PDF e categorização contábil via `responseSchema` estrito |
+| **Inteligência Artificial** | [Google Gemini API](https://ai.google.dev/) (alias `gemini-flash-latest`) — leitura multimodal nativa (PDF/imagem/texto) e categorização contábil via `responseSchema` estrito |
 | **Hospedagem** | [Vercel](https://vercel.com/) (deploy automático a cada push em `main`) |
 
 ---
@@ -101,23 +102,29 @@ flowchart LR
 .
 ├── src/
 │   ├── assets/            # SVGs e ilustrações estáticas
-│   ├── components/        # Sidebar, Layout, Card, Badge, Avatar, Toast, ProtectedRoute,
-│   │                      # TermsAcceptanceModal, Church*.tsx (módulo de Governança)...
+│   ├── components/        # Genéricos usados por 2+ páginas: Sidebar, Layout, Card, Badge,
+│   │                      # Avatar, Toast, ProtectedRoute, TermsAcceptanceModal, ChurchFormFields,
+│   │                      # PricingPlans/PricingModal/PixPaymentModal (cards de plano + checkout Pix)...
 │   ├── context/           # AuthContext (sessão/RBAC) e AppContext (tema, toasts, dados globais)
-│   ├── pages/             # Login, ResetPassword, Dashboard, LivroCaixa, ImportacaoExtrato,
-│   │                      # Auditoria, Usuarios, Governanca (CRUD de igrejas, só `master`)
+│   ├── pages/             # Feature-driven: cada página com componentes exclusivos ganha sua
+│   │                      # própria pasta (Página/Página.tsx + Página/components/)
+│   │   ├── Dashboard/, Login/, ChurchDetails/, Governance/, StatementImport/,
+│   │   │                  # Users/, PricingPlans/ — cada uma com sua components/
+│   │   └── AuditLogs.tsx, CashBook.tsx, ResetPassword.tsx — sem subpasta (nada exclusivo)
 │   ├── services/          # supabase.ts (client) e mockData.ts (helpers legados)
-│   ├── types/             # Interfaces TypeScript (Transaction, ChurchUser, Church, AuditLog...)
-│   └── utils/             # Formatação de moeda/data, agregações de métricas, gráficos
+│   ├── types/             # Interfaces TypeScript (Transaction, Church, Plan, AuditLog...)
+│   └── utils/             # Formatação de moeda/data, agregações de métricas, gráficos, plans.ts
+│                          # (mapeamento único do plano de assinatura banco → front)
 ├── supabase/
-│   ├── migrations/        # 0001_init.sql ... 0011_terms_acceptance.sql (ver docs/database.md)
+│   ├── migrations/        # 0001_init.sql ... 0023_plan_management_and_bank_details.sql
+│   │                      # (ver docs/database.md)
 │   └── functions/
 │       ├── _shared/       # Helper de CORS compartilhado entre as functions
-│       ├── parse-statement/       # Extração + categorização de extratos via Gemini
+│       ├── parse-statement/       # Extração + categorização de extratos via Gemini (multimodal)
 │       ├── invite-user/           # Criação de usuário (Admin API)
 │       └── generate-reset-link/   # Geração de link de redefinição de senha
 ├── legacy-static/         # Protótipo estático original (referência histórica)
-├── docs/                  # Documentação modular (arquitetura, banco, RBAC, changelog)
+├── docs/                  # Documentação modular (arquitetura, banco, RBAC, git workflow, changelog)
 ├── CLAUDE.md              # Diretrizes essenciais para o Claude Code (comandos, skills, índice)
 └── vercel.json            # Rewrite de rotas para SPA
 ```
