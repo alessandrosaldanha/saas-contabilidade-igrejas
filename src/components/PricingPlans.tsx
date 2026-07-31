@@ -4,39 +4,8 @@ import PixPaymentModal from "./PixPaymentModal";
 import Badge from "./Badge";
 import { supabase } from "../services/supabase";
 import { fmtPlain } from "../utils/format";
+import { mapPlanRow } from "../utils/plans";
 import type { BillingCycle, Plan } from "../types";
-
-function mapPlanRow(row: {
-  id: string;
-  name: Plan["name"];
-  display_name: string;
-  price_monthly: number;
-  price_yearly: number;
-  max_ai_reads: number;
-  max_csv_rows_daily: number;
-  max_churches: number;
-  max_pdf_downloads: number;
-}): Plan {
-  return {
-    id: row.id,
-    name: row.name,
-    displayName: row.display_name,
-    priceMonthly: row.price_monthly,
-    priceYearly: row.price_yearly,
-    maxAiReads: row.max_ai_reads,
-    maxCsvRowsDaily: row.max_csv_rows_daily,
-    maxChurches: row.max_churches,
-    maxPdfDownloads: row.max_pdf_downloads,
-  };
-}
-
-function planFeatures(plan: Plan): string[] {
-  const aiFeature =
-    plan.maxAiReads <= 0 ? "Sem leitura por IA (importação manual)" : `${plan.maxAiReads} leituras de IA por mês`;
-  const pdfFeature = `${plan.maxPdfDownloads >= 999999 ? "PDFs ilimitados" : `${plan.maxPdfDownloads} PDFs/mês`}`;
-  const churchFeature = plan.maxChurches > 1 ? `Até ${plan.maxChurches} igrejas (multi-igreja)` : "1 igreja";
-  return [aiFeature, "Importação de extrato via CSV", pdfFeature, churchFeature];
-}
 
 interface PricingPlansProps {
   churchId: string | null;
@@ -121,6 +90,9 @@ export default function PricingPlans({ churchId, onChanged }: PricingPlansProps)
               )}
 
               <h3 className="font-display font-semibold text-lg m-0 mb-1">{plan.displayName}</h3>
+              {plan.description && (
+                <p className="text-xs text-neutral-700 dark:text-neutral-400 mb-3 leading-relaxed">{plan.description}</p>
+              )}
               <div className="mb-4">
                 <span className="font-display font-semibold text-3xl">
                   {plan.priceMonthly === 0 ? "Grátis" : fmtPlain(price)}
@@ -133,7 +105,7 @@ export default function PricingPlans({ churchId, onChanged }: PricingPlansProps)
               </div>
 
               <ul className="flex flex-col gap-2.5 mb-6 flex-1">
-                {planFeatures(plan).map((feature) => (
+                {plan.features.map((feature) => (
                   <li key={feature} className="flex items-start gap-2 text-sm text-neutral-700 dark:text-neutral-300">
                     <Check size={15} className="text-status-success shrink-0 mt-0.5" />
                     {feature}
@@ -153,7 +125,7 @@ export default function PricingPlans({ churchId, onChanged }: PricingPlansProps)
                   disabled={!churchId}
                   className="w-full px-4 py-2.5 rounded-md bg-orla-blue text-white text-sm font-medium hover:bg-blue-600 disabled:opacity-50"
                 >
-                  Assinar {plan.displayName}
+                  Assinar Plano {plan.displayName}
                 </button>
               )}
             </div>

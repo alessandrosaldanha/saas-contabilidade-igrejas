@@ -1,41 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../services/supabase";
-import type { Plan, UsageCounter } from "../types";
+import { isUnlimited, mapPlanRow } from "../utils/plans";
+import type { ImportFormat, Plan, UsageCounter } from "../types";
 
 function currentMonthYear(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function mapPlanRow(row: {
-  id: string;
-  name: Plan["name"];
-  display_name: string;
-  price_monthly: number;
-  price_yearly: number;
-  max_ai_reads: number;
-  max_csv_rows_daily: number;
-  max_churches: number;
-  max_pdf_downloads: number;
-}): Plan {
-  return {
-    id: row.id,
-    name: row.name,
-    displayName: row.display_name,
-    priceMonthly: row.price_monthly,
-    priceYearly: row.price_yearly,
-    maxAiReads: row.max_ai_reads,
-    maxCsvRowsDaily: row.max_csv_rows_daily,
-    maxChurches: row.max_churches,
-    maxPdfDownloads: row.max_pdf_downloads,
-  };
-}
-
 const EMPTY_USAGE: Omit<UsageCounter, "churchId" | "monthYear"> = { aiReadsCount: 0, pdfDownloadsCount: 0 };
 
 // Consulta o plano da igreja ativa + o uso do mês corrente, e expõe os
-// limites já resolvidos (canUseAI/canDownloadPDF/canAddChurch) — usado nos
-// pontos de bloqueio (Importação IA, Exportar PDF) e na tela de Planos.
+// limites já resolvidos (canUseAI/canDownloadPDF/canAddSubchurch/
+// canImportFormat/canUseStrictMode) — usado nos pontos de bloqueio
+// (Importação IA, Exportar PDF, formato de arquivo, Modo Estrito,
+// cadastro de igreja filha) e na tela de Planos.
 export function usePlanLimits(churchId: string | null) {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [usage, setUsage] = useState(EMPTY_USAGE);
@@ -77,15 +56,23 @@ export function usePlanLimits(churchId: string | null) {
     refresh();
   }, [refresh]);
 
-  const canUseAI = useCallback(() => !plan || usage.aiReadsCount < plan.maxAiReads, [plan, usage.aiReadsCount]);
+  const canUseAI = useCallback(
+    () => !plan || isUnlimited(plan.maxAiReads) || usage.aiReadsCount < plan.maxAiReads,
+    [plan, usage.aiReadsCount],
+  );
   const canDownloadPDF = useCallback(
-    () => !plan || usage.pdfDownloadsCount < plan.maxPdfDownloads,
+    () => !plan || isUnlimited(plan.maxPdfDownloads) || usage.pdfDownloadsCount < plan.maxPdfDownloads,
     [plan, usage.pdfDownloadsCount],
   );
-  const canAddChurch = useCallback(
-    () => !plan || childChurchesCount + 1 < plan.maxChurches,
+  const canAddSubchurch = useCallback(
+    () => !plan || isUnlimited(plan.maxChildChurches) || childChurchesCount < plan.maxChildChurches,
     [plan, childChurchesCount],
   );
+  const canImportFormat = useCallback(
+    (format: ImportFormat) => !plan || plan.allowedImportFormats.includes(format),
+    [plan],
+  );
+  const canUseStrictMode = useCallback(() => !plan || plan.allowStrictMode, [plan]);
 
   const registerAIUsage = useCallback(async () => {
     if (!churchId) return;
@@ -99,5 +86,17 @@ export function usePlanLimits(churchId: string | null) {
     setUsage((u) => ({ ...u, pdfDownloadsCount: u.pdfDownloadsCount + 1 }));
   }, [churchId]);
 
-  return { plan, usage, loading, refresh, canUseAI, canDownloadPDF, canAddChurch, registerAIUsage, registerPDFUsage };
+  return {
+    plan,
+    usage,
+    loading,
+    refresh,
+    canUseAI,
+    canDownloadPDF,
+    canAddSubchurch,
+    canImportFormat,
+    canUseStrictMode,
+    registerAIUsage,
+    registerPDFUsage,
+  };
 }

@@ -16,7 +16,15 @@ import { usePlanLimits } from "../../hooks/usePlanLimits";
 import { getFunctionErrorMessage, supabase } from "../../services/supabase";
 import { MONTHS_FULL } from "../../services/mockData";
 import { fmt, isoToBr, brToIso } from "../../utils/format";
-import type { CategorizationMode, ChatMessage, Confidence, ImportHistoryItem, Transaction, TransactionType } from "../../types";
+import type {
+  CategorizationMode,
+  ChatMessage,
+  Confidence,
+  ImportFormat,
+  ImportHistoryItem,
+  Transaction,
+  TransactionType,
+} from "../../types";
 
 interface ExtractedItem {
   date: string;
@@ -27,8 +35,27 @@ interface ExtractedItem {
   confidence: Confidence;
 }
 
+function fileExtension(filename: string): string {
+  return filename.toLowerCase().split(".").pop() ?? "";
+}
+
 function detectMimeType(filename: string): string {
-  return filename.toLowerCase().endsWith(".pdf") ? "application/pdf" : "text/plain";
+  const ext = fileExtension(filename);
+  if (ext === "pdf") return "application/pdf";
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+  if (ext === "png") return "image/png";
+  return "text/plain";
+}
+
+// null = extensão desconhecida (nem CSV/PDF/OFX/Imagem) — sempre bloqueada,
+// mesmo em planos sem restrição de formato.
+function detectImportFormat(filename: string): ImportFormat | null {
+  const ext = fileExtension(filename);
+  if (ext === "csv") return "csv";
+  if (ext === "pdf") return "pdf";
+  if (ext === "ofx" || ext === "qfx") return "ofx";
+  if (ext === "jpg" || ext === "jpeg" || ext === "png") return "image";
+  return null;
 }
 
 function fileToBase64(file: File): Promise<string> {
@@ -111,8 +138,8 @@ export default function ImportacaoExtrato() {
   } = useApp();
   const { profile } = useAuth();
   const navigate = useNavigate();
-  const { canUseAI, registerAIUsage } = usePlanLimits(effectiveChurchId);
-  const [showPricingModal, setShowPricingModal] = useState(false);
+  const { plan, canUseAI, canImportFormat, canUseStrictMode, registerAIUsage } = usePlanLimits(effectiveChurchId);
+  const [pricingModalReason, setPricingModalReason] = useState<"ai-limit" | "format" | null>(null);
 
   const [hasUploaded, setHasUploaded] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -193,8 +220,13 @@ export default function ImportacaoExtrato() {
   };
 
   const onFileSelected = async (file: File) => {
+    const format = detectImportFormat(file.name);
+    if (!format || !canImportFormat(format)) {
+      setPricingModalReason("format");
+      return;
+    }
     if (!canUseAI()) {
-      setShowPricingModal(true);
+      setPricingModalReason("ai-limit");
       return;
     }
     setIsUploading(true);
@@ -206,7 +238,6 @@ export default function ImportacaoExtrato() {
       });
       if (error) throw new Error(await getFunctionErrorMessage(error));
 
-      await registerAIUsage();
       const items = (data.transactions as ExtractedItem[]) ?? [];
       setStagedTransactions(items.map(itemToStaged));
       setFilename(file.name);
@@ -219,6 +250,10 @@ export default function ImportacaoExtrato() {
           text: `Encontrei ${items.length} lançamento(s) em "${file.name}". Posso ajustar categorias — é só me dizer em linguagem natural, por exemplo: "recategorize os pagamentos de energia para Utilidades (Água, Luz, Internet)".`,
         },
       ]);
+      // Só conta a cota de leitura de IA depois que o extrato foi de fato
+      // processado e os lançamentos ficaram staged com sucesso — nunca antes,
+      // para não descontar do plano em caso de erro de API/arquivo inválido.
+      await registerAIUsage();
     } catch (err) {
       showToastMsg(`Falha ao processar extrato: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -230,7 +265,7 @@ export default function ImportacaoExtrato() {
     const text = chatInput.trim();
     if (!text || !hasUploaded || isRefining) return;
     if (!canUseAI()) {
-      setShowPricingModal(true);
+      setPricingModalReason("ai-limit");
       return;
     }
     const userMsg: ChatMessage = { id: Date.now(), from: "user", text };
@@ -426,7 +461,12 @@ export default function ImportacaoExtrato() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:h-[560px]">
         <div className="flex flex-col gap-4 min-h-0 h-[480px] lg:h-auto">
-          <UploadDropzone isUploading={isUploading} hasUploaded={hasUploaded} onFileSelected={onFileSelected} />
+          <UploadDropzone
+            isUploading={isUploading}
+            hasUploaded={hasUploaded}
+            onFileSelected={onFileSelected}
+            allowedFormats={plan?.allowedImportFormats ?? null}
+          />
           <TransactionsPreviewTable
             transactions={stagedTransactions}
             hasUploaded={hasUploaded}
@@ -443,6 +483,7 @@ export default function ImportacaoExtrato() {
           onSend={sendMessage}
           applyMode={applyMode}
           onApplyModeChange={setApplyMode}
+          strictModeLocked={!canUseStrictMode()}
           onOpenRulesModal={() => setShowRulesModal(true)}
           ruleSuggestions={ruleSuggestions}
           onSaveRuleSuggestion={onSaveRuleSuggestion}
@@ -585,12 +626,16 @@ export default function ImportacaoExtrato() {
         <CategoryRulesModal churchId={effectiveChurchId} showToastMsg={showToastMsg} onClose={() => setShowRulesModal(false)} />
       )}
 
-      {showPricingModal && (
+      {pricingModalReason && (
         <PricingModal
           churchId={effectiveChurchId}
-          title="Limite de leituras de IA atingido"
-          description="Sua igreja atingiu o limite de leituras de IA do plano atual. Faça upgrade para continuar importando extratos automaticamente."
-          onClose={() => setShowPricingModal(false)}
+          title={pricingModalReason === "format" ? "Formato de arquivo não disponível no seu plano" : "Limite de leituras de IA atingido"}
+          description={
+            pricingModalReason === "format"
+              ? "O plano Gratuito aceita apenas importação em CSV. Faça upgrade para o plano Profissional para importar PDFs e Extratos Bancários."
+              : "Sua igreja atingiu o limite de leituras de IA do plano atual. Faça upgrade para continuar importando extratos automaticamente."
+          }
+          onClose={() => setPricingModalReason(null)}
         />
       )}
 

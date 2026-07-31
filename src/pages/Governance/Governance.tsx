@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Plus, Building2, Receipt } from "lucide-react";
+import { Search, Plus, Building2, Receipt, CreditCard } from "lucide-react";
 import Card from "../../components/Card";
 import Badge from "../../components/Badge";
 import Pagination from "../../components/Pagination";
 import ChurchCreateModal from "./components/ChurchCreateModal";
 import PaymentRequestsPanel from "./components/PaymentRequestsPanel";
+import PlanManagementPanel from "./components/PlanManagementPanel";
 import { useApp } from "../../context/AppContext";
 import { supabase } from "../../services/supabase";
+import { mapPlanRow } from "../../utils/plans";
 import type { Church, Plan } from "../../types";
 
 const CHURCHES_PAGE_SIZE = 10;
@@ -52,34 +54,10 @@ function mapChurchRow(row: {
   };
 }
 
-function mapPlanRow(row: {
-  id: string;
-  name: Plan["name"];
-  display_name: string;
-  price_monthly: number;
-  price_yearly: number;
-  max_ai_reads: number;
-  max_csv_rows_daily: number;
-  max_churches: number;
-  max_pdf_downloads: number;
-}): Plan {
-  return {
-    id: row.id,
-    name: row.name,
-    displayName: row.display_name,
-    priceMonthly: row.price_monthly,
-    priceYearly: row.price_yearly,
-    maxAiReads: row.max_ai_reads,
-    maxCsvRowsDaily: row.max_csv_rows_daily,
-    maxChurches: row.max_churches,
-    maxPdfDownloads: row.max_pdf_downloads,
-  };
-}
-
 export default function Governanca() {
   const navigate = useNavigate();
   const { showToastMsg } = useApp();
-  const [activeTab, setActiveTab] = useState<"igrejas" | "assinaturas">("igrejas");
+  const [activeTab, setActiveTab] = useState<"igrejas" | "assinaturas" | "planos">("igrejas");
   const [churches, setChurches] = useState<Church[]>([]);
   const [adminNamesByChurch, setAdminNamesByChurch] = useState<Map<string, string[]>>(new Map());
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -111,14 +89,14 @@ export default function Governanca() {
     setLoading(false);
   };
 
+  const refreshPlans = async () => {
+    const { data } = await supabase.from("plans").select("*").order("price_monthly");
+    if (data) setPlans(data.map(mapPlanRow));
+  };
+
   useEffect(() => {
     refresh();
-    supabase
-      .from("plans")
-      .select("*")
-      .then(({ data }) => {
-        if (data) setPlans(data.map(mapPlanRow));
-      });
+    refreshPlans();
   }, []);
 
   // Ajuste manual de plano direto na tabela — Admin Master pode alternar o
@@ -189,10 +167,23 @@ export default function Governanca() {
           <Receipt size={15} />
           Solicitações de Assinatura (Pix)
         </button>
+        <button
+          onClick={() => setActiveTab("planos")}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px ${
+            activeTab === "planos"
+              ? "border-orla-blue text-black dark:text-white"
+              : "border-transparent text-neutral-700 dark:text-neutral-400"
+          }`}
+        >
+          <CreditCard size={15} />
+          Gestão de Planos & Dados Bancários
+        </button>
       </div>
 
       {activeTab === "assinaturas" ? (
         <PaymentRequestsPanel onProcessed={refresh} />
+      ) : activeTab === "planos" ? (
+        <PlanManagementPanel plans={plans} onChanged={refreshPlans} />
       ) : (
         <>
       <div className="flex items-center gap-2.5 flex-wrap mb-4.5">

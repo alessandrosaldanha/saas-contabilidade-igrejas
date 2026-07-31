@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { X, QrCode, MessageCircle, CheckCircle2 } from "lucide-react";
+import { X, QrCode, MessageCircle, CheckCircle2, Copy, Check } from "lucide-react";
 import { supabase } from "../services/supabase";
 import { useApp } from "../context/AppContext";
 import { fmtPlain } from "../utils/format";
 import type { BillingCycle, Plan } from "../types";
 
-// Placeholder — trocar pela chave Pix real da organização antes de publicar em produção.
-const PIX_KEY = "financeiro@contabilidadeigreja.com.br";
+// Placeholder — trocar pelo WhatsApp real da organização antes de publicar
+// em produção (os dados bancários/Pix em si já vêm do plano, configurados
+// pelo master no Painel de Governança — ver `plans.pix_key`/`bank_name`/etc.).
 const WHATSAPP_NUMBER = "5582981273619";
 
 interface PixPaymentModalProps {
@@ -21,12 +22,21 @@ export default function PixPaymentModal({ plan, billingCycle, churchName, onClos
   const { showToastMsg } = useApp();
   const [isSending, setIsSending] = useState(false);
   const [requested, setRequested] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const price = billingCycle === "monthly" ? plan.priceMonthly : plan.priceYearly;
   const cycleLabel = billingCycle === "monthly" ? "mês" : "ano";
+  const hasBankDetails = !!plan.pixKey;
 
   const whatsappMessage = `Olá! Sou tesoureiro da igreja ${churchName}. Fiz o Pix referente ao plano ${plan.displayName} e estou enviando o comprovante.`;
   const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(whatsappMessage)}`;
+
+  const copyPixKey = async () => {
+    if (!plan.pixKey) return;
+    await navigator.clipboard.writeText(plan.pixKey);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const notifyAdmin = async () => {
     setIsSending(true);
@@ -79,12 +89,60 @@ export default function PixPaymentModal({ plan, billingCycle, churchName, onClos
             </p>
 
             <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-300 dark:border-white/10 rounded-md p-4 mb-5">
-              <div className="w-full aspect-square max-w-[180px] mx-auto rounded-md border-2 border-dashed border-neutral-300 dark:border-white/20 flex flex-col items-center justify-center gap-2 mb-4">
-                <QrCode size={40} className="text-neutral-400" />
-                <span className="text-[11px] text-neutral-700 dark:text-neutral-400">QR Code Pix</span>
-              </div>
-              <div className="text-xs text-neutral-700 dark:text-neutral-400 mb-1">Chave Pix (E-mail)</div>
-              <div className="text-sm font-medium break-all">{PIX_KEY}</div>
+              {hasBankDetails ? (
+                <>
+                  <div className="w-full aspect-square max-w-[180px] mx-auto rounded-md border border-neutral-300 dark:border-white/20 flex flex-col items-center justify-center gap-2 mb-4 overflow-hidden bg-white">
+                    {plan.pixQrCodeUrl ? (
+                      <img src={plan.pixQrCodeUrl} alt="QR Code Pix" className="w-full h-full object-contain" />
+                    ) : (
+                      <>
+                        <QrCode size={40} className="text-neutral-400" />
+                        <span className="text-[11px] text-neutral-700 dark:text-neutral-400">QR Code Pix</span>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-2.5 text-sm">
+                    <div>
+                      <div className="text-xs text-neutral-700 dark:text-neutral-400 mb-1">Chave Pix</div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium break-all">{plan.pixKey}</span>
+                        <button
+                          onClick={copyPixKey}
+                          title="Copiar Chave Pix"
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-neutral-300 dark:border-white/20 text-xs font-medium hover:bg-neutral-100 dark:hover:bg-white/5 shrink-0"
+                        >
+                          {copied ? <Check size={12} className="text-status-success" /> : <Copy size={12} />}
+                          {copied ? "Copiado" : "Copiar Chave"}
+                        </button>
+                      </div>
+                    </div>
+                    {plan.accountHolder && (
+                      <div>
+                        <div className="text-xs text-neutral-700 dark:text-neutral-400 mb-1">Titular</div>
+                        <div className="font-medium">{plan.accountHolder}</div>
+                      </div>
+                    )}
+                    {plan.accountDocument && (
+                      <div>
+                        <div className="text-xs text-neutral-700 dark:text-neutral-400 mb-1">CPF/CNPJ</div>
+                        <div className="font-medium">{plan.accountDocument}</div>
+                      </div>
+                    )}
+                    {plan.bankName && (
+                      <div>
+                        <div className="text-xs text-neutral-700 dark:text-neutral-400 mb-1">Banco</div>
+                        <div className="font-medium">{plan.bankName}</div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <p className="text-xs text-neutral-700 dark:text-neutral-400 leading-relaxed m-0">
+                  Os dados bancários deste plano ainda não foram configurados. Solicite pelo WhatsApp abaixo e a
+                  equipe envia a chave Pix diretamente.
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col gap-2.5">
