@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { Mail, Loader2, X, CheckCircle2 } from "lucide-react";
-import { supabase } from "../services/supabase";
+import { supabase } from "../../../services/supabase";
 
 interface ForgotPasswordModalProps {
   onClose: () => void;

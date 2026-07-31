@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { X } from "lucide-react";
-import ChurchFormFields, { ChurchFormState, EMPTY_CHURCH_FORM } from "./ChurchFormFields";
-import { supabase } from "../services/supabase";
-import { useApp } from "../context/AppContext";
+import ChurchFormFields, { ChurchFormState, EMPTY_CHURCH_FORM } from "../../../components/ChurchFormFields";
+import { supabase } from "../../../services/supabase";
+import { useApp } from "../../../context/AppContext";
 
 interface ChurchCreateModalProps {
   parentOptions: { id: string; name: string }[];

@@ -1,9 +1,9 @@
 import { Trash2 } from "lucide-react";
-import Card from "../Card";
-import Badge from "../Badge";
-import { CATEGORY_TONE, CONF_LABEL, CONF_TONE } from "../../services/mockData";
-import { fmt } from "../../utils/format";
-import type { Transaction } from "../../types";
+import Card from "../../../components/Card";
+import Badge from "../../../components/Badge";
+import { CATEGORY_TONE, CONF_LABEL, CONF_TONE } from "../../../services/mockData";
+import { fmt } from "../../../utils/format";
+import type { Transaction } from "../../../types";
 
 interface TransactionsPreviewTableProps {
   transactions: Transaction[];

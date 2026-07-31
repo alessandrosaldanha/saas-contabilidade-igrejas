@@ -1,6 +1,6 @@
-import Card from "../Card";
-import { fmt } from "../../utils/format";
-import type { Transaction } from "../../types";
+import Card from "../../../components/Card";
+import { fmt } from "../../../utils/format";
+import type { Transaction } from "../../../types";
 
 interface SummaryCardsProps {
   transactions: Transaction[];

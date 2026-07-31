@@ -4,8 +4,10 @@ import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Avatar from "../components/Avatar";
 import MonthYearPicker from "../components/MonthYearPicker";
+import PricingModal from "../components/PricingModal";
 import { useApp } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
+import { usePlanLimits } from "../hooks/usePlanLimits";
 import { supabase } from "../services/supabase";
 import { CATEGORY_TONE, MONTHS_FULL } from "../services/mockData";
 import { ENTRADA_CATEGORIES, categoriesForType } from "../constants/accountingCategories";
@@ -55,15 +57,26 @@ function computeLedger(transactions: Transaction[], year: number, monthIdx: numb
 export default function LivroCaixa() {
   const { transactions, refreshTransactions, showToastMsg, effectiveChurchId } = useApp();
   const { profile } = useAuth();
+  const { canDownloadPDF, registerPDFUsage } = usePlanLimits(effectiveChurchId);
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [search, setSearch] = useState("");
   const [reportModal, setReportModal] = useState<ReportFormat>(null);
+  const [showPricingModal, setShowPricingModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<LedgerRow | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [formModal, setFormModal] = useState<TransactionForm | null>(null);
   const [isSavingForm, setIsSavingForm] = useState(false);
+
+  const openPdfExport = async () => {
+    if (!canDownloadPDF()) {
+      setShowPricingModal(true);
+      return;
+    }
+    await registerPDFUsage();
+    setReportModal("pdf");
+  };
 
   // Master só gerencia/exclui lançamentos depois de escolher uma igreja no
   // seletor da Sidebar (sem isso não haveria church_id para gravar o lançamento).
@@ -196,7 +209,7 @@ export default function LivroCaixa() {
               Novo Lançamento
             </button>
           )}
-          <button onClick={() => setReportModal("pdf")} className={exportBtnCls}>
+          <button onClick={openPdfExport} className={exportBtnCls}>
             <FileText size={14} />
             Exportar PDF
           </button>
@@ -517,6 +530,15 @@ export default function LivroCaixa() {
             </div>
           </div>
         </div>
+      )}
+
+      {showPricingModal && (
+        <PricingModal
+          churchId={effectiveChurchId}
+          title="Limite de exportações em PDF atingido"
+          description="Sua igreja atingiu o limite de PDFs do plano atual. Faça upgrade para continuar exportando o Livro Caixa."
+          onClose={() => setShowPricingModal(false)}
+        />
       )}
     </div>
   );

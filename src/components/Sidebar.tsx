@@ -14,6 +14,8 @@ import {
   X,
   Wallet as WalletIcon,
   Building2,
+  CreditCard,
+  Landmark,
 } from "lucide-react";
 import Avatar from "./Avatar";
 import Badge from "./Badge";
@@ -33,8 +35,10 @@ const IMPORTACAO_ROLES = ["Admin", "Tesoureiro", "master"];
 const NAV_ITEMS = [
   { to: "/governanca", label: "Governança (Admin Master)", icon: Building2, allowedRoles: ["master"] },
   { to: "/dashboard", label: "Dashboard Executivo", icon: LayoutGrid, allowedRoles: TENANT_ROLES },
+  { to: "/detalhes-igreja", label: "Detalhes da Igreja", icon: Landmark, allowedRoles: ["Admin", "master"] },
   { to: "/importacao", label: "Extratos e Importação IA", icon: FileText, allowedRoles: IMPORTACAO_ROLES },
   { to: "/livro-caixa", label: "Livro Caixa (Lançamentos)", icon: Wallet, badge: 3, allowedRoles: TENANT_ROLES },
+  { to: "/planos", label: "Planos e Assinatura", icon: CreditCard, allowedRoles: TENANT_ROLES },
   { to: "/usuarios", label: "Governança e Usuários", icon: Users, allowedRoles: ["Admin", "master"] },
   {
     to: "/auditoria",

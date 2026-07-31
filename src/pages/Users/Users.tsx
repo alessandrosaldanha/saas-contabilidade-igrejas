@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
 import { Search, UserPlus, KeyRound, Power, ShieldAlert, Copy, X } from "lucide-react";
-import Card from "../components/Card";
-import Badge from "../components/Badge";
-import Avatar from "../components/Avatar";
-import { useApp } from "../context/AppContext";
-import { useAuth } from "../context/AuthContext";
-import { getFunctionErrorMessage, supabase } from "../services/supabase";
-import { ASSIGNABLE_ROLES } from "../types";
-import type { ChurchUser, UserRole, UserStatus } from "../types";
+import Card from "../../components/Card";
+import Badge from "../../components/Badge";
+import Avatar from "../../components/Avatar";
+import { useApp } from "../../context/AppContext";
+import { useAuth } from "../../context/AuthContext";
+import { getFunctionErrorMessage, supabase } from "../../services/supabase";
+import { ASSIGNABLE_ROLES } from "../../types";
+import type { ChurchUser, UserRole, UserStatus } from "../../types";
 
 // "master" nunca aparece aqui de verdade (a RLS de profiles nunca deixa um
 // Admin de igreja enxergar a linha do Admin Master), mas o tipo UserRole

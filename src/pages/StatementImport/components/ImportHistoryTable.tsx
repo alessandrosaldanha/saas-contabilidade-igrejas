@@ -1,7 +1,7 @@
 import { Pencil, Trash2 } from "lucide-react";
-import Card from "../Card";
-import Badge from "../Badge";
-import type { ImportHistoryItem } from "../../types";
+import Card from "../../../components/Card";
+import Badge from "../../../components/Badge";
+import type { ImportHistoryItem } from "../../../types";
 
 interface ImportHistoryTableProps {
   items: ImportHistoryItem[];
