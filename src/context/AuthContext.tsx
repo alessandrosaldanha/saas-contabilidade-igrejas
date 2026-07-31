@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import type { ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../services/supabase";
+import { posthog } from "../services/posthog";
 import type { ChurchUser } from "../types";
 
 interface AuthContextValue {
@@ -150,6 +151,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       supabase.removeChannel(channel);
     };
   }, [profile?.churchId]);
+
+  // Associa os eventos do PostHog ao usuário logado; `loading` evita disparar
+  // reset() no primeiro render (profile ainda null enquanto a sessão carrega).
+  useEffect(() => {
+    if (profile) {
+      posthog.identify(profile.id, { email: profile.email, role: profile.role, church_id: profile.churchId });
+    } else if (!loading) {
+      posthog.reset();
+    }
+  }, [profile, loading]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });

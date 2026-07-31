@@ -1109,3 +1109,18 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
 
 **Decisões técnicas:**
 - Validado com `npm run build` direto em `main` pós-merge (sem erros) antes do push, seguindo o mesmo procedimento das releases anteriores.
+
+### [2026-07-31] Instala PostHog (analytics de produto)
+
+**O que foi feito:**
+- **`posthog-js` adicionado às dependências** (`package.json`).
+- **`src/services/posthog.ts` (novo):** `initPostHog()` inicializa o client a partir de `VITE_POSTHOG_KEY`/`VITE_POSTHOG_HOST`; exporta a instância `posthog` para uso nos demais módulos.
+- **`src/main.tsx`:** chama `initPostHog()` antes do `createRoot(...).render(...)`.
+- **`src/context/AuthContext.tsx`:** novo `useEffect` que chama `posthog.identify(profile.id, { email, role, church_id })` quando o profile carrega, e `posthog.reset()` quando a sessão termina (guardado por `loading` para não disparar reset no primeiro render, antes da sessão inicial resolver).
+- **`.env.example`:** novas variáveis `VITE_POSTHOG_KEY`/`VITE_POSTHOG_HOST` documentadas.
+- **`src/vite-env.d.ts`:** tipagem das duas novas variáveis (opcionais).
+
+**Decisões técnicas:**
+- **Diferente do Supabase, ausência da key não lança erro:** `initPostHog()` só emite `console.warn` e segue sem analytics se `VITE_POSTHOG_KEY` não estiver definida — analytics é telemetria opcional, não uma dependência que pode travar o app (ex.: ambientes de dev sem essa chave configurada).
+- **`identify`/`reset` no `AuthContext`, não em cada página:** é o único lugar que já centraliza o ciclo de vida da sessão (login/logout/troca de profile) — replicar isso por página duplicaria lógica e arriscaria esquecer alguma tela.
+- Validado com `npx tsc --noEmit` e `npm run build` (sem erros). Sem teste visual em browser real (evento chegando no dashboard do PostHog) nesta sessão — falta a `VITE_POSTHOG_KEY` de um projeto PostHog real no ambiente; recomenda-se validar isso antes de promover para produção.
