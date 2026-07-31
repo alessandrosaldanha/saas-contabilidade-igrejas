@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check } from "lucide-react";
-import type { MetricMeta } from "../services/mockData";
-import { buildStackedBars, buildLines, buildAreas, buildRadar } from "../utils/chartBuilders";
-import Card from "./Card";
+import type { MetricMeta } from "../../../services/mockData";
+import { buildStackedBars, buildLines, buildAreas, buildRadar } from "../../../utils/chartBuilders";
+import Card from "../../../components/Card";
 
 type ChartType = "bars" | "lines" | "area" | "radar";
 

@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 import { Presentation } from "lucide-react";
-import Card from "../components/Card";
-import MetricCard from "../components/MetricCard";
-import ExploratoryChart from "../components/ExploratoryChart";
-import { useApp } from "../context/AppContext";
-import { fmtPlain } from "../utils/format";
-import { FLOW_COLORS } from "../constants/chartColors";
+import Card from "../../components/Card";
+import MetricCard from "./components/MetricCard";
+import ExploratoryChart from "./components/ExploratoryChart";
+import { useApp } from "../../context/AppContext";
+import { fmtPlain } from "../../utils/format";
+import { FLOW_COLORS } from "../../constants/chartColors";
 import {
   buildCategoryBreakdown,
   buildPeriodMetricsMeta,
@@ -13,7 +13,7 @@ import {
   deltaLabel,
   getPeriodRange,
   type Period,
-} from "../utils/metrics";
+} from "../../utils/metrics";
 
 const PERIOD_LABELS: Record<Period, string> = {
   mensal: "Mensal",

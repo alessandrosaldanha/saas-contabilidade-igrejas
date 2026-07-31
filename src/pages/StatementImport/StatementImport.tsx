@@ -1,20 +1,22 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2, Check, X } from "lucide-react";
-import ConfirmModal from "../components/ConfirmModal";
-import UploadDropzone from "../components/importacao/UploadDropzone";
-import SummaryCards from "../components/importacao/SummaryCards";
-import TransactionsPreviewTable from "../components/importacao/TransactionsPreviewTable";
-import ImportHistoryTable from "../components/importacao/ImportHistoryTable";
-import AiChatPanel from "../components/importacao/AiChatPanel";
-import type { RuleSuggestion } from "../components/importacao/AiChatPanel";
-import CategoryRulesModal from "../components/importacao/CategoryRulesModal";
-import { useApp } from "../context/AppContext";
-import { useAuth } from "../context/AuthContext";
-import { getFunctionErrorMessage, supabase } from "../services/supabase";
-import { MONTHS_FULL } from "../services/mockData";
-import { fmt, isoToBr, brToIso } from "../utils/format";
-import type { CategorizationMode, ChatMessage, Confidence, ImportHistoryItem, Transaction, TransactionType } from "../types";
+import ConfirmModal from "../../components/ConfirmModal";
+import PricingModal from "../../components/PricingModal";
+import UploadDropzone from "./components/UploadDropzone";
+import SummaryCards from "./components/SummaryCards";
+import TransactionsPreviewTable from "./components/TransactionsPreviewTable";
+import ImportHistoryTable from "./components/ImportHistoryTable";
+import AiChatPanel from "./components/AiChatPanel";
+import type { RuleSuggestion } from "./components/AiChatPanel";
+import CategoryRulesModal from "./components/CategoryRulesModal";
+import { useApp } from "../../context/AppContext";
+import { useAuth } from "../../context/AuthContext";
+import { usePlanLimits } from "../../hooks/usePlanLimits";
+import { getFunctionErrorMessage, supabase } from "../../services/supabase";
+import { MONTHS_FULL } from "../../services/mockData";
+import { fmt, isoToBr, brToIso } from "../../utils/format";
+import type { CategorizationMode, ChatMessage, Confidence, ImportHistoryItem, Transaction, TransactionType } from "../../types";
 
 interface ExtractedItem {
   date: string;
@@ -109,6 +111,8 @@ export default function ImportacaoExtrato() {
   } = useApp();
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const { canUseAI, registerAIUsage } = usePlanLimits(effectiveChurchId);
+  const [showPricingModal, setShowPricingModal] = useState(false);
 
   const [hasUploaded, setHasUploaded] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -189,6 +193,10 @@ export default function ImportacaoExtrato() {
   };
 
   const onFileSelected = async (file: File) => {
+    if (!canUseAI()) {
+      setShowPricingModal(true);
+      return;
+    }
     setIsUploading(true);
     try {
       const contentBase64 = await fileToBase64(file);
@@ -198,6 +206,7 @@ export default function ImportacaoExtrato() {
       });
       if (error) throw new Error(await getFunctionErrorMessage(error));
 
+      await registerAIUsage();
       const items = (data.transactions as ExtractedItem[]) ?? [];
       setStagedTransactions(items.map(itemToStaged));
       setFilename(file.name);
@@ -220,6 +229,10 @@ export default function ImportacaoExtrato() {
   const sendMessage = async () => {
     const text = chatInput.trim();
     if (!text || !hasUploaded || isRefining) return;
+    if (!canUseAI()) {
+      setShowPricingModal(true);
+      return;
+    }
     const userMsg: ChatMessage = { id: Date.now(), from: "user", text };
     setChatMessages((msgs) => [...msgs, userMsg]);
     setChatInput("");
@@ -570,6 +583,15 @@ export default function ImportacaoExtrato() {
 
       {showRulesModal && (
         <CategoryRulesModal churchId={effectiveChurchId} showToastMsg={showToastMsg} onClose={() => setShowRulesModal(false)} />
+      )}
+
+      {showPricingModal && (
+        <PricingModal
+          churchId={effectiveChurchId}
+          title="Limite de leituras de IA atingido"
+          description="Sua igreja atingiu o limite de leituras de IA do plano atual. Faça upgrade para continuar importando extratos automaticamente."
+          onClose={() => setShowPricingModal(false)}
+        />
       )}
 
       {historyEdit && (

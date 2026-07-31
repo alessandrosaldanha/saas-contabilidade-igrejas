@@ -10,10 +10,11 @@ import {
   Loader2,
   LogIn,
 } from "lucide-react";
-import ThemeToggle from "../components/ThemeToggle";
-import ForgotPasswordModal from "../components/ForgotPasswordModal";
-import { useAuth, consumeInactiveLogoutFlag } from "../context/AuthContext";
-import chapelIllustration from "../assets/chapel-illustration.svg";
+import ThemeToggle from "../../components/ThemeToggle";
+import ForgotPasswordModal from "./components/ForgotPasswordModal";
+import SignupForm from "./components/SignupForm";
+import { useAuth, consumeInactiveLogoutFlag } from "../../context/AuthContext";
+import chapelIllustration from "../../assets/chapel-illustration.svg";
 
 const INACTIVE_MESSAGE = "Sua conta está inativa. Entre em contato com o administrador para mais informações.";
 
@@ -21,6 +22,7 @@ export default function Login() {
   const navigate = useNavigate();
   const { signIn } = useAuth();
 
+  const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -99,6 +101,9 @@ export default function Login() {
         </div>
 
         <div className="flex-1 flex items-center justify-center px-5 sm:px-10 pb-16">
+          {mode === "signup" ? (
+            <SignupForm onBackToLogin={() => setMode("login")} />
+          ) : (
           <div className="w-full max-w-[400px]">
             <h1 className="font-display font-semibold text-[27px] tracking-tight mb-1.5">
               Bem-vindo de volta
@@ -197,7 +202,15 @@ export default function Login() {
                 )}
               </button>
             </form>
+
+            <p className="text-center text-xs text-neutral-700 dark:text-neutral-400 mt-6">
+              Não possui uma conta?{" "}
+              <button type="button" onClick={() => setMode("signup")} className="text-orla-blue hover:text-blue-400 font-medium">
+                Cadastre sua Igreja
+              </button>
+            </p>
           </div>
+          )}
         </div>
       </div>
 

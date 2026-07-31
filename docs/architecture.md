@@ -18,24 +18,35 @@ Cada igreja é um tenant isolado (dados separados por `church_id`); um papel `ma
 
 ## Estrutura de Pastas
 
+Organização **feature-driven**: cada página com componentes/modais de uso exclusivo tem sua própria subpasta em `pages/<Página>/` com um `components/` local; o que é usado por 2+ páginas fica em `components/` (global). Nomenclatura de arquivos em inglês.
+
 ```text
 src/
 ├── assets/          # Imagens, logos e ícones estáticos (ex: chapel-illustration.svg)
-├── components/      # Componentes reutilizáveis
-│   ├── Sidebar.tsx, Layout.tsx, Card.tsx, Badge.tsx, Avatar.tsx, MetricCard.tsx
-│   ├── ThemeToggle.tsx, Toast.tsx, ExploratoryChart.tsx, ProtectedRoute.tsx
-│   ├── ProfileSettingsModal.tsx, UnsavedChangesPrompt.tsx, Pagination.tsx
-│   ├── TermsAcceptanceModal.tsx            # modal bloqueante de aceite dos Termos de Uso (1º acesso)
-│   └── Church*.tsx, MemberEditModal.tsx   # módulo de Governança (só para `master`)
-├── pages/           # Páginas/rotas principais
-│   ├── Login.tsx, ResetPassword.tsx
-│   ├── Dashboard.tsx, LivroCaixa.tsx, ImportacaoExtrato.tsx, Auditoria.tsx
-│   ├── Usuarios.tsx                       # gestão de usuários (por igreja, ou global p/ master)
-│   └── Governanca.tsx                     # CRUD de igrejas (só `master`)
+├── components/      # Componentes GLOBAIS (genéricos ou usados por 2+ páginas)
+│   ├── Sidebar.tsx, Layout.tsx, ProtectedRoute.tsx    # shells de layout/roteamento
+│   ├── Card.tsx, Badge.tsx, Avatar.tsx, Pagination.tsx, MonthYearPicker.tsx   # UI base
+│   ├── ThemeToggle.tsx, Toast.tsx, ConfirmModal.tsx, UnsavedChangesPrompt.tsx
+│   ├── ProfileSettingsModal.tsx, TermsAcceptanceModal.tsx  # popover de perfil / aceite de Termos (1º acesso)
+│   ├── ChurchFormFields.tsx               # form de endereço/dados da igreja — usado por ChurchDetails E por Governance/ChurchCreateModal
+│   └── PricingPlans.tsx, PricingModal.tsx, PixPaymentModal.tsx  # planos + checkout Pix — usados por /planos E pelos overlays de bloqueio (StatementImport/CashBook)
+├── pages/           # Páginas/rotas principais (nomenclatura em inglês)
+│   ├── Login/Login.tsx           + components/ (SignupForm, ForgotPasswordModal)
+│   ├── ResetPassword.tsx
+│   ├── Dashboard/Dashboard.tsx   + components/ (MetricCard, ExploratoryChart)
+│   ├── CashBook.tsx                       # Livro Caixa — sem componentes exclusivos
+│   ├── StatementImport/StatementImport.tsx + components/ (UploadDropzone, SummaryCards, TransactionsPreviewTable, ImportHistoryTable, AiChatPanel, CategoryRulesModal)
+│   ├── AuditLogs.tsx                      # Trilha de Auditoria — sem componentes exclusivos
+│   ├── Users/Users.tsx           + components/ (MemberEditModal)         # gestão de usuários (por igreja, ou global p/ master)
+│   ├── Governance/Governance.tsx + components/ (ChurchCreateModal, PaymentRequestsPanel)  # CRUD de igrejas + aba de assinaturas (só `master`)
+│   ├── PricingPlans/PricingPlans.tsx      # página /planos (usa o componente global PricingPlans)
+│   └── ChurchDetails/ChurchDetails.tsx + components/ (AddChildChurchModal)  # própria igreja ou, p/ master, qualquer uma
 ├── context/
 │   ├── AuthContext.tsx     # sessão Supabase Auth + profile + listeners Realtime
 │   └── AppContext.tsx      # tema, dados compartilhados (transactions/usersList/etc.), navegação com guarda de não-salvos
-├── types/           # Interfaces TypeScript (Transaction, ChurchUser, Church, AuditLog, etc.)
+├── hooks/
+│   └── usePlanLimits.ts    # plano/uso mensal da igreja ativa — canUseAI/canDownloadPDF/canAddChurch
+├── types/           # Interfaces TypeScript (Transaction, ChurchUser, Church, Plan, PaymentRequest, AuditLog, etc.)
 ├── services/        # supabase.ts (client + helper de erro de Edge Function)
 └── utils/           # format.ts, metrics.ts, cep.ts (ViaCEP), chartBuilders.ts
 

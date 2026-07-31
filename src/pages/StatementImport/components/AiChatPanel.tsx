@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Award, Send, Loader2, Check, Settings2 } from "lucide-react";
-import Card from "../Card";
-import type { CategorizationMode, ChatMessage, TransactionType } from "../../types";
+import Card from "../../../components/Card";
+import type { CategorizationMode, ChatMessage, TransactionType } from "../../../types";
 
 export interface RuleSuggestion {
   id: string;

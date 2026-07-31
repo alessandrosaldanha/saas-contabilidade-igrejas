@@ -4,14 +4,16 @@ import { AppProvider, useApp } from "./context/AppContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
-import Login from "./pages/Login";
+import Login from "./pages/Login/Login";
 import ResetPassword from "./pages/ResetPassword";
-import Dashboard from "./pages/Dashboard";
-import LivroCaixa from "./pages/LivroCaixa";
-import ImportacaoExtrato from "./pages/ImportacaoExtrato";
-import Auditoria from "./pages/Auditoria";
-import Usuarios from "./pages/Usuarios";
-import Governanca from "./pages/Governanca";
+import Dashboard from "./pages/Dashboard/Dashboard";
+import CashBook from "./pages/CashBook";
+import StatementImport from "./pages/StatementImport/StatementImport";
+import AuditLogs from "./pages/AuditLogs";
+import Users from "./pages/Users/Users";
+import Governance from "./pages/Governance/Governance";
+import PricingPlansPage from "./pages/PricingPlans/PricingPlans";
+import ChurchDetails from "./pages/ChurchDetails/ChurchDetails";
 import type { UserRole } from "./types";
 
 // O Master tem acesso irrestrito — além da Governança (exclusiva dele), também
@@ -56,20 +58,23 @@ export default function App() {
                 <Route path="/" element={<Layout />}>
                   <Route index element={<HomeRedirect />} />
                   <Route element={<ProtectedRoute allowedRoles={["master"]} />}>
-                    <Route path="governanca" element={<Governanca />} />
+                    <Route path="governanca" element={<Governance />} />
                   </Route>
                   <Route element={<ProtectedRoute allowedRoles={TENANT_ROLES} />}>
                     <Route path="dashboard" element={<Dashboard />} />
-                    <Route path="livro-caixa" element={<LivroCaixa />} />
+                    <Route path="livro-caixa" element={<CashBook />} />
+                    <Route path="planos" element={<PricingPlansPage />} />
                   </Route>
                   <Route element={<ProtectedRoute allowedRoles={IMPORTACAO_ROLES} />}>
-                    <Route path="importacao" element={<ImportacaoExtrato />} />
+                    <Route path="importacao" element={<StatementImport />} />
                   </Route>
                   <Route element={<ProtectedRoute allowedRoles={["Admin", "master"]} />}>
-                    <Route path="usuarios" element={<Usuarios />} />
+                    <Route path="usuarios" element={<Users />} />
+                    <Route path="detalhes-igreja" element={<ChurchDetails />} />
+                    <Route path="detalhes-igreja/:churchId" element={<ChurchDetails />} />
                   </Route>
                   <Route element={<ProtectedRoute allowedRoles={["Admin", "Auditor", "Conselho Fiscal", "master"]} />}>
-                    <Route path="auditoria" element={<Auditoria />} />
+                    <Route path="auditoria" element={<AuditLogs />} />
                   </Route>
                 </Route>
               </Route>

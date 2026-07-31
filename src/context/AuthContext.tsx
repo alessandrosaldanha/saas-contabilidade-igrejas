@@ -155,6 +155,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error: error.message };
 
+    // Autocadastro (SignupForm) que ficou pendente de confirmação de e-mail:
+    // signUp() não tinha sessão ainda para criar a igreja, então isso só pôde
+    // acontecer agora, no primeiro login pós-confirmação — no-op (idempotente)
+    // para qualquer login normal, inclusive master.
+    await supabase.rpc("complete_pending_church_signup");
+
     const userProfile = await fetchProfile(data.user.id);
     if (!userProfile) {
       // RLS já bloqueia o profile de um usuário Inativo (is_active() na policy de

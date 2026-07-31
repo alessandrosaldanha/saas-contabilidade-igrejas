@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Plus, Search, Trash2, X } from "lucide-react";
-import { supabase } from "../../services/supabase";
-import Badge from "../Badge";
-import { categoriesForType } from "../../constants/accountingCategories";
-import type { CategoryRule, TransactionType } from "../../types";
+import { supabase } from "../../../services/supabase";
+import Badge from "../../../components/Badge";
+import { categoriesForType } from "../../../constants/accountingCategories";
+import type { CategoryRule, TransactionType } from "../../../types";
 
 interface CategoryRulesModalProps {
   churchId: string | null;

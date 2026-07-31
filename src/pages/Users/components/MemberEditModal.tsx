@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { X, ShieldAlert } from "lucide-react";
-import Badge from "./Badge";
-import { supabase } from "../services/supabase";
-import { useApp } from "../context/AppContext";
-import { ASSIGNABLE_ROLES } from "../types";
-import type { ChurchUser, UserRole, UserStatus } from "../types";
+import Badge from "../../../components/Badge";
+import { supabase } from "../../../services/supabase";
+import { useApp } from "../../../context/AppContext";
+import { ASSIGNABLE_ROLES } from "../../../types";
+import type { ChurchUser, UserRole, UserStatus } from "../../../types";
 
 const ROLE_TONE: Record<UserRole, "purple" | "info" | "warning" | "neutral"> = {
   master: "neutral",
