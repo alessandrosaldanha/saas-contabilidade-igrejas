@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Search, UserPlus, KeyRound, Power, ShieldAlert, Copy, X, Trash2, Ban } from "lucide-react";
+import { Search, UserPlus, KeyRound, Power, ShieldAlert, Copy, X, Trash2, Ban, Pencil } from "lucide-react";
 import Card from "../../components/Card";
 import Badge from "../../components/Badge";
 import Avatar from "../../components/Avatar";
@@ -208,20 +208,60 @@ export default function Usuarios() {
     await refreshUsers();
   };
 
-  // A tabela já chega escopada por igreja para quem não é master (query de
-  // refreshUsers filtra church_id = effectiveChurchId) — o alcance de "igreja
-  // filha direta" só existe de fato no backend (admin_delete_user), espelhando
-  // admin_update_user_role/admin_set_user_status, para o caso desta mesma RPC
-  // vir a ser reaproveitada em telas que já mostram membros de filhas (ex.:
+  // Regra única de gestão de usuário, válida para TODA ação (editar, excluir,
+  // cancelar convite, resetar senha, trocar role/status) — espelha a checagem
+  // reforçada no backend (admin_update_user_role/admin_set_user_status/
+  // admin_delete_user/admin_update_user_profile/cancel-invite/generate-reset-
+  // link): master gerencia qualquer um exceto ele mesmo; Admin só Tesoureiro/
+  // Auditor/Conselho Fiscal, nunca outro Admin nem o master. A tabela já chega
+  // escopada por igreja para quem não é master (query de refreshUsers filtra
+  // church_id = effectiveChurchId) — o alcance de "igreja filha direta" só
+  // existe de fato no backend, para o caso dessas RPCs virem a ser
+  // reaproveitadas em telas que já mostram membros de filhas (ex.:
   // ChurchDetails). Aqui não há filha na lista, então esta checagem simples
   // já cobre tudo que a linha pode conter.
-  const canDeleteUser = (user: ChurchUser): boolean => {
+  const canManageUser = (user: ChurchUser): boolean => {
     if (user.id === authProfile?.id) return false;
     if (user.role === "master") return false;
     if (isMaster) return true;
     if (authProfile?.role !== "Admin") return false;
     if (user.role === "Admin") return false;
     return user.churchId === effectiveChurchId;
+  };
+
+  const [editTarget, setEditTarget] = useState<{ user: ChurchUser; name: string; email: string } | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  const openEditModal = (user: ChurchUser) => setEditTarget({ user, name: user.name, email: user.email });
+
+  const saveEdit = async () => {
+    if (!editTarget) return;
+    const { user, name, email } = editTarget;
+    if (!name.trim() || !email.trim()) {
+      showToastMsg("Nome e e-mail não podem ficar em branco.");
+      return;
+    }
+    setIsSavingEdit(true);
+    const { error } = isMaster
+      ? await supabase.rpc("master_update_profile", {
+          target_id: user.id,
+          new_name: name,
+          new_email: email,
+          new_cpf: user.cpf ?? null,
+        })
+      : await supabase.rpc("admin_update_user_profile", {
+          target_id: user.id,
+          new_name: name,
+          new_email: email,
+        });
+    setIsSavingEdit(false);
+    if (error) {
+      showToastMsg(`Falha ao editar usuário: ${error.message}`);
+      return;
+    }
+    setEditTarget(null);
+    await refreshUsers();
+    showToastMsg(`Dados de ${name} atualizados`);
   };
 
   const [deleteTarget, setDeleteTarget] = useState<{ user: ChurchUser; mode: "delete" | "cancelInvite" } | null>(
@@ -407,7 +447,12 @@ export default function Usuarios() {
                         >
                           <Power size={14} />
                         </button>
-                        {canDeleteUser(u) && (
+                        {canManageUser(u) && (
+                          <button onClick={() => openEditModal(u)} title="Editar Usuário" className={iconBtnCls}>
+                            <Pencil size={14} />
+                          </button>
+                        )}
+                        {canManageUser(u) && (
                           <button
                             onClick={() => openDeleteModal(u)}
                             title={u.status === "Convite Pendente" ? "Cancelar Convite" : "Excluir Usuário"}
@@ -658,6 +703,58 @@ export default function Usuarios() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {editTarget && (
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-4 sm:p-6">
+          <div className="bg-white dark:bg-neutral-900 text-black dark:text-white w-full max-w-[420px] rounded-lg shadow-md p-5 sm:p-8">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="font-display font-semibold text-lg m-0">Editar Usuário</h3>
+              <button onClick={() => setEditTarget(null)} className="text-neutral-700 dark:text-neutral-400 p-1">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex flex-col gap-3.5">
+              <label className="block">
+                <span className="block text-sm font-medium mb-1.5">Nome Completo</span>
+                <input
+                  value={editTarget.name}
+                  onChange={(e) => setEditTarget({ ...editTarget, name: e.target.value })}
+                  className="w-full box-border border border-neutral-300 dark:border-white/20 bg-white dark:bg-neutral-900 rounded-md px-3.5 py-2.5 text-sm outline-none"
+                />
+              </label>
+              <label className="block">
+                <span className="block text-sm font-medium mb-1.5">E-mail</span>
+                <input
+                  type="email"
+                  value={editTarget.email}
+                  onChange={(e) => setEditTarget({ ...editTarget, email: e.target.value })}
+                  className="w-full box-border border border-neutral-300 dark:border-white/20 bg-white dark:bg-neutral-900 rounded-md px-3.5 py-2.5 text-sm outline-none"
+                />
+              </label>
+              <p className="text-xs text-neutral-700 dark:text-neutral-400 -mt-2">
+                Isso só altera o e-mail de cadastro exibido no sistema — o e-mail de login no Supabase Auth não é
+                afetado por aqui.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2.5 mt-6.5">
+              <button
+                onClick={() => setEditTarget(null)}
+                disabled={isSavingEdit}
+                className="px-4 py-2 rounded-md border border-neutral-300 dark:border-white/20 text-sm font-medium disabled:opacity-70"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={saveEdit}
+                disabled={isSavingEdit}
+                className="px-4 py-2 rounded-md bg-orla-blue text-white text-sm font-medium hover:bg-blue-600 disabled:opacity-70"
+              >
+                {isSavingEdit ? "Salvando…" : "Salvar"}
+              </button>
+            </div>
           </div>
         </div>
       )}

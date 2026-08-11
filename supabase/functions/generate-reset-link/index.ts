@@ -52,24 +52,45 @@ Deno.serve(async (req) => {
       return new Response("redirectTo fora do domínio autorizado", { status: 400, headers: CORS_HEADERS });
     }
 
-    // Um Admin comum só pode gerar link de redefinição para alguém da própria
-    // igreja — sem isso, um Admin de uma igreja poderia resetar a senha de
-    // qualquer usuário de outra igreja só sabendo o e-mail. O Master não tem
-    // essa restrição.
+    // Mesma regra unificada de gestão de usuário usada em admin_update_user_role/
+    // admin_set_user_status/admin_delete_user/cancel-invite: Admin só alcança
+    // Tesoureiro/Auditor/Conselho Fiscal da própria igreja ou de uma filha
+    // direta, nunca outro Admin nem o master. Antes disso, esta function só
+    // checava "mesma igreja exata" e nunca checava o role do alvo — um Admin
+    // podia resetar a senha de outro Admin da própria igreja sem barreira.
     const { data: targetProfile } = await callerClient
       .from("profiles")
-      .select("church_id")
+      .select("role, church_id")
       .eq("email", email)
       .single();
 
     if (!targetProfile) {
       return new Response("Usuário não encontrado", { status: 404, headers: CORS_HEADERS });
     }
-    if (!callerIsMaster && targetProfile.church_id !== callerProfile!.church_id) {
-      return new Response("Você só pode gerar link de redefinição para usuários da sua própria igreja", {
-        status: 403,
-        headers: CORS_HEADERS,
-      });
+
+    if (!callerIsMaster) {
+      if (targetProfile.role === "Admin" || targetProfile.role === "master") {
+        return new Response("Apenas o Admin Master pode gerar link de redefinição para Administrador", {
+          status: 403,
+          headers: CORS_HEADERS,
+        });
+      }
+      let sameOrChildChurch = targetProfile.church_id === callerProfile!.church_id;
+      if (!sameOrChildChurch) {
+        const { data: childRow } = await callerClient
+          .from("churches")
+          .select("id")
+          .eq("id", targetProfile.church_id)
+          .eq("parent_church_id", callerProfile!.church_id)
+          .single();
+        sameOrChildChurch = !!childRow;
+      }
+      if (!sameOrChildChurch) {
+        return new Response("Você só pode gerar link de redefinição para usuários da sua igreja ou de suas igrejas filhas", {
+          status: 403,
+          headers: CORS_HEADERS,
+        });
+      }
     }
 
     const adminClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
