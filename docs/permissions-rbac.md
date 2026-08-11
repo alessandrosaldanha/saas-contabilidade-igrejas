@@ -34,6 +34,14 @@ Definida em dois lugares que precisam ficar espelhados: `src/App.tsx` (`Protecte
 - **Admin:** vê e gerencia só os membros da própria igreja (`church_id` sempre filtrado — tanto explicitamente na query quanto pela RLS por baixo).
 - **`master`:** visão global (todos os membros de todas as igrejas), com coluna e filtro **"Igreja"** exclusivos dele; o próprio `master` nunca aparece nessa listagem (`.neq("role", "master")`). Pode editar nome/e-mail/CPF de qualquer membro (`master_update_profile`), e role/status via as mesmas RPCs que o Admin usa.
 
+### Exclusão de usuário ("Ações Rápidas")
+
+- **Quem vê o botão:** `master` vê para qualquer usuário, exceto ele mesmo. `Admin` vê só para usuários da própria igreja (nunca outro `Admin` ou o `master`) — no alcance da RPC também vale para uma igreja filha direta, mesmo padrão de `admin_update_user_role`/`admin_set_user_status`, embora a query da tela de Usuários hoje nunca traga membros de filha para o Admin ver essa linha de qualquer forma. `Tesoureiro`/`Auditor`/`Conselho Fiscal` nunca veem o botão. Enforcement real é sempre no backend (RPC/Edge Function) — o booleano no componente só controla exibição.
+- **`Ativo`/`Inativo`:** botão "Excluir Usuário" (ícone `Trash2`) chama a RPC `admin_delete_user` — soft-delete, `status` vira `'Excluído'` (estado terminal, sem período de graça, sem RPC de volta). Preserva o perfil (nome/e-mail) porque `audit_logs`/`transactions`/`import_history` referenciam `profiles(id)` sem `ON DELETE CASCADE` — um hard delete quebraria a trilha de auditoria.
+- **`Convite Pendente`:** botão "Cancelar Convite" (ícone `Ban`) chama a Edge Function `cancel-invite` — hard delete real (`auth.admin.deleteUser`), seguro porque esse perfil nunca gerou nenhuma linha de histórico.
+- **`Excluído`:** tratamento visual "apagado" exclusivo desta tela — avatar/nome com opacidade reduzida, badge de status em tom neutro, badge de role deixa de ser clicável, coluna "Ações Rápidas" fica vazia. Em qualquer outro lugar (autor de lançamento, log de auditoria, etc.) o nome aparece normal — ali é só metadado histórico, não gestão da pessoa. `status = 'Excluído'` bloqueia login (`has_role()`/`is_active()` tratam como `'Inativo'`) e força logout imediato de sessão já ativa (mesmo listener Realtime do `AuthContext` que já cobria `'Inativo'`).
+- Confirmação sempre via modal explícito (nome + e-mail visíveis, ação descrita como irreversível) antes de chamar a RPC/Edge Function.
+
 ## Módulo de Governança (só `master`)
 
 CRUD de igrejas (`/governanca`): busca por nome/e-mail/CEP/responsável, filtro de hierarquia (Principal × Filha) e data de cadastro, paginação (10/página). O botão "Detalhes" de cada linha **navega** para `/detalhes-igreja/:churchId` (página dedicada, ver seção abaixo) em vez de abrir modal. A tabela de igrejas também tem um seletor de **Plano** por linha — o Master pode trocar o plano de qualquer igreja a qualquer momento, direto, sem depender de uma solicitação de pagamento aprovada.
@@ -59,7 +67,7 @@ Acesso restrito a `Admin`/`master` — `Tesoureiro`/`Auditor`/`Conselho Fiscal` 
 
 ## Regras de segurança reforçadas no banco (não só na UI)
 
-- `admin_update_user_role`/`admin_set_user_status` exigem que o alvo pertença à **mesma igreja** de quem chama, ou a uma **igreja filha direta** dela, a menos que o chamador seja `master` — sem isso, um Admin de uma igreja poderia alterar role/status de usuário de uma igreja não relacionada.
+- `admin_update_user_role`/`admin_set_user_status`/`admin_delete_user`/`cancel-invite` exigem que o alvo pertença à **mesma igreja** de quem chama, ou a uma **igreja filha direta** dela, a menos que o chamador seja `master` — sem isso, um Admin de uma igreja poderia alterar/excluir usuário de uma igreja não relacionada. As duas últimas ainda rejeitam o alvo ser `Admin`/`master` quando quem chama não é `master`, e as duas primeiras rejeitam qualquer alteração se o alvo já estiver `'Excluído'`.
 - `generate-reset-link` confere mesma-igreja **antes** de gerar o link de recovery (que usa a service-role key e ignora RLS) — a checagem tem que vir antes da chamada sensível, não depois (só para log).
 - Igreja desativada bloqueia login de todos os seus membros (`is_active()`/`has_role()` checam `churches.is_active`) e força logout de sessões já ativas via Realtime.
 - Usuário com `status = 'Inativo'` tem o profile escondido pela RLS (`is_active()`) — `AuthContext.signIn()` trata isso como conta inativa, sem revelar se o e-mail existe.

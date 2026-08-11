@@ -29,6 +29,7 @@ const STATUS_TONE: Record<UserStatus, "success" | "neutral" | "warning"> = {
   Ativo: "success",
   Inativo: "neutral",
   "Convite Pendente": "warning",
+  Excluído: "neutral",
 };
 
 function mapChurchRow(row: {

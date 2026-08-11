@@ -14,6 +14,7 @@ Cada igreja é um tenant isolado (dados separados por `church_id`); um papel `ma
 - **Banco de Dados & Storage:** Supabase (PostgreSQL com Row Level Security + Storage).
 - **Backend serverless:** Supabase Edge Functions (Deno) para tudo que precisa de `service_role` key ou de segredos (Gemini) — nunca expostos ao frontend.
 - **IA Integrada:** Google Gemini (alias `gemini-flash-latest`) para extração e categorização contábil de extratos bancários.
+- **Analytics:** PostHog (`posthog-js`) — telemetria de produto, opcional via `VITE_POSTHOG_KEY` (sem a key, o app roda normalmente com analytics desativado).
 - **Deploy:** Vercel (frontend) + Supabase (banco/Edge Functions), com domínio próprio `contabilidadereformada.com.br`.
 
 ## Estrutura de Pastas
@@ -47,7 +48,7 @@ src/
 ├── hooks/
 │   └── usePlanLimits.ts    # plano/uso mensal da igreja ativa — canUseAI/canDownloadPDF/canAddChurch
 ├── types/           # Interfaces TypeScript (Transaction, ChurchUser, Church, Plan, PaymentRequest, AuditLog, etc.)
-├── services/        # supabase.ts (client + helper de erro de Edge Function)
+├── services/        # supabase.ts (client + helper de erro de Edge Function), posthog.ts (analytics)
 └── utils/           # format.ts, metrics.ts, cep.ts (ViaCEP), chartBuilders.ts
 
 supabase/
@@ -55,8 +56,9 @@ supabase/
 └── functions/
     ├── invite-user/            # cria usuário (Admin API) já com senha
     ├── generate-reset-link/    # gera link de recovery via Admin API
+    ├── cancel-invite/          # hard delete real de convite pendente (Admin API)
     ├── parse-statement/        # chama o Gemini para ler/categorizar extratos
-    └── _shared/cors.ts         # allow-list de CORS compartilhada pelas 3 functions
+    └── _shared/cors.ts         # allow-list de CORS compartilhada pelas 4 functions
 
 docs/                # Esta pasta — documentação modular (ver README abaixo)
 ```

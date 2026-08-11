@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
-import { Search, UserPlus, KeyRound, Power, ShieldAlert, Copy, X } from "lucide-react";
+import { Search, UserPlus, KeyRound, Power, ShieldAlert, Copy, X, Trash2, Ban } from "lucide-react";
 import Card from "../../components/Card";
 import Badge from "../../components/Badge";
 import Avatar from "../../components/Avatar";
+import ConfirmModal from "../../components/ConfirmModal";
 import { useApp } from "../../context/AppContext";
 import { useAuth } from "../../context/AuthContext";
 import { getFunctionErrorMessage, supabase } from "../../services/supabase";
@@ -23,6 +24,7 @@ const STATUS_TONE: Record<UserStatus, "success" | "neutral" | "warning"> = {
   Ativo: "success",
   Inativo: "neutral",
   "Convite Pendente": "warning",
+  Excluído: "neutral",
 };
 const ROLE_ORDER = ASSIGNABLE_ROLES;
 
@@ -206,6 +208,59 @@ export default function Usuarios() {
     await refreshUsers();
   };
 
+  // A tabela já chega escopada por igreja para quem não é master (query de
+  // refreshUsers filtra church_id = effectiveChurchId) — o alcance de "igreja
+  // filha direta" só existe de fato no backend (admin_delete_user), espelhando
+  // admin_update_user_role/admin_set_user_status, para o caso desta mesma RPC
+  // vir a ser reaproveitada em telas que já mostram membros de filhas (ex.:
+  // ChurchDetails). Aqui não há filha na lista, então esta checagem simples
+  // já cobre tudo que a linha pode conter.
+  const canDeleteUser = (user: ChurchUser): boolean => {
+    if (user.id === authProfile?.id) return false;
+    if (user.role === "master") return false;
+    if (isMaster) return true;
+    if (authProfile?.role !== "Admin") return false;
+    if (user.role === "Admin") return false;
+    return user.churchId === effectiveChurchId;
+  };
+
+  const [deleteTarget, setDeleteTarget] = useState<{ user: ChurchUser; mode: "delete" | "cancelInvite" } | null>(
+    null,
+  );
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const openDeleteModal = (user: ChurchUser) =>
+    setDeleteTarget({ user, mode: user.status === "Convite Pendente" ? "cancelInvite" : "delete" });
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const { user, mode } = deleteTarget;
+    setIsDeleting(true);
+
+    if (mode === "cancelInvite") {
+      const { error } = await supabase.functions.invoke("cancel-invite", { body: { target_id: user.id } });
+      setIsDeleting(false);
+      if (error) {
+        showToastMsg(`Falha ao cancelar convite: ${await getFunctionErrorMessage(error)}`);
+        return;
+      }
+      setDeleteTarget(null);
+      await refreshUsers();
+      showToastMsg(`Convite de ${user.email} cancelado`);
+      return;
+    }
+
+    const { error } = await supabase.rpc("admin_delete_user", { target_id: user.id });
+    setIsDeleting(false);
+    if (error) {
+      showToastMsg(`Falha ao excluir usuário: ${error.message}`);
+      return;
+    }
+    setDeleteTarget(null);
+    await refreshUsers();
+    showToastMsg(`Usuário ${user.name} excluído`);
+  };
+
   return (
     <div>
       <div className="mb-6">
@@ -258,6 +313,7 @@ export default function Usuarios() {
           <option value="Ativo">Ativos</option>
           <option value="Inativo">Inativos</option>
           <option value="Convite Pendente">Convite Pendente</option>
+          <option value="Excluído">Excluído</option>
         </select>
         {isMaster && (
           <select
@@ -299,7 +355,7 @@ export default function Usuarios() {
               {filtered.map((u) => (
                 <tr key={u.id} className="border-t border-neutral-300 dark:border-white/10">
                   <td className="px-4.5 py-3">
-                    <div className="flex items-center gap-2.5">
+                    <div className={`flex items-center gap-2.5 ${u.status === "Excluído" ? "opacity-50" : ""}`}>
                       <Avatar name={u.name} size="sm" />
                       <div>
                         <div>{u.name}</div>
@@ -315,13 +371,17 @@ export default function Usuarios() {
                     </td>
                   )}
                   <td className="px-4.5 py-3">
-                    <button
-                      onClick={() => openRoleEdit(u)}
-                      title="Alterar Permissão / Role"
-                      className="inline-flex rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-orla-blue"
-                    >
+                    {u.status === "Excluído" ? (
                       <Badge tone={ROLE_TONE[u.role]}>{u.role}</Badge>
-                    </button>
+                    ) : (
+                      <button
+                        onClick={() => openRoleEdit(u)}
+                        title="Alterar Permissão / Role"
+                        className="inline-flex rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-orla-blue"
+                      >
+                        <Badge tone={ROLE_TONE[u.role]}>{u.role}</Badge>
+                      </button>
+                    )}
                   </td>
                   <td className="px-4.5 py-3">
                     <Badge tone={STATUS_TONE[u.status]} appearance="outline" dot>
@@ -330,23 +390,34 @@ export default function Usuarios() {
                   </td>
                   <td className="px-4.5 py-3 text-neutral-700 dark:text-neutral-400 text-xs">{u.lastAccess}</td>
                   <td className="px-4.5 py-3 text-right">
-                    <div className="flex gap-1 justify-end">
-                      <button
-                        onClick={() => resetUserPassword(u.email)}
-                        disabled={resettingEmail === u.email}
-                        title="Resetar Senha / Gerar Link"
-                        className={`${iconBtnCls} disabled:opacity-50`}
-                      >
-                        <KeyRound size={14} />
-                      </button>
-                      <button
-                        onClick={() => toggleUserAccess(u)}
-                        title={u.status === "Inativo" ? "Reativar Acesso" : "Bloquear Acesso"}
-                        className={iconBtnCls}
-                      >
-                        <Power size={14} />
-                      </button>
-                    </div>
+                    {u.status !== "Excluído" && (
+                      <div className="flex gap-1 justify-end">
+                        <button
+                          onClick={() => resetUserPassword(u.email)}
+                          disabled={resettingEmail === u.email}
+                          title="Resetar Senha / Gerar Link"
+                          className={`${iconBtnCls} disabled:opacity-50`}
+                        >
+                          <KeyRound size={14} />
+                        </button>
+                        <button
+                          onClick={() => toggleUserAccess(u)}
+                          title={u.status === "Inativo" ? "Reativar Acesso" : "Bloquear Acesso"}
+                          className={iconBtnCls}
+                        >
+                          <Power size={14} />
+                        </button>
+                        {canDeleteUser(u) && (
+                          <button
+                            onClick={() => openDeleteModal(u)}
+                            title={u.status === "Convite Pendente" ? "Cancelar Convite" : "Excluir Usuário"}
+                            className={`${iconBtnCls} hover:!bg-status-error/10 hover:!text-status-error hover:!border-status-error/40`}
+                          >
+                            {u.status === "Convite Pendente" ? <Ban size={14} /> : <Trash2 size={14} />}
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -589,6 +660,33 @@ export default function Usuarios() {
             )}
           </div>
         </div>
+      )}
+
+      {deleteTarget && (
+        <ConfirmModal
+          title={deleteTarget.mode === "cancelInvite" ? "Cancelar Convite" : "Excluir Usuário"}
+          tone="error"
+          description={
+            deleteTarget.mode === "cancelInvite" ? (
+              <>
+                Tem certeza que deseja cancelar o convite de <strong>{deleteTarget.user.name}</strong> (
+                {deleteTarget.user.email})? O acesso nunca chegou a ser usado — esta ação é irreversível e remove o
+                convite por completo.
+              </>
+            ) : (
+              <>
+                Tem certeza que deseja excluir <strong>{deleteTarget.user.name}</strong> ({deleteTarget.user.email})?
+                Esta ação é irreversível: o acesso será bloqueado permanentemente. O histórico de lançamentos e os
+                logs de auditoria deste usuário são mantidos.
+              </>
+            )
+          }
+          confirmLabel={deleteTarget.mode === "cancelInvite" ? "Cancelar Convite" : "Excluir Usuário"}
+          confirmingLabel={deleteTarget.mode === "cancelInvite" ? "Cancelando…" : "Excluindo…"}
+          isConfirming={isDeleting}
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   );
