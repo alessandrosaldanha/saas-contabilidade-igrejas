@@ -1164,3 +1164,12 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
 - **Nenhuma RPC de edição de nome/e-mail (`admin_update_user_profile`, `master_update_profile`, `update_own_profile`) sincroniza o e-mail de login no Supabase Auth** — as três só escrevem `public.profiles.email`. É uma limitação pré-existente (não introduzida agora) que passa a valer também para o novo caminho do Admin; documentado no modal e no `permissions-rbac.md` para não ser descoberta em produção.
 - **Por que a checagem de role do alvo também bloqueia autoedição via essas RPCs:** um Admin chamando `admin_set_user_status`/`admin_update_user_role`/`admin_update_user_profile` no próprio `id` agora falha, porque o próprio `role` (`'Admin'`) cai na cláusula de exclusão — efeito colateral desejado, não um bug: autoedição de qualquer papel já tem um caminho dedicado (`update_own_profile`), não deveria passar pelas RPCs de gestão de terceiros.
 - Validado com `npx tsc --noEmit` e `npm run build` (sem erros). Migration aplicada e Edge Function redeployada via MCP (`apply_migration`/`deploy_edge_function`); as três funções corrigidas foram relidas do banco (`pg_get_functiondef`) após aplicar para confirmar que o código live bate com o migration file. Teste visual real (Admin tentando gerenciar outro Admin da própria igreja e confirmando o bloqueio; editar nome/e-mail de um Tesoureiro) não foi executado nesta sessão por falta de ambiente com browser automatizável — recomenda-se validar na preview do Vercel antes de promover para `main`.
+
+### [2026-08-11] Merge para main e release v1.9.0
+
+**O que foi feito:**
+- Merge de `hmg` em `main` (`git merge --no-ff`) trazendo: correção do buraco de permissão pré-existente (Admin gerenciando outro Admin) em `admin_update_user_role`/`admin_set_user_status`/`generate-reset-link`, nova RPC `admin_update_user_profile` e o botão "Editar Usuário" na tela de Governança e Usuários — migration `0025`.
+- Tag `v1.9.0` criada e Release publicada no GitHub (`gh release create`).
+
+**Decisões técnicas:**
+- Validado com `npx tsc --noEmit` e `npm run build` direto em `main` pós-merge (sem erros) antes do push, seguindo o mesmo procedimento das releases anteriores.
