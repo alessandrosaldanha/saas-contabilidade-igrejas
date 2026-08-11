@@ -1141,3 +1141,12 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
 - **`estorno` reaproveitado como `action_key`, em vez de uma chave nova:** já existe no enum/constraint (`categorizacao_ia`/`edicao_manual`/`aprovacao_caixa`/`estorno`/`acesso`/`aceite_termos`) com o rótulo "Estorno/Exclusão" (tom `error`) — evita alterar o `check` de `audit_logs.action_key` e o `ACTION_TYPES`/`AuditActionKey` do front para uma ação que semanticamente já cabia ali.
 - **`get_advisors` aponta `admin_delete_user` como `SECURITY DEFINER` executável por `anon`/`authenticated`:** mesmo aviso pré-existente em `has_role`/`is_active`/`admin_update_user_role`/`admin_set_user_status` — o enforcement real é interno à função (`is_master()`/`is_admin()` sobre `auth.uid()`, que é `null` para `anon`), mesmo padrão já aceito neste projeto para essa classe de RPC; não é uma regressão introduzida por esta mudança.
 - Validado com `npx tsc --noEmit` e `npm run build` (sem erros). Migration aplicada e Edge Function implantada via MCP (`apply_migration`/`deploy_edge_function`) diretamente no projeto Supabase. Teste visual real (excluir um usuário Ativo, cancelar um convite pendente, confirmar o bloqueio de login e o "apagado" visual na tabela) não foi executado nesta sessão por falta de ambiente com browser automatizável — recomenda-se validar esses 3 fluxos na preview do Vercel antes de promover para `main`.
+
+### [2026-08-11] Merge para main e release v1.8.0
+
+**O que foi feito:**
+- Merge de `hmg` em `main` (`git merge --no-ff`) trazendo: exclusão de usuário na tela de Governança e Usuários (soft-delete via `admin_delete_user`/estado `'Excluído'`, cancelamento de convite via Edge Function `cancel-invite`, migration `0024`), instalação do PostHog (analytics de produto) e a atualização do README com hierarquia de igrejas/planos/estrutura de pastas — os três já estavam em `hmg`, aguardando promoção.
+- Tag `v1.8.0` criada e Release publicada no GitHub (`gh release create`), já validada/aprovada pelo usuário antes do merge.
+
+**Decisões técnicas:**
+- Validado com `npx tsc --noEmit` e `npm run build` direto em `main` pós-merge (sem erros) antes do push, seguindo o mesmo procedimento das releases anteriores.
