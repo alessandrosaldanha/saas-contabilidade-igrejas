@@ -113,7 +113,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${userId}` },
         (payload) => {
-          if ((payload.new as { status?: string })?.status === "Inativo") {
+          const nextStatus = (payload.new as { status?: string })?.status;
+          if (nextStatus === "Inativo" || nextStatus === "Excluído") {
             localStorage.setItem(INACTIVE_LOGOUT_FLAG, "1");
             supabase.auth.signOut();
           }

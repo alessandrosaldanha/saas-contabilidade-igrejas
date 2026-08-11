@@ -56,8 +56,9 @@ supabase/
 └── functions/
     ├── invite-user/            # cria usuário (Admin API) já com senha
     ├── generate-reset-link/    # gera link de recovery via Admin API
+    ├── cancel-invite/          # hard delete real de convite pendente (Admin API)
     ├── parse-statement/        # chama o Gemini para ler/categorizar extratos
-    └── _shared/cors.ts         # allow-list de CORS compartilhada pelas 3 functions
+    └── _shared/cors.ts         # allow-list de CORS compartilhada pelas 4 functions
 
 docs/                # Esta pasta — documentação modular (ver README abaixo)
 ```

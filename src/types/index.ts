@@ -27,7 +27,7 @@ export const ASSIGNABLE_ROLES: Exclude<UserRole, "master">[] = [
   "Auditor",
   "Conselho Fiscal",
 ];
-export type UserStatus = "Ativo" | "Inativo" | "Convite Pendente";
+export type UserStatus = "Ativo" | "Inativo" | "Convite Pendente" | "Excluído";
 
 export interface ChurchUser {
   id: string;
