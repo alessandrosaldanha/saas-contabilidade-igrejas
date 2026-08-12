@@ -8,6 +8,7 @@ import ChurchCreateModal from "./components/ChurchCreateModal";
 import PaymentRequestsPanel from "./components/PaymentRequestsPanel";
 import PlanManagementPanel from "./components/PlanManagementPanel";
 import LandingImagesPanel from "./components/LandingImagesPanel";
+import HeroImagesPanel from "./components/HeroImagesPanel";
 import SocialLinksPanel from "./components/SocialLinksPanel";
 import { useApp } from "../../context/AppContext";
 import { supabase } from "../../services/supabase";
@@ -198,10 +199,11 @@ export default function Governanca() {
       ) : activeTab === "planos" ? (
         <PlanManagementPanel plans={plans} onChanged={refreshPlans} />
       ) : activeTab === "landing" ? (
-        <>
+        <div className="flex flex-col gap-4">
+          <HeroImagesPanel />
           <LandingImagesPanel />
           <SocialLinksPanel />
-        </>
+        </div>
       ) : (
         <>
       <div className="flex items-center gap-2.5 flex-wrap mb-4.5">

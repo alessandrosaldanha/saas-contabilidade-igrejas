@@ -5,10 +5,12 @@ import ThemeToggle from "../../components/ThemeToggle";
 import Card from "../../components/Card";
 import PricingSection from "./components/PricingSection";
 import FaqSection from "./components/FaqSection";
+import HeroCarousel from "./components/HeroCarousel";
 import { useAuth } from "../../context/AuthContext";
 import { getHomePath } from "../../utils/homePath";
 import { supabase } from "../../services/supabase";
 import { mapLandingImageRow } from "../../utils/landingImages";
+import { mapLandingHeroImageRow } from "../../utils/landingHeroImages";
 import { SOCIAL_PLATFORM_META, mapSocialLinkRow } from "../../utils/socialLinks";
 import chapelIllustration from "../../assets/chapel-illustration.svg";
 import logoAzul from "../../assets/logo-azul.svg";
@@ -40,19 +42,24 @@ const HOW_IT_WORKS = [
   },
 ];
 
+// Menu do header — Contato fica de fora aqui (a seção em si continua
+// intacta na página); o footer usa FOOTER_NAV_LINKS, que inclui Contato,
+// já que footer é o lugar padrão de navegação completa.
 const NAV_LINKS = [
   { href: "#top", label: "Início" },
   { href: "#sobre-nos", label: "Sobre Nós" },
   { href: "#como-funciona", label: "Como Funciona" },
   { href: "#planos", label: "Planos" },
   { href: "#duvidas", label: "Dúvidas Frequentes", shortLabel: "Dúvidas" },
-  { href: "#contato", label: "Contato" },
 ];
+
+const FOOTER_NAV_LINKS = [...NAV_LINKS, { href: "#contato", label: "Contato" }];
 
 export default function Landing() {
   const { session, profile, loading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [images, setImages] = useState<Partial<Record<LandingImageKey, string>>>({});
+  const [heroImages, setHeroImages] = useState<string[]>([]);
   const [socialLinks, setSocialLinks] = useState<SocialLink[]>([]);
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
@@ -71,6 +78,20 @@ export default function Landing() {
           if (row.imageUrl) map[row.key] = row.imageUrl;
         });
         setImages(map);
+      });
+  }, []);
+
+  // Leitura pública (RLS `landing_hero_images_select_public`, migration
+  // 0031) — só as imagens ativas do carrossel do Hero, já ordenadas.
+  // `HeroCarousel` decide estático (1 imagem) vs. carrossel (2+) sozinho.
+  useEffect(() => {
+    supabase
+      .from("landing_hero_images")
+      .select("id, image_url, display_order, is_active")
+      .eq("is_active", true)
+      .order("display_order")
+      .then(({ data }) => {
+        if (data) setHeroImages(data.map(mapLandingHeroImageRow).map((row) => row.imageUrl));
       });
   }, []);
 
@@ -130,13 +151,13 @@ export default function Landing() {
           <div className="hidden xl:flex items-center gap-2 shrink-0">
             <ThemeToggle />
             <Link to="/login" className="text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:text-orla-blue">
-              Já tenho conta
+              Entrar
             </Link>
             <Link
               to="/login?signup=1"
               className="px-3.5 py-2 rounded-md bg-orla-blue text-white text-sm font-medium hover:bg-blue-600 transition-colors"
             >
-              Começar Gratuitamente
+              Criar Conta
             </Link>
           </div>
 
@@ -174,14 +195,14 @@ export default function Landing() {
                 onClick={closeMobileMenu}
                 className="flex items-center justify-center min-h-[44px] px-4 rounded-md border border-neutral-300 dark:border-white/20 text-sm font-medium hover:bg-neutral-50 dark:hover:bg-neutral-900"
               >
-                Já tenho conta
+                Entrar
               </Link>
               <Link
                 to="/login?signup=1"
                 onClick={closeMobileMenu}
                 className="flex items-center justify-center min-h-[44px] px-4 rounded-md bg-orla-blue text-white text-sm font-medium hover:bg-blue-600 transition-colors"
               >
-                Começar Gratuitamente
+                Criar Conta
               </Link>
             </div>
           </div>
@@ -201,20 +222,20 @@ export default function Landing() {
         </div>
         <div
           className={`relative max-w-6xl mx-auto px-5 sm:px-8 py-16 sm:py-24 ${
-            images.hero ? "grid gap-10 lg:grid-cols-2 lg:items-center text-center lg:text-left" : "text-center"
+            heroImages.length > 0 ? "grid gap-10 lg:grid-cols-2 lg:items-center text-center lg:text-left" : "text-center"
           }`}
         >
           <div>
             <h1
               className={`font-display font-semibold text-3xl sm:text-5xl leading-[1.15] tracking-tight ${
-                images.hero ? "" : "max-w-3xl mx-auto"
+                heroImages.length > 0 ? "" : "max-w-3xl mx-auto"
               }`}
             >
               Contabilidade da sua igreja, sem depender de planilha ou de quem "entende"
             </h1>
             <p
               className={`text-base sm:text-lg text-neutral-700 dark:text-neutral-400 mt-5 ${
-                images.hero ? "" : "max-w-2xl mx-auto"
+                heroImages.length > 0 ? "" : "max-w-2xl mx-auto"
               }`}
             >
               Livro Caixa, importação de extrato com Inteligência Artificial e trilha de auditoria completa, tudo num só
@@ -222,7 +243,7 @@ export default function Landing() {
             </p>
             <div
               className={`flex flex-col sm:flex-row items-center gap-3 mt-8 ${
-                images.hero ? "justify-center lg:justify-start" : "justify-center"
+                heroImages.length > 0 ? "justify-center lg:justify-start" : "justify-center"
               }`}
             >
               <Link
@@ -240,15 +261,9 @@ export default function Landing() {
             </div>
           </div>
 
-          {images.hero && (
+          {heroImages.length > 0 && (
             <div className="lg:ml-auto w-full max-w-md lg:max-w-none">
-              <div className="rounded-2xl border border-neutral-300 dark:border-white/10 shadow-md overflow-hidden bg-white dark:bg-neutral-900">
-                <img
-                  src={images.hero}
-                  alt="Prévia da plataforma Contabilidade Igreja"
-                  className="w-full h-auto object-cover"
-                />
-              </div>
+              <HeroCarousel images={heroImages} />
             </div>
           )}
         </div>
@@ -344,30 +359,70 @@ export default function Landing() {
         </div>
       </section>
 
-      <footer className="border-t border-neutral-300 dark:border-white/10">
-        <div className="max-w-6xl mx-auto px-5 sm:px-8 py-8 flex flex-col gap-5">
-          {socialLinks.length > 0 && (
-            <div className="flex items-center justify-center sm:justify-start gap-3">
-              {socialLinks.map((link) => {
-                const meta = SOCIAL_PLATFORM_META.find((m) => m.platform === link.platform);
-                if (!meta || !link.url) return null;
-                const Icon = meta.icon;
-                return (
-                  <a
-                    key={link.platform}
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={meta.label}
-                    className="w-9 h-9 flex items-center justify-center rounded-full border border-neutral-300 dark:border-white/20 text-neutral-700 dark:text-neutral-300 hover:text-orla-blue hover:border-orla-blue transition-colors"
-                  >
-                    <Icon size={16} />
-                  </a>
-                );
-              })}
+      <footer className="border-t border-neutral-300 dark:border-white/10 bg-neutral-50 dark:bg-neutral-950">
+        <div className="max-w-6xl mx-auto px-5 sm:px-8 py-12 sm:py-14">
+          <div className="grid gap-10 sm:grid-cols-3 text-center sm:text-left">
+            <div className="flex flex-col gap-3 items-center sm:items-start">
+              <div className="flex items-center gap-2.5">
+                <img src={logoAzul} alt="Contabilidade Igreja" className="w-6 h-6 shrink-0" />
+                <span className="font-display font-semibold text-[17px] tracking-tight">Contabilidade Igreja</span>
+              </div>
+              <p className="text-sm text-neutral-700 dark:text-neutral-400 leading-relaxed max-w-xs">
+                Gestão financeira, contábil e de governança para igrejas locais, com apoio de Inteligência Artificial.
+              </p>
             </div>
-          )}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-neutral-700 dark:text-neutral-400">
+
+            <div className="flex flex-col gap-3 items-center sm:items-start">
+              <h5 className="font-display font-semibold text-sm m-0">Navegação</h5>
+              <nav className="flex flex-col gap-2 items-center sm:items-start">
+                {FOOTER_NAV_LINKS.map((link) => (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    className="text-sm text-neutral-700 dark:text-neutral-300 hover:text-orla-blue"
+                  >
+                    {link.label}
+                  </a>
+                ))}
+              </nav>
+            </div>
+
+            <div className="flex flex-col gap-3 items-center sm:items-start">
+              <h5 className="font-display font-semibold text-sm m-0">Contato</h5>
+              {socialLinks.length > 0 && (
+                <div className="flex items-center gap-3">
+                  {socialLinks.map((link) => {
+                    const meta = SOCIAL_PLATFORM_META.find((m) => m.platform === link.platform);
+                    if (!meta || !link.url) return null;
+                    const Icon = meta.icon;
+                    return (
+                      <a
+                        key={link.platform}
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={meta.label}
+                        className="w-9 h-9 flex items-center justify-center rounded-full border border-neutral-300 dark:border-white/20 text-neutral-700 dark:text-neutral-300 hover:text-orla-blue hover:border-orla-blue transition-colors"
+                      >
+                        <Icon size={16} />
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
+              <a
+                href={WHATSAPP_LINK}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sm font-medium text-status-success hover:opacity-80 transition-opacity"
+              >
+                <MessageCircle size={15} />
+                Falar no WhatsApp
+              </a>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-neutral-700 dark:text-neutral-400 mt-10 pt-6 border-t border-neutral-300 dark:border-white/10">
             <span>© {new Date().getFullYear()} Contabilidade Igreja. Todos os direitos reservados.</span>
             <Link to="/login" className="hover:text-orla-blue">
               Entrar na plataforma

@@ -196,20 +196,27 @@ export interface CategoryRule {
   createdAt: string;
 }
 
-// Chave fixa de cada seção da landing que pode ganhar uma imagem de produto,
-// editável pelo master no Painel de Governança (aba "Landing Page") — ver
-// migration 0029 (seed de `landing_images`) e `src/utils/landingImages.ts`.
-export type LandingImageKey =
-  | "hero"
-  | "feature_livro_caixa"
-  | "feature_ia"
-  | "feature_multi_igreja"
-  | "feature_auditoria"
-  | "sobre_nos";
+// Chave fixa de cada seção da landing que pode ganhar uma imagem de produto
+// única (1:1), editável pelo master no Painel de Governança (aba "Landing
+// Page") — ver migration 0029 (seed de `landing_images`) e
+// `src/utils/landingImages.ts`. O Hero saiu daqui na migration 0031: agora
+// suporta várias imagens (carrossel) via `landing_hero_images` (1:N), ver
+// `LandingHeroImage` abaixo.
+export type LandingImageKey = "sobre_nos";
 
 export interface LandingImage {
   key: LandingImageKey;
   imageUrl: string | null;
+}
+
+// Uma imagem do carrossel do Hero — migration 0031 (`landing_hero_images`).
+// Editável pelo master (aba "Landing Page" da Governança); a landing
+// pública só lê as ativas, ordenadas por displayOrder.
+export interface LandingHeroImage {
+  id: string;
+  imageUrl: string;
+  displayOrder: number;
+  isActive: boolean;
 }
 
 // Rede social fixa exibida no footer da landing quando ativa, editável pelo
