@@ -12,7 +12,6 @@ import {
   Sun,
   LogOut,
   X,
-  Wallet as WalletIcon,
   Building2,
   CreditCard,
   Landmark,
@@ -23,6 +22,7 @@ import ProfileSettingsModal from "./ProfileSettingsModal";
 import { useApp } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../services/supabase";
+import logoAzul from "../assets/logo-azul.svg";
 
 // O Master tem acesso irrestrito — vê todos os menus normais de igreja (com
 // a igreja escolhida no seletor abaixo) MAIS o menu exclusivo de Governança.
@@ -124,9 +124,7 @@ export default function Sidebar() {
         } md:static md:translate-x-0 md:transition-[width] md:shrink-0 ${expanded ? "md:w-[248px]" : "md:w-[76px]"}`}
       >
         <div className={`flex items-center gap-2.5 px-1 pb-5 ${expanded ? "justify-start" : "md:justify-center"}`}>
-          <span className="inline-flex items-center justify-center w-[30px] h-[30px] rounded-md bg-orla-blue shrink-0">
-            <WalletIcon size={17} className="text-white" />
-          </span>
+          <img src={logoAzul} alt="Contabilidade Igreja" className="w-[30px] h-[30px] shrink-0" />
           <span
             className={`font-display font-semibold text-base leading-tight text-black dark:text-white ${expanded ? "" : "md:hidden"}`}
           >

@@ -120,7 +120,7 @@ export default function ResetPassword() {
           <span className="inline-flex items-center justify-center w-[26px] h-[18px]">
             <Lock size={20} />
           </span>
-          <span className="font-display font-semibold text-[19px] tracking-tight">Contabilidade Ministerial</span>
+          <span className="font-display font-semibold text-[19px] tracking-tight">Contabilidade Igreja</span>
         </div>
         <div className="relative z-10 max-w-[460px]">
           <p className="font-display font-medium text-3xl leading-[1.28] tracking-tight">

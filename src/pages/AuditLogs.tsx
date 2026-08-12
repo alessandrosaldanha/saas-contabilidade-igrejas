@@ -10,10 +10,13 @@ import { supabase } from "../services/supabase";
 import { ACTION_TYPES, AUDIT_PAGE_SIZE, MONTHS_FULL } from "../services/mockData";
 import type { AuditActionKey, AuditLog } from "../types";
 
-const ACTION_FILTERS: Array<{ id: AuditActionKey | "all"; label: string }> = [
-  { id: "all", label: "Todas as ações" },
-  ...(Object.keys(ACTION_TYPES) as AuditActionKey[]).map((k) => ({ id: k, label: ACTION_TYPES[k].label })),
-];
+const ALL_ACTION_KEYS = Object.keys(ACTION_TYPES) as AuditActionKey[];
+
+// "Acesso/Login" é o evento de maior volume (todo login/logout gera um) e
+// polui a listagem quando misturado com ações administrativas — por isso
+// começa desmarcado. As demais (inclusive "Senha Definida pelo Master", ação
+// sensível equivalente a Estorno) começam visíveis.
+const DEFAULT_VISIBLE_ACTIONS = ALL_ACTION_KEYS.filter((k) => k !== "acesso");
 
 const MASTER_SELECT =
   "id, occurred_at, user_id, role, action_key, action_label, before, after, ip, device, church_id, church:churches(name)";
@@ -65,7 +68,7 @@ export default function Auditoria() {
   const [month, setMonth] = useState(today.getMonth());
   const [search, setSearch] = useState("");
   const [userFilter, setUserFilter] = useState("all");
-  const [actionFilter, setActionFilter] = useState<AuditActionKey | "all">("all");
+  const [enabledActions, setEnabledActions] = useState<Set<AuditActionKey>>(() => new Set(DEFAULT_VISIBLE_ACTIONS));
   // Só relevante para o Master — "all" = histórico global (todas as igrejas).
   // Diferente de Dashboard/Livro Caixa/Importação (que exigem a "igreja em
   // gestão" da Sidebar), a Auditoria do Master tem seu próprio seletor
@@ -125,7 +128,7 @@ export default function Auditoria() {
 
   const filtered = useMemo(() => {
     return logs.filter((l) => {
-      if (actionFilter !== "all" && l.actionKey !== actionFilter) return false;
+      if (!enabledActions.has(l.actionKey)) return false;
       if (userFilter !== "all" && l.user !== userFilter) return false;
       if (search) {
         const haystack = `${l.user} ${l.actionLabel} ${l.before} ${l.after} ${l.id}`.toLowerCase();
@@ -133,7 +136,7 @@ export default function Auditoria() {
       }
       return true;
     });
-  }, [logs, actionFilter, userFilter, search]);
+  }, [logs, enabledActions, userFilter, search]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / AUDIT_PAGE_SIZE));
   const pageClamped = Math.min(page, totalPages);
@@ -150,6 +153,19 @@ export default function Auditoria() {
     fn();
     setPage(1);
   };
+
+  const toggleAction = (key: AuditActionKey) => {
+    changeFilters(() => {
+      setEnabledActions((prev) => {
+        const next = new Set(prev);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        return next;
+      });
+    });
+  };
+
+  const restoreDefaultActions = () => changeFilters(() => setEnabledActions(new Set(DEFAULT_VISIBLE_ACTIONS)));
 
   const exportAuditReport = () => {
     const header = "DataHora;Usuario;Funcao;Acao;Antes;Depois;IP;Dispositivo\n";
@@ -225,20 +241,30 @@ export default function Auditoria() {
         )}
       </div>
 
-      <div className="flex gap-2 flex-wrap mb-5">
-        {ACTION_FILTERS.map((af) => (
-          <button
-            key={af.id}
-            onClick={() => changeFilters(() => setActionFilter(af.id))}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-              actionFilter === af.id
-                ? "bg-orla-blue text-white border-transparent"
-                : "bg-transparent text-neutral-700 dark:text-neutral-400 border-neutral-300 dark:border-white/20"
-            }`}
-          >
-            {af.label}
-          </button>
-        ))}
+      <div className="flex items-center gap-2 flex-wrap mb-5">
+        {ALL_ACTION_KEYS.map((key) => {
+          const active = enabledActions.has(key);
+          return (
+            <button
+              key={key}
+              onClick={() => toggleAction(key)}
+              aria-pressed={active}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                active
+                  ? "bg-orla-blue text-white border-transparent"
+                  : "bg-transparent text-neutral-700 dark:text-neutral-400 border-neutral-300 dark:border-white/20"
+              }`}
+            >
+              {ACTION_TYPES[key].label}
+            </button>
+          );
+        })}
+        <button
+          onClick={restoreDefaultActions}
+          className="text-xs font-medium text-neutral-700 dark:text-neutral-400 hover:text-orla-blue underline underline-offset-2 ml-1"
+        >
+          Restaurar padrão
+        </button>
       </div>
 
       <div className="grid gap-3 mb-5.5" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
