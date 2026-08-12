@@ -1443,3 +1443,7 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
 - **Tabela dedicada em vez de generalizar `landing_images`:** só o Hero precisa de 1:N hoje; forçar isso nas demais seções (sempre 1 imagem) seria complexidade permanente sem uso real — mesmo racional já usado para justificar `social_links` ter 2 policies de `SELECT` em vez de uma.
 - **Sem toggle de ativo/inativo no `HeroImagesPanel`:** a coluna `is_active` existe (mesmo padrão de `social_links`/paridade de schema), mas nenhuma imagem nova precisa nascer inativa — expor o toggle sem um caso de uso real seria UI sem função.
 - **Validado com `npx tsc --noEmit` e `npm run build`** (sem erros). **Teste visual real desta vez**: dev server + Playwright (headless Chromium, já cacheado no ambiente) navegando a landing em light/dark/mobile — header com "Entrar"/"Criar Conta"/toggle só-ícone/sem "Contato" confirmado nos 3, Hero renderizando a imagem migrada (1 imagem = estático, como esperado), footer nas 3 colunas com WhatsApp e nav completa, `console --errors` limpo nos dois temas.
+
+### [2026-08-12] Merge para main e release v1.12.0
+
+**O que foi feito:** commit `5eaef7f` em `hmg` (correção dos uploads órfãos, carrossel do Hero, header/footer completos — detalhado na entrada acima) enviado para `hmg`, merge `--no-ff` para `main` (`a74443b`), `npx tsc --noEmit`/`npm run build` revalidados direto em `main` pós-merge (sem conflitos, sem drift no working tree), tag `v1.12.0` e Release criada no GitHub.
