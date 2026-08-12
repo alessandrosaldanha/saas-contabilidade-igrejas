@@ -1199,3 +1199,13 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
 - Migration `0026` aplicada e as 3 Edge Functions deployadas em produção via MCP (`apply_migration`/`deploy_edge_function`) — projeto usa um único banco/ambiente Supabase para `hmg`/`main` (ver `git-workflow.md`), então não há homologação separada para validar antes.
 - **Fora do escopo desta implementação (ação do usuário, fora do código):** confirmar/adicionar `contabilidadereformada.com.br` em Authentication > URL Configuration > Redirect URLs no dashboard do Supabase (não há tool no MCP que leia essa configuração); avaliar migrar do SMTP padrão do Supabase para um provedor customizado (Resend) para resolver a entrega do autosserviço de recuperação de senha.
 - Validado com `npx tsc --noEmit` e `npm run build` (sem erros). Teste visual real (Admin/Master editando e-mail de um usuário e confirmando login com o novo e-mail; master definindo senha direta; usuário resetando senha via link) não foi executado nesta sessão por falta de ambiente com browser automatizável — recomenda-se validar na preview do Vercel antes de promover para `main`.
+
+### [2026-08-12] Merge para main e release v1.10.0
+
+**O que foi feito:**
+- Merge de `hmg` em `main` (`git merge --no-ff`) trazendo: correção do 404 em `generate-reset-link` (resolve o usuário por `id` no Auth em vez do e-mail de `profiles`), nova Edge Function `admin-update-user-profile` (sincroniza `auth.users.email`/`profiles.email` atomicamente), nova Edge Function `admin-set-user-password` (master define senha direta, log obrigatório em `audit_logs`) e a correção do registro divergente do usuário Eber em produção — migration `0026`.
+- Tag `v1.10.0` criada e Release publicada no GitHub (`gh release create`).
+
+**Decisões técnicas:**
+- Versão `v1.10.0` (MINOR, SemVer): a rodada inclui uma funcionalidade nova retrocompatível (master definir senha direto), além dos fixes — não se encaixa em PATCH.
+- Validado com `npx tsc --noEmit` e `npm run build` direto em `main` pós-merge (sem erros) antes do push, seguindo o mesmo procedimento das releases anteriores.
