@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Mail,
   Lock,
@@ -14,6 +14,7 @@ import ThemeToggle from "../../components/ThemeToggle";
 import ForgotPasswordModal from "./components/ForgotPasswordModal";
 import SignupForm from "./components/SignupForm";
 import { useAuth, consumeInactiveLogoutFlag } from "../../context/AuthContext";
+import { storePendingPlan } from "../../utils/pendingPlan";
 import chapelIllustration from "../../assets/chapel-illustration.svg";
 
 const INACTIVE_MESSAGE = "Sua conta está inativa. Entre em contato com o administrador para mais informações.";
@@ -21,8 +22,11 @@ const INACTIVE_MESSAGE = "Sua conta está inativa. Entre em contato com o admini
 export default function Login() {
   const navigate = useNavigate();
   const { signIn } = useAuth();
+  const [searchParams] = useSearchParams();
 
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  // Vindo da landing pública ("Começar Gratuitamente" -> /login?signup=1) —
+  // abre direto no cadastro em vez do login, sem precisar de uma rota própria.
+  const [mode, setMode] = useState<"login" | "signup">(searchParams.get("signup") === "1" ? "signup" : "login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -37,6 +41,13 @@ export default function Login() {
   useEffect(() => {
     if (consumeInactiveLogoutFlag()) setErrorMessage(INACTIVE_MESSAGE);
   }, []);
+
+  // Vindo de um CTA de plano pago na landing (/login?signup=1&plan=pro) —
+  // só captura por enquanto, ver contrato de leitura futura em utils/pendingPlan.ts.
+  useEffect(() => {
+    const plan = searchParams.get("plan");
+    if (plan) storePendingPlan(plan);
+  }, [searchParams]);
 
   const authenticate = async (e: FormEvent) => {
     e.preventDefault();
@@ -76,7 +87,7 @@ export default function Login() {
             <LogIn size={22} />
           </span>
           <span className="font-display font-semibold text-[19px] tracking-tight">
-            Contabilidade Ministerial
+            Contabilidade Igreja
           </span>
         </div>
 

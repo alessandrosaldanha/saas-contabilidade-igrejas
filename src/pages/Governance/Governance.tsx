@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Plus, Building2, Receipt, CreditCard } from "lucide-react";
+import { Search, Plus, Building2, Receipt, CreditCard, Image } from "lucide-react";
 import Card from "../../components/Card";
 import Badge from "../../components/Badge";
 import Pagination from "../../components/Pagination";
 import ChurchCreateModal from "./components/ChurchCreateModal";
 import PaymentRequestsPanel from "./components/PaymentRequestsPanel";
 import PlanManagementPanel from "./components/PlanManagementPanel";
+import LandingImagesPanel from "./components/LandingImagesPanel";
+import SocialLinksPanel from "./components/SocialLinksPanel";
 import { useApp } from "../../context/AppContext";
 import { supabase } from "../../services/supabase";
 import { mapPlanRow } from "../../utils/plans";
@@ -57,7 +59,7 @@ function mapChurchRow(row: {
 export default function Governanca() {
   const navigate = useNavigate();
   const { showToastMsg } = useApp();
-  const [activeTab, setActiveTab] = useState<"igrejas" | "assinaturas" | "planos">("igrejas");
+  const [activeTab, setActiveTab] = useState<"igrejas" | "assinaturas" | "planos" | "landing">("igrejas");
   const [churches, setChurches] = useState<Church[]>([]);
   const [adminNamesByChurch, setAdminNamesByChurch] = useState<Map<string, string[]>>(new Map());
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -178,12 +180,28 @@ export default function Governanca() {
           <CreditCard size={15} />
           Gestão de Planos & Dados Bancários
         </button>
+        <button
+          onClick={() => setActiveTab("landing")}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px ${
+            activeTab === "landing"
+              ? "border-orla-blue text-black dark:text-white"
+              : "border-transparent text-neutral-700 dark:text-neutral-400"
+          }`}
+        >
+          <Image size={15} />
+          Landing Page
+        </button>
       </div>
 
       {activeTab === "assinaturas" ? (
         <PaymentRequestsPanel onProcessed={refresh} />
       ) : activeTab === "planos" ? (
         <PlanManagementPanel plans={plans} onChanged={refreshPlans} />
+      ) : activeTab === "landing" ? (
+        <>
+          <LandingImagesPanel />
+          <SocialLinksPanel />
+        </>
       ) : (
         <>
       <div className="flex items-center gap-2.5 flex-wrap mb-4.5">

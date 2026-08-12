@@ -9,7 +9,7 @@ Cada igreja é um tenant isolado (dados separados por `church_id`); um papel `ma
 ## Stack Técnica
 
 - **Frontend:** React 18+ com TypeScript, Vite, Tailwind CSS e Lucide-React (ícones).
-- **Roteamento:** React Router DOM v6 (`<BrowserRouter>`, não data router — sem `useBlocker` nativo).
+- **Roteamento:** React Router DOM v6 (`<BrowserRouter>`, não data router — sem `useBlocker` nativo). `/` é a landing pública (fora de `ProtectedRoute`, redireciona sozinha pro painel se já houver sessão ativa); `/login` (login + autocadastro, via `?signup=1`) e `/reset-password` também ficam fora da árvore protegida; o restante do app (`dashboard`, `livro-caixa`, `governanca`, etc.) é uma árvore de rotas sem `path` próprio, aninhada dentro de `ProtectedRoute`+`Layout`, resolvendo para os mesmos caminhos absolutos de sempre.
 - **Autenticação:** Supabase Auth (e-mail/senha), sessão gerenciada por `AuthContext`.
 - **Banco de Dados & Storage:** Supabase (PostgreSQL com Row Level Security + Storage).
 - **Backend serverless:** Supabase Edge Functions (Deno) para tudo que precisa de `service_role` key ou de segredos (Gemini) — nunca expostos ao frontend.
@@ -30,8 +30,10 @@ src/
 │   ├── ThemeToggle.tsx, Toast.tsx, ConfirmModal.tsx, UnsavedChangesPrompt.tsx
 │   ├── ProfileSettingsModal.tsx, TermsAcceptanceModal.tsx  # popover de perfil / aceite de Termos (1º acesso)
 │   ├── ChurchFormFields.tsx               # form de endereço/dados da igreja — usado por ChurchDetails E por Governance/ChurchCreateModal
-│   └── PricingPlans.tsx, PricingModal.tsx, PixPaymentModal.tsx  # planos + checkout Pix — usados por /planos E pelos overlays de bloqueio (StatementImport/CashBook)
+│   ├── PricingPlans.tsx, PricingModal.tsx, PixPaymentModal.tsx  # planos + checkout Pix — usados por /planos E pelos overlays de bloqueio (StatementImport/CashBook)
+│   └── Accordion.tsx                      # accordion genérico (usado hoje só pelo FAQ da Landing)
 ├── pages/           # Páginas/rotas principais (nomenclatura em inglês)
+│   ├── Landing/Landing.tsx       + components/ (PricingSection, FaqSection)  # "/" pública — sem ProtectedRoute; PricingSection lê a RPC pública get_public_plans() (mesma fonte de /planos, sem dados bancários/Pix)
 │   ├── Login/Login.tsx           + components/ (SignupForm, ForgotPasswordModal)
 │   ├── ResetPassword.tsx
 │   ├── Dashboard/Dashboard.tsx   + components/ (MetricCard, ExploratoryChart)
@@ -39,7 +41,7 @@ src/
 │   ├── StatementImport/StatementImport.tsx + components/ (UploadDropzone, SummaryCards, TransactionsPreviewTable, ImportHistoryTable, AiChatPanel, CategoryRulesModal)
 │   ├── AuditLogs.tsx                      # Trilha de Auditoria — sem componentes exclusivos
 │   ├── Users/Users.tsx           + components/ (MemberEditModal)         # gestão de usuários (por igreja, ou global p/ master)
-│   ├── Governance/Governance.tsx + components/ (ChurchCreateModal, PaymentRequestsPanel)  # CRUD de igrejas + aba de assinaturas (só `master`)
+│   ├── Governance/Governance.tsx + components/ (ChurchCreateModal, PaymentRequestsPanel, PlanManagementPanel, EditPlanModal, LandingImagesPanel, SocialLinksPanel)  # CRUD de igrejas + abas de assinaturas/planos/conteúdo da landing (imagens + redes sociais) (só `master`)
 │   ├── PricingPlans/PricingPlans.tsx      # página /planos (usa o componente global PricingPlans)
 │   └── ChurchDetails/ChurchDetails.tsx + components/ (AddChildChurchModal)  # própria igreja ou, p/ master, qualquer uma
 ├── context/
@@ -49,7 +51,7 @@ src/
 │   └── usePlanLimits.ts    # plano/uso mensal da igreja ativa — canUseAI/canDownloadPDF/canAddChurch
 ├── types/           # Interfaces TypeScript (Transaction, ChurchUser, Church, Plan, PaymentRequest, AuditLog, etc.)
 ├── services/        # supabase.ts (client + helper de erro de Edge Function), posthog.ts (analytics)
-└── utils/           # format.ts, metrics.ts, cep.ts (ViaCEP), chartBuilders.ts
+└── utils/           # format.ts, metrics.ts, cep.ts (ViaCEP), chartBuilders.ts, plans.ts (mapPlanRow/mapPublicPlanRow), homePath.ts (getHomePath — destino pós-login/landing conforme o papel, reaproveitado por ProtectedRoute/App/Landing), pendingPlan.ts (storePendingPlan — plano escolhido na landing antes do cadastro; capturado, ainda sem consumidor), landingImages.ts (mapLandingImageRow + metadados das 6 seções editáveis), imageUpload.ts (uploadImageToBucket — validação de tipo/tamanho + upload a um bucket público de Storage, usado pelo LandingImagesPanel), socialLinks.ts (mapSocialLinkRow + metadados/ícones das 4 redes pré-cadastradas + isValidSocialUrl, usado pelo SocialLinksPanel E pelo footer da Landing)
 
 supabase/
 ├── migrations/      # Schema versionado (ver database.md)

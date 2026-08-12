@@ -4,6 +4,7 @@ import { AppProvider, useApp } from "./context/AppContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
+import Landing from "./pages/Landing/Landing";
 import Login from "./pages/Login/Login";
 import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard/Dashboard";
@@ -14,6 +15,7 @@ import Users from "./pages/Users/Users";
 import Governance from "./pages/Governance/Governance";
 import PricingPlansPage from "./pages/PricingPlans/PricingPlans";
 import ChurchDetails from "./pages/ChurchDetails/ChurchDetails";
+import { getHomePath } from "./utils/homePath";
 import type { UserRole } from "./types";
 
 // O Master tem acesso irrestrito — além da Governança (exclusiva dele), também
@@ -39,10 +41,9 @@ function ThemeRoot({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// A home do Master é a Governança (tela exclusiva dele); os demais caem no Dashboard.
 function HomeRedirect() {
   const { profile } = useAuth();
-  return <Navigate to={profile?.role === "master" ? "/governanca" : "/dashboard"} replace />;
+  return <Navigate to={getHomePath(profile?.role)} replace />;
 }
 
 export default function App() {
@@ -52,11 +53,11 @@ export default function App() {
         <ThemeRoot>
           <BrowserRouter>
             <Routes>
+              <Route path="/" element={<Landing />} />
               <Route path="/login" element={<Login />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route element={<ProtectedRoute />}>
-                <Route path="/" element={<Layout />}>
-                  <Route index element={<HomeRedirect />} />
+                <Route element={<Layout />}>
                   <Route element={<ProtectedRoute allowedRoles={["master"]} />}>
                     <Route path="governanca" element={<Governance />} />
                   </Route>

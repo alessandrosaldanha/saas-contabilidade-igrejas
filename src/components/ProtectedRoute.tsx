@@ -1,6 +1,7 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import TermsAcceptanceModal from "./TermsAcceptanceModal";
+import { getHomePath } from "../utils/homePath";
 import type { UserRole } from "../types";
 
 interface ProtectedRouteProps {
@@ -41,7 +42,7 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
     // O Master não tem acesso a /dashboard (não pertence a nenhuma igreja) —
     // sem este caso especial, um Master barrado aqui cairia num loop de
     // redirecionamento (mandado de volta pra uma rota que ele também não pode acessar).
-    return <Navigate to={profile.role === "master" ? "/governanca" : "/dashboard"} replace />;
+    return <Navigate to={getHomePath(profile.role)} replace />;
   }
 
   return <Outlet />;

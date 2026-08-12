@@ -112,6 +112,11 @@ export interface Plan {
   pixQrCodeUrl: string | null;
 }
 
+// Subconjunto de Plan sem os dados bancários/Pix — o que a RPC pública
+// `get_public_plans()` devolve pra landing (fora de autenticação, sem
+// checkout). Ver src/utils/plans.ts (mapPublicPlanRow) e src/pages/Landing.
+export type PublicPlan = Omit<Plan, "bankName" | "accountHolder" | "accountDocument" | "pixKey" | "pixQrCodeUrl">;
+
 export interface UsageCounter {
   churchId: string;
   monthYear: string;
@@ -189,4 +194,32 @@ export interface CategoryRule {
   type: TransactionType;
   category: string;
   createdAt: string;
+}
+
+// Chave fixa de cada seção da landing que pode ganhar uma imagem de produto,
+// editável pelo master no Painel de Governança (aba "Landing Page") — ver
+// migration 0029 (seed de `landing_images`) e `src/utils/landingImages.ts`.
+export type LandingImageKey =
+  | "hero"
+  | "feature_livro_caixa"
+  | "feature_ia"
+  | "feature_multi_igreja"
+  | "feature_auditoria"
+  | "sobre_nos";
+
+export interface LandingImage {
+  key: LandingImageKey;
+  imageUrl: string | null;
+}
+
+// Rede social fixa exibida no footer da landing quando ativa, editável pelo
+// master no Painel de Governança (aba "Landing Page") — ver migration 0030
+// (seed de `social_links`) e `src/utils/socialLinks.ts`.
+export type SocialPlatform = "instagram" | "facebook" | "youtube" | "whatsapp";
+
+export interface SocialLink {
+  platform: SocialPlatform;
+  url: string | null;
+  displayOrder: number;
+  isActive: boolean;
 }
