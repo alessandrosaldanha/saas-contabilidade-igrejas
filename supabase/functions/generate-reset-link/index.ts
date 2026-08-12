@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
     // podia resetar a senha de outro Admin da própria igreja sem barreira.
     const { data: targetProfile } = await callerClient
       .from("profiles")
-      .select("role, church_id")
+      .select("id, role, church_id")
       .eq("email", email)
       .single();
 
@@ -94,9 +94,25 @@ Deno.serve(async (req) => {
     }
 
     const adminClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+    // `email` vem de public.profiles (o que o Admin vê na tabela), mas o
+    // GoTrue procura o usuário pelo e-mail de LOGIN em auth.users — esses dois
+    // podem divergir, porque admin_update_user_profile/master_update_profile
+    // só escrevem profiles.email (ver docs/permissions-rbac.md). Buscar o
+    // e-mail real pelo id evita o 404 "User with this email not found" que
+    // isso causava sempre que os dois estavam fora de sincronia.
+    const { data: authUserData, error: authUserError } = await adminClient.auth.admin.getUserById(targetProfile.id);
+    const authEmail = authUserData?.user?.email;
+    if (authUserError || !authEmail) {
+      return new Response("Usuário não encontrado no Auth (e-mail de login pode estar desatualizado)", {
+        status: 404,
+        headers: CORS_HEADERS,
+      });
+    }
+
     const { data, error } = await adminClient.auth.admin.generateLink({
       type: "recovery",
-      email,
+      email: authEmail,
       options: { redirectTo },
     });
 
@@ -110,7 +126,10 @@ Deno.serve(async (req) => {
       action_key: "edicao_manual",
       action_label: "Edição Manual",
       before: "—",
-      after: `Link de redefinição de senha gerado para ${email}`,
+      after:
+        authEmail === email
+          ? `Link de redefinição de senha gerado para ${email}`
+          : `Link de redefinição de senha gerado para ${email} (e-mail de login no Auth: ${authEmail})`,
       church_id: targetProfile?.church_id ?? null,
     });
 

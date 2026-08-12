@@ -141,7 +141,8 @@ export type AuditActionKey =
   | "aprovacao_caixa"
   | "estorno"
   | "acesso"
-  | "aceite_termos";
+  | "aceite_termos"
+  | "definicao_senha_direta";
 
 export interface AuditLog {
   id: string;
