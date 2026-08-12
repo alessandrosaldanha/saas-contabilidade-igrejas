@@ -30,11 +30,16 @@ export default function HeroCarousel({ images }: HeroCarouselProps) {
 
   if (images.length === 1) {
     return (
-      <div className={wrapperClassName}>
+      // lg:h-full: a partir de lg, a altura vem do `self-stretch` do
+      // wrapper em Landing.tsx (garante o topo alinhado com o H1 e o
+      // vazamento sobre "Como Funciona"), não da proporção natural da
+      // imagem — abaixo de lg, h-auto mantém o comportamento antigo
+      // (altura pela proporção real da imagem enviada).
+      <div className={`${wrapperClassName} lg:h-full`}>
         <img
           src={images[0]}
           alt="Prévia da plataforma Contabilidade Igreja"
-          className="w-full h-auto object-cover"
+          className="w-full h-auto object-contain lg:h-full"
         />
       </div>
     );
@@ -42,18 +47,25 @@ export default function HeroCarousel({ images }: HeroCarouselProps) {
 
   return (
     <div
-      className={`${wrapperClassName} relative`}
+      className={`${wrapperClassName} relative lg:h-full`}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      <div className="relative aspect-[4/3] sm:aspect-[16/10]">
+      {/* aspect-[16/10] no tablet (altura pela proporção); a partir de lg,
+          `aspect-auto` desliga a proporção fixa e `h-full` usa a altura
+          esticada (self-stretch) do wrapper em Landing.tsx — é o que
+          garante o topo alinhado com o H1 e o vazamento sobre "Como
+          Funciona". object-contain (fixado no componente) deixa uma
+          margem interna se a imagem enviada não preencher essa altura —
+          preferível a cortar conteúdo. */}
+      <div className="relative aspect-[4/3] sm:aspect-[16/10] lg:aspect-auto lg:h-full">
         {images.map((src, i) => (
           <img
             key={src}
             src={src}
             alt={i === 0 ? "Prévia da plataforma Contabilidade Igreja" : ""}
             aria-hidden={i !== index}
-            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${
+            className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-700 ${
               i === index ? "opacity-100" : "opacity-0"
             }`}
           />

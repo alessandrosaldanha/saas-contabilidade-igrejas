@@ -17,6 +17,22 @@ Cada igreja é um tenant isolado (dados separados por `church_id`); um papel `ma
 - **Analytics:** PostHog (`posthog-js`) — telemetria de produto, opcional via `VITE_POSTHOG_KEY` (sem a key, o app roda normalmente com analytics desativado).
 - **Deploy:** Vercel (frontend) + Supabase (banco/Edge Functions), com domínio próprio `contabilidadereformada.com.br`.
 
+## Escala de z-index
+
+Convenção observada no código existente (modais, Sidebar, Toast) e formalizada após um bug real (header da landing coberto por uma seção que empatava em z-index com ele — ver `changelog.md`, 2026-08-12): **nunca dois elementos que podem se sobrepor visualmente devem ficar no mesmo z-index** — em empate, quem vem depois no DOM pinta por cima, mesmo que semanticamente devesse ficar embaixo (ex.: um header sticky).
+
+| Faixa | Uso | Exemplos |
+|---|---|---|
+| `auto`/sem z-index | Conteúdo normal em fluxo | Maioria dos elementos |
+| `z-10` | Conteúdo decorativo que só precisa ficar acima do próprio fundo/seção adjacente (não compete com nav) | Cabeçalho sticky de tabela (`CashBook`, `TransactionsPreviewTable`), blocos decorativos em `Login`/`ResetPassword`, moldura do carrossel do Hero que "vaza" sobre "Como Funciona" (`Landing.tsx`) |
+| `z-20` | Conteúdo que precisa ficar acima de uma camada `z-10` adjacente, ou dropdowns simples | `MonthYearPicker`, conteúdo de "Como Funciona" (acima da moldura do Hero que vaza) |
+| `z-40` | Overlay/backdrop de navegação mobile | Backdrop do `Sidebar` no mobile |
+| `z-50` | **Chrome de navegação persistente — nunca deve ser coberto por conteúdo de página** | `Sidebar` (área logada), header sticky da landing pública |
+| `z-[60]` | Popover ancorado no chrome de navegação | Dropdown de perfil do `Sidebar` |
+| `z-[95]`–`z-[120]` | Modais (`fixed inset-0`) — várias faixas para empilhar modal sobre modal quando um abre a partir do outro | `ConfirmModal`/`ProfileSettingsModal`/etc. (`100`), modais aninhados (`110`/`120`) |
+| `z-[200]` | Modal bloqueante de prioridade máxima | `TermsAcceptanceModal` |
+| `z-[9999]` | Sempre visível, acima de tudo | `Toast` |
+
 ## Estrutura de Pastas
 
 Organização **feature-driven**: cada página com componentes/modais de uso exclusivo tem sua própria subpasta em `pages/<Página>/` com um `components/` local; o que é usado por 2+ páginas fica em `components/` (global). Nomenclatura de arquivos em inglês.
