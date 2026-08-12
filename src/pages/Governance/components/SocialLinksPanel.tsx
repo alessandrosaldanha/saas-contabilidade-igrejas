@@ -94,7 +94,7 @@ export default function SocialLinksPanel() {
   };
 
   return (
-    <Card className="flex flex-col gap-4 mt-4">
+    <Card className="flex flex-col gap-4">
       <div>
         <h4 className="font-display font-semibold text-sm m-0">Redes Sociais</h4>
         <p className="text-sm text-neutral-700 dark:text-neutral-400 mt-1">

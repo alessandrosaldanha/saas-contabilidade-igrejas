@@ -1,14 +1,11 @@
 import type { LandingImage, LandingImageKey } from "../types";
 
-// Metadados das 6 seções editáveis (ordem = ordem de exibição no Painel de
-// Governança); a chave é o que casa com o seed da migration 0029 e com o
-// que a Landing usa para buscar cada imagem.
+// Metadados das seções editáveis 1:1 (ordem = ordem de exibição no Painel
+// de Governança); a chave é o que casa com o seed da migration 0029 e com
+// o que a Landing usa para buscar cada imagem. O Hero saiu daqui na
+// migration 0031 — agora é um carrossel (1:N) gerenciado por
+// `landingHeroImages.ts` / `HeroImagesPanel.tsx`.
 export const LANDING_IMAGE_SECTIONS: { key: LandingImageKey; label: string }[] = [
-  { key: "hero", label: "Topo da página (Hero)" },
-  { key: "feature_livro_caixa", label: "Como Funciona — Livro Caixa automático" },
-  { key: "feature_ia", label: "Como Funciona — Importação de extrato com IA" },
-  { key: "feature_multi_igreja", label: "Como Funciona — Multi-igreja (matriz/filial)" },
-  { key: "feature_auditoria", label: "Como Funciona — Trilha de auditoria" },
   { key: "sobre_nos", label: "Sobre Nós" },
 ];
 
