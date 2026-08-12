@@ -231,8 +231,15 @@ export default function Usuarios() {
 
   const [editTarget, setEditTarget] = useState<{ user: ChurchUser; name: string; email: string } | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [isSettingPassword, setIsSettingPassword] = useState(false);
 
-  const openEditModal = (user: ChurchUser) => setEditTarget({ user, name: user.name, email: user.email });
+  const openEditModal = (user: ChurchUser) => {
+    setEditTarget({ user, name: user.name, email: user.email });
+    setNewPassword("");
+    setConfirmNewPassword("");
+  };
 
   const saveEdit = async () => {
     if (!editTarget) return;
@@ -242,26 +249,56 @@ export default function Usuarios() {
       return;
     }
     setIsSavingEdit(true);
-    const { error } = isMaster
-      ? await supabase.rpc("master_update_profile", {
-          target_id: user.id,
-          new_name: name,
-          new_email: email,
-          new_cpf: user.cpf ?? null,
-        })
-      : await supabase.rpc("admin_update_user_profile", {
-          target_id: user.id,
-          new_name: name,
-          new_email: email,
-        });
+    // Passa por uma Edge Function (em vez de chamar a RPC direto) porque a
+    // troca de e-mail agora sincroniza os dois lados — public.profiles E
+    // auth.users — e só service-role pode escrever no segundo.
+    const { error } = await supabase.functions.invoke("admin-update-user-profile", {
+      body: {
+        target_id: user.id,
+        new_name: name,
+        new_email: email,
+        new_cpf: isMaster ? (user.cpf ?? null) : undefined,
+      },
+    });
     setIsSavingEdit(false);
     if (error) {
-      showToastMsg(`Falha ao editar usuário: ${error.message}`);
+      showToastMsg(`Falha ao editar usuário: ${await getFunctionErrorMessage(error)}`);
       return;
     }
     setEditTarget(null);
     await refreshUsers();
     showToastMsg(`Dados de ${name} atualizados`);
+  };
+
+  // Atalho de emergência restrito ao master: define a senha do usuário direto,
+  // sem depender de link/e-mail de recuperação. Convive com "Resetar Senha /
+  // Gerar Link" na tabela — aquele continua sendo o fluxo normal.
+  const setDirectPassword = async () => {
+    if (!editTarget) return;
+    if (!newPassword || !confirmNewPassword) {
+      showToastMsg("Preencha a nova senha e a confirmação.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      showToastMsg("A senha deve ter pelo menos 8 caracteres.");
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      showToastMsg("As senhas não coincidem.");
+      return;
+    }
+    setIsSettingPassword(true);
+    const { error } = await supabase.functions.invoke("admin-set-user-password", {
+      body: { target_id: editTarget.user.id, new_password: newPassword },
+    });
+    setIsSettingPassword(false);
+    if (error) {
+      showToastMsg(`Falha ao definir senha: ${await getFunctionErrorMessage(error)}`);
+      return;
+    }
+    setNewPassword("");
+    setConfirmNewPassword("");
+    showToastMsg(`Senha de ${editTarget.user.name} redefinida com sucesso`);
   };
 
   const [deleteTarget, setDeleteTarget] = useState<{ user: ChurchUser; mode: "delete" | "cancelInvite" } | null>(
@@ -735,8 +772,8 @@ export default function Usuarios() {
                 />
               </label>
               <p className="text-xs text-neutral-700 dark:text-neutral-400 -mt-2">
-                Isso só altera o e-mail de cadastro exibido no sistema — o e-mail de login no Supabase Auth não é
-                afetado por aqui.
+                Trocar o e-mail aqui também atualiza o e-mail de login no Supabase Auth — os dois ficam sempre em
+                sincronia.
               </p>
             </div>
             <div className="flex justify-end gap-2.5 mt-6.5">
@@ -755,6 +792,47 @@ export default function Usuarios() {
                 {isSavingEdit ? "Salvando…" : "Salvar"}
               </button>
             </div>
+
+            {isMaster && (
+              <div className="mt-6.5 pt-5 border-t border-neutral-300 dark:border-white/10">
+                <h4 className="font-display font-semibold text-sm m-0 mb-1">Definir nova senha (opcional)</h4>
+                <p className="text-xs text-neutral-700 dark:text-neutral-400 mb-3.5">
+                  Atalho de emergência restrito ao Master: define a senha direto, sem link nem e-mail — use quando o
+                  usuário não tem acesso ao e-mail cadastrado. Fica registrado na Trilha de Auditoria.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 mb-3.5">
+                  <label className="block flex-1">
+                    <span className="block text-sm font-medium mb-1.5">Nova Senha</span>
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Mínimo 8 caracteres"
+                      className="w-full box-border border border-neutral-300 dark:border-white/20 bg-white dark:bg-neutral-900 rounded-md px-3.5 py-2.5 text-sm outline-none"
+                    />
+                  </label>
+                  <label className="block flex-1">
+                    <span className="block text-sm font-medium mb-1.5">Confirmar Nova Senha</span>
+                    <input
+                      type="password"
+                      value={confirmNewPassword}
+                      onChange={(e) => setConfirmNewPassword(e.target.value)}
+                      placeholder="Repita a senha"
+                      className="w-full box-border border border-neutral-300 dark:border-white/20 bg-white dark:bg-neutral-900 rounded-md px-3.5 py-2.5 text-sm outline-none"
+                    />
+                  </label>
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    onClick={setDirectPassword}
+                    disabled={isSettingPassword}
+                    className="px-4 py-2 rounded-md border border-status-error/40 text-status-error text-sm font-medium hover:bg-status-error/10 disabled:opacity-70"
+                  >
+                    {isSettingPassword ? "Definindo…" : "Definir Senha"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
