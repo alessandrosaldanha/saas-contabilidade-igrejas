@@ -1499,3 +1499,9 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
 - **`max-w-sm` + `h-52` em vez de só capar a largura:** capar só a largura (deixando `aspect-video`) resolveria hoje, mas a altura continuaria acoplada à largura do card — uma mudança futura de layout (ex.: painel mais estreito, ou nova seção 1:1 reduzindo a largura de cada coluna) voltaria a alterar a altura do preview sem motivo. Altura fixa (`h-52`) é a garantia direta do que foi pedido ("altura máxima fixa, ex: 200-250px"), independente de outras mudanças de layout.
 - **Não precisou de login como master pra validar:** a rota `/governanca` é restrita a `allowedRoles={["master"]}`; em vez de autenticar, o card foi reproduzido isoladamente com o CSS real do dev server (`npm run dev`, mesma técnica JIT do Tailwind que compila a aplicação de verdade) — validação de layout puro, sem depender de sessão.
 - **Validado com `npx tsc --noEmit` e `npm run build`**, sem erros novos.
+
+### [2026-08-12] Merge para main e release v1.12.1
+
+**O que foi feito:** commit `1f4079d` em `hmg` (correção do bug de z-index do header, aumento/realinhamento do carrossel do Hero e correção do preview gigante no Painel de Governança — três entradas detalhadas acima) enviado para `hmg`, merge `--no-ff` para `main` (`2bd53eb`), `npx tsc --noEmit`/`npm run build` revalidados direto em `main` pós-merge (sem conflitos, sem drift no working tree), tag `v1.12.1` e Release criada no GitHub.
+
+**Decisão técnica:** `PATCH` (v1.12.0 → v1.12.1), não `MINOR` — as três mudanças são correções de bugs/ajustes visuais sobre o que o v1.12.0 introduziu (carrossel do Hero, header/footer), sem nenhuma capacidade nova pro usuário final.
