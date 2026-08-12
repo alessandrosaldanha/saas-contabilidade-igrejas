@@ -127,7 +127,13 @@ export default function Landing() {
 
   return (
     <div id="top" className="min-h-screen bg-white dark:bg-black text-black dark:text-white">
-      <header className="sticky top-0 z-30 border-b border-neutral-300 dark:border-white/10 bg-white/90 dark:bg-black/90 backdrop-blur-sm">
+      {/* z-50: header sticky, precisa ficar acima de QUALQUER conteúdo da
+          página — mesmo nível do Sidebar (área logada, z-50). Ver escala de
+          z-index documentada em docs/architecture.md; o bug corrigido aqui
+          foi o vazamento do Hero (abaixo) e o conteúdo de "Como Funciona"
+          empatando em z-30 com este header — em z-index empatado, quem vem
+          depois no DOM (a seção) pintava por cima do header ao rolar. */}
+      <header className="sticky top-0 z-50 border-b border-neutral-300 dark:border-white/10 bg-white/90 dark:bg-black/90 backdrop-blur-sm">
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-3 px-5 sm:px-8 h-16">
           <div className="flex items-center gap-2.5 shrink-0">
             <img src={logoAzul} alt="Contabilidade Igreja" className="w-6 h-6 shrink-0" />
@@ -210,8 +216,12 @@ export default function Landing() {
       </header>
 
       {/* Hero — fundo azul-gelo (tom bem claro/dessaturado de orla-blue), só
-          nesta seção; as demais seguem a alternância neutra padrão. */}
-      <section className="relative overflow-hidden bg-[#eef3fc] dark:bg-[#0b1220]">
+          nesta seção; as demais seguem a alternância neutra padrão. Sem
+          overflow-hidden aqui de propósito: a imagem do carrossel "vaza"
+          por baixo do fim visual do Hero (ver `lg:-mb-*` no wrapper dela,
+          abaixo) — a ilustração de fundo continua contida pelo próprio
+          `inset-0`, então remover o overflow não afeta ela. */}
+      <section className="relative bg-[#eef3fc] dark:bg-[#0b1220]">
         <div className="absolute inset-0">
           <img
             src={chapelIllustration}
@@ -222,7 +232,9 @@ export default function Landing() {
         </div>
         <div
           className={`relative max-w-6xl mx-auto px-5 sm:px-8 py-16 sm:py-24 ${
-            heroImages.length > 0 ? "grid gap-10 lg:grid-cols-2 lg:items-center text-center lg:text-left" : "text-center"
+            heroImages.length > 0
+              ? "grid gap-10 lg:grid-cols-[1fr_1.15fr] lg:items-center text-center lg:text-left"
+              : "text-center"
           }`}
         >
           <div>
@@ -262,16 +274,39 @@ export default function Landing() {
           </div>
 
           {heroImages.length > 0 && (
-            <div className="lg:ml-auto w-full max-w-md lg:max-w-none">
+            // z-10 (escala de z-index em docs/architecture.md) + margin
+            // negativo só a partir de lg (onde o layout vira lado-a-lado):
+            // a imagem "vaza" por cima do topo da seção "Como Funciona" —
+            // abaixo de lg o Hero empilha texto/imagem, e o vazamento
+            // ficaria estranho encostado no próprio texto.
+            // `lg:self-stretch` (não `self-start`/`self-end`): precisa
+            // esticar pra que a margem negativa realmente conte. Com
+            // `self-start`, o topo fica preso ao topo da linha (= topo do
+            // H1, correto), mas o fim da moldura vira só `topo + altura
+            // própria` — a margem negativa não empurra nada porque não há
+            // mais "linha" abaixo pra ela consumir (o texto já define a
+            // altura da linha, a imagem some dentro sem tocar a borda).
+            // Com `self-stretch`, a altura da moldura passa a ser
+            // `altura-da-linha − margin-bottom` — como a margem é negativa,
+            // isso AUMENTA a altura pra além da linha, esticando a moldura
+            // pra baixo a partir do mesmo topo (H1) e garantindo o
+            // vazamento. `lg:h-full` dentro do HeroCarousel propaga essa
+            // altura esticada pra moldura/imagem interna.
+            <div className="relative z-10 lg:self-stretch lg:-mb-32 lg:ml-auto w-full max-w-lg lg:max-w-none">
               <HeroCarousel images={heroImages} />
             </div>
           )}
         </div>
       </section>
 
-      {/* Como funciona */}
+      {/* Como funciona — z-20 no conteúdo garante que ele sempre pinta por
+          cima da imagem do Hero que vaza por baixo (z-10, ver acima); o
+          fundo da própria section (sem z-index) fica abaixo dos dois, e o
+          header (z-50, sticky) fica acima de tudo — escala documentada em
+          docs/architecture.md. pt extra em lg dá um respiro pra não ficar
+          colado na parte invasora do carrossel. */}
       <section id="como-funciona" className="scroll-mt-16 bg-white dark:bg-black">
-        <div className="max-w-6xl mx-auto px-5 sm:px-8 py-16 sm:py-20">
+        <div className="relative z-20 max-w-6xl mx-auto px-5 sm:px-8 pt-16 sm:pt-20 lg:pt-28 pb-16 sm:pb-20">
           <div className="text-center mb-10">
             <h2 className="font-display font-semibold text-2xl sm:text-3xl tracking-tight">Como funciona</h2>
             <p className="text-sm sm:text-base text-neutral-700 dark:text-neutral-400 mt-2">

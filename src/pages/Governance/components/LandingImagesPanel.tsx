@@ -73,15 +73,20 @@ export default function LandingImagesPanel() {
         normalmente, só com o texto — nenhuma quebra visual. Alterações refletem imediatamente na página pública.
       </p>
 
+      {/* max-w-sm no card: sem isso, com só 1 seção (`sobre_nos`) sobrando
+          aqui, o `auto-fit`/`1fr` da grade abaixo (pensada pra até 6 cards)
+          estica o único card pra ocupar 100% da largura do painel — e o
+          preview (h-52 fixo, não mais atado a essa largura via aspect-video)
+          virava gigante, exigindo scroll. */}
       <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
         {LANDING_IMAGE_SECTIONS.map(({ key, label }) => {
           const imageUrl = images[key];
           const isUploading = uploadingKey === key;
           return (
-            <Card key={key} className="flex flex-col gap-3.5">
+            <Card key={key} className="flex flex-col gap-3.5 max-w-sm">
               <h4 className="font-display font-semibold text-sm m-0">{label}</h4>
 
-              <div className="w-full aspect-video rounded-md border border-neutral-300 dark:border-white/20 flex items-center justify-center overflow-hidden bg-neutral-100 dark:bg-neutral-950 shrink-0">
+              <div className="w-full h-52 rounded-md border border-neutral-300 dark:border-white/20 flex items-center justify-center overflow-hidden bg-neutral-100 dark:bg-neutral-950 shrink-0">
                 {loading ? (
                   <Loader2 size={18} className="animate-spin text-neutral-400" />
                 ) : imageUrl ? (
