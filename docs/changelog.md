@@ -1551,4 +1551,22 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
 
 **O que foi feito:** commit `6bfcb8d` em `hmg` (fallback OpenAI `gpt-4o` no `parse-statement` quando o Gemini esgota tentativas + secret `OPENAI_API_KEY` + menções no README — entrada detalhada acima) enviado para `hmg`, merge `--no-ff` para `main` (`56715b1`), `npx tsc --noEmit`/`npm run build` revalidados direto em `main` pós-merge (sem conflitos, sem drift no working tree), tag `v1.13.0` e Release criada no GitHub.
 
+### [2026-08-28] Groq como provedor primário no `parse-statement` (Gemini e OpenAI viram fallback em cascata)
+
+**O que foi pedido:** usuário queria a Groq Cloud como primeira opção de leitura do extrato na Importação, com o Gemini entrando como apoio caso ela falhe.
+
+> [!NOTE]
+> Chave da Groq configurada pelo próprio usuário via `supabase secrets set GROQ_API_KEY=...`, rodado no terminal dele — não foi colada no chat, então não passou pela sessão em texto puro (diferente do episódio da chave OpenAI, ver entrada de 2026-08-27 acima).
+
+**O que foi feito (`supabase/functions/parse-statement/index.ts`):**
+- Nova função `callGroqOnce` — chama `POST https://api.groq.com/openai/v1/chat/completions` (API compatível com o formato de chat da OpenAI) com o modelo `meta-llama/llama-4-scout-17b-16e-instruct` (rápido/barato, com suporte a visão) e `response_format: {type: "json_schema", json_schema: {...}}`, reaproveitando os schemas `*_SCHEMA_OPENAI` (já tinham `additionalProperties: false`).
+- `buildGroqMessages`: imagem vira `image_url` (data URI base64); CSV/OFX (`text/plain`) é decodificado e embutido como texto no prompt — mesmo padrão do `buildOpenAIInput`.
+- `assertGroqSupportsFile`: a Groq não lê PDF nativamente (sem equivalente ao `input_file` da Responses API da OpenAI) — detecta `mimeType === "application/pdf"` e lança `ProviderError` **não-retryable** antes de qualquer chamada de rede, fazendo o extrato em PDF pular direto pro Gemini (que lê PDF nativamente) sem gastar as 3 tentativas/backoff à toa.
+- `callAI` virou uma cascata de 3 níveis: **Groq (primário) → Gemini (fallback 1) → OpenAI (fallback 2)** — cada um com seu retry próprio; erro final combina a mensagem dos três.
+
+**Decisões técnicas:**
+- **Ordem escolhida:** Groq primeiro por ser a infra mais rápida/barata (LPU); Gemini como fallback 1 por já estar validado em produção e ler PDF nativamente; OpenAI como fallback 2 (já existia, mantido como última rede de segurança).
+- **Nenhuma mudança de schema/prompt/taxonomia de categorias** — só a ordem/quantidade de provedores na cascata.
+- **Validado com:** `npx tsc --noEmit` e `npm run build` sem erros; deploy via `supabase functions deploy parse-statement` confirmado; `supabase secrets list` confirmou `GROQ_API_KEY` presente (valor mascarado, nunca exposto).
+
 **Decisão técnica:** `MINOR` (v1.12.2 → v1.13.0), não `PATCH` — diferente das duas entradas anteriores (retries), esta adiciona uma capacidade nova (redundância entre dois provedores de IA), não é só correção/resiliência sobre o que já existia.
