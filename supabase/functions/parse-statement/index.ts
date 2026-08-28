@@ -110,6 +110,17 @@ function applyStrictMode(items: TransactionItem[], rules: CategoryRule[]): Trans
   });
 }
 
+// Erros transitórios do Gemini (modelo sobrecarregado ou rate limit) valem
+// retry com backoff — um 4xx de validação (schema/prompt) nunca vale, pois
+// tentar de novo só repetiria o mesmo erro.
+const RETRYABLE_STATUS = new Set([429, 503]);
+const MAX_ATTEMPTS = 3;
+const BASE_DELAY_MS = 1000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function callGemini(contents: unknown[], schema: unknown) {
   const apiKey = Deno.env.get("GEMINI_API_KEY");
   // Diagnóstico seguro: confirma que o secret foi carregado do ambiente, sem
@@ -117,45 +128,64 @@ async function callGemini(contents: unknown[], schema: unknown) {
   console.log(`[parse-statement] GEMINI_API_KEY carregada: ${apiKey ? "sim" : "NÃO"} | modelo: ${GEMINI_MODEL}`);
   if (!apiKey) throw new Error("GEMINI_API_KEY não configurada");
 
-  let res: Response;
-  try {
-    res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents,
-          generationConfig: { responseMimeType: "application/json", responseSchema: schema },
-        }),
-      },
-    );
-  } catch (err) {
-    console.error("[parse-statement] falha de rede ao chamar Gemini:", err);
-    throw new Error(`Falha de rede ao chamar o Gemini: ${err instanceof Error ? err.message : String(err)}`);
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    let res: Response;
+    try {
+      res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents,
+            generationConfig: { responseMimeType: "application/json", responseSchema: schema },
+          }),
+        },
+      );
+    } catch (err) {
+      console.error(`[parse-statement] falha de rede ao chamar Gemini (tentativa ${attempt}/${MAX_ATTEMPTS}):`, err);
+      if (attempt === MAX_ATTEMPTS) {
+        throw new Error(`Falha de rede ao chamar o Gemini: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      await sleep(BASE_DELAY_MS * attempt);
+      continue;
+    }
+
+    if (!res.ok) {
+      const bodyText = await res.text();
+      const retryable = RETRYABLE_STATUS.has(res.status);
+      console.error(
+        `[parse-statement] Gemini retornou ${res.status} (modelo ${GEMINI_MODEL}, tentativa ${attempt}/${MAX_ATTEMPTS}, retryable=${retryable}):`,
+        bodyText,
+      );
+      if (retryable && attempt < MAX_ATTEMPTS) {
+        // Backoff simples (1s, 2s, ...) — suficiente pra picos curtos de
+        // demanda/rate limit do Gemini sem segurar a function por muito tempo.
+        await sleep(BASE_DELAY_MS * attempt);
+        continue;
+      }
+      throw new Error(`Gemini API error (${res.status}) usando modelo "${GEMINI_MODEL}": ${bodyText}`);
+    }
+
+    const data = await res.json();
+    const candidate = data.candidates?.[0];
+    const text = candidate?.content?.parts?.[0]?.text;
+    if (!text) {
+      console.error("[parse-statement] Gemini não retornou texto. finishReason:", candidate?.finishReason, "payload:", JSON.stringify(data));
+      const reason = candidate?.finishReason ? ` (finishReason: ${candidate.finishReason})` : "";
+      throw new Error(`Resposta vazia do Gemini${reason}`);
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch (err) {
+      console.error("[parse-statement] Gemini retornou JSON inválido:", text);
+      throw new Error(`Gemini retornou um JSON inválido: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
-  if (!res.ok) {
-    const bodyText = await res.text();
-    console.error(`[parse-statement] Gemini retornou ${res.status} (modelo ${GEMINI_MODEL}):`, bodyText);
-    throw new Error(`Gemini API error (${res.status}) usando modelo "${GEMINI_MODEL}": ${bodyText}`);
-  }
-
-  const data = await res.json();
-  const candidate = data.candidates?.[0];
-  const text = candidate?.content?.parts?.[0]?.text;
-  if (!text) {
-    console.error("[parse-statement] Gemini não retornou texto. finishReason:", candidate?.finishReason, "payload:", JSON.stringify(data));
-    const reason = candidate?.finishReason ? ` (finishReason: ${candidate.finishReason})` : "";
-    throw new Error(`Resposta vazia do Gemini${reason}`);
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch (err) {
-    console.error("[parse-statement] Gemini retornou JSON inválido:", text);
-    throw new Error(`Gemini retornou um JSON inválido: ${err instanceof Error ? err.message : String(err)}`);
-  }
+  // Inalcançável: o loop sempre retorna ou lança antes de terminar as tentativas.
+  throw new Error("Falha ao chamar o Gemini após múltiplas tentativas");
 }
 
 Deno.serve(async (req) => {
