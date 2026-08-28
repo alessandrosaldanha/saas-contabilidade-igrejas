@@ -1,20 +1,25 @@
 // Edge Function: extrai e categoriza lançamentos de um extrato bancário via IA.
-// Roda aqui (nunca no frontend) porque precisa de GEMINI_API_KEY/OPENAI_API_KEY.
+// Roda aqui (nunca no frontend) porque precisa de GROQ_API_KEY/GEMINI_API_KEY/OPENAI_API_KEY.
 // Deploy: supabase functions deploy parse-statement
-// Secrets: supabase secrets set GEMINI_API_KEY=...
-//          supabase secrets set OPENAI_API_KEY=...  (fallback, ver seção "Provedores de IA")
+// Secrets: supabase secrets set GROQ_API_KEY=...    (primário, ver seção "Provedores de IA")
+//          supabase secrets set GEMINI_API_KEY=...  (fallback 1)
+//          supabase secrets set OPENAI_API_KEY=...  (fallback 2)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+
+// Groq é o provedor primário (infra LPU deles é bem mais rápida/barata que
+// Gemini/OpenAI). Modelo com suporte a visão (lê imagem de extrato, não só
+// texto) — não lê PDF nativamente, ver callGroqOnce.
+const GROQ_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
 
 // Alias "latest" em vez de uma versão fixa — evita quebrar quando o Google
 // aposenta modelos antigos para novas chaves de API (ex.: gemini-2.5-flash
 // parou de aceitar chaves novas pouco tempo depois do lançamento).
 const GEMINI_MODEL = "gemini-flash-latest";
 
-// Gemini é o provedor primário (mais barato, já testado em produção). O
-// modelo da OpenAI só entra em ação como fallback (ver callAI) — por isso
-// prioriza fidelidade de leitura sobre custo: "gpt-4o" em vez de um "mini",
-// já que é usado raramente (só quando o Gemini já esgotou as tentativas).
+// Fallback final (ver callAI) — por isso prioriza fidelidade de leitura
+// sobre custo: "gpt-4o" em vez de um "mini", já que é usado raramente (só
+// quando Groq e Gemini já esgotaram as tentativas).
 const OPENAI_MODEL = "gpt-4o";
 
 // Espelha src/constants/accountingCategories.ts — runtime Deno separado, sem
@@ -69,8 +74,9 @@ const REFINE_SCHEMA = {
 
 // A OpenAI (Structured Outputs, modo "strict") exige `additionalProperties:
 // false` em todo objeto do schema — o Gemini não usa (nem aceita) esse campo,
-// por isso os schemas não são compartilhados 1:1 entre os dois provedores,
-// mesmo descrevendo o mesmo formato de dado.
+// por isso os schemas não são compartilhados 1:1 com o dele, mesmo
+// descrevendo o mesmo formato de dado. Groq reaproveita esses mesmos
+// schemas "_OPENAI" (API de chat compatível com o formato da OpenAI).
 const TRANSACTION_ITEM_SCHEMA_OPENAI = { ...TRANSACTION_ITEM_SCHEMA, additionalProperties: false };
 const EXTRACT_SCHEMA_OPENAI = {
   type: "object",
@@ -139,10 +145,12 @@ function applyStrictMode(items: TransactionItem[], rules: CategoryRule[]): Trans
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Provedores de IA: Gemini é o primário; a OpenAI entra só como fallback
-// quando o Gemini esgota as tentativas (ex.: pico de demanda/rate limit do
-// Google). Cada provedor tem seu próprio retry com backoff — só depois de
-// esgotar os dois é que o erro sobe pro chamador (mensagem combinada).
+// Provedores de IA: Groq é o primário (mais rápido/barato); Gemini entra
+// como fallback 1 e OpenAI como fallback 2, só quando o(s) provedor(es)
+// anterior(es) esgotam as tentativas (ex.: pico de demanda/rate limit, ou
+// — no caso do Groq — arquivo em PDF, que o modelo não lê nativamente).
+// Cada provedor tem seu próprio retry com backoff — só depois de esgotar
+// os três é que o erro sobe pro chamador (mensagem combinada).
 // ─────────────────────────────────────────────────────────────────────────
 
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
@@ -183,6 +191,74 @@ async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
     }
   }
   throw lastErr;
+}
+
+// A Groq (API compatível com o formato de chat da OpenAI) não tem um modo
+// de leitura de PDF nativo (`input_file` da Responses API é coisa da
+// OpenAI) — só texto e imagem em modelos com visão. Falha rápido e sem
+// gastar chamada de rede quando o arquivo é PDF, deixando o Gemini
+// (que lê PDF nativamente) assumir como fallback.
+function assertGroqSupportsFile(file?: FilePart): void {
+  if (file && file.mimeType === "application/pdf") {
+    throw new ProviderError("Groq não lê PDF nativamente (sem input_file); usando o próximo provedor", false);
+  }
+}
+
+function buildGroqMessages(prompt: string, file?: FilePart): unknown[] {
+  const content: unknown[] = [];
+  if (file) {
+    if (file.mimeType.startsWith("image/")) {
+      content.push({ type: "image_url", image_url: { url: `data:${file.mimeType};base64,${file.data}` } });
+    } else {
+      // Texto puro (CSV/OFX, mimeType "text/plain") — decodifica e embute
+      // como texto no prompt, mesmo padrão usado pra OpenAI.
+      const decoded = decodeBase64Utf8(file.data);
+      content.push({ type: "text", text: `Conteúdo do arquivo "${file.filename ?? "arquivo"}":\n\n${decoded}` });
+    }
+  }
+  content.push({ type: "text", text: prompt });
+  return [{ role: "user", content }];
+}
+
+async function callGroqOnce(messages: unknown[], schema: unknown, schemaName: string): Promise<unknown> {
+  const apiKey = Deno.env.get("GROQ_API_KEY");
+  console.log(`[parse-statement] GROQ_API_KEY carregada: ${apiKey ? "sim" : "NÃO"} | modelo: ${GROQ_MODEL}`);
+  if (!apiKey) throw new ProviderError("GROQ_API_KEY não configurada", false);
+
+  let res: Response;
+  try {
+    res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages,
+        response_format: { type: "json_schema", json_schema: { name: schemaName, schema } },
+      }),
+    });
+  } catch (err) {
+    throw new ProviderError(`Falha de rede ao chamar a Groq: ${err instanceof Error ? err.message : String(err)}`, true);
+  }
+
+  if (!res.ok) {
+    const bodyText = await res.text();
+    console.error(`[parse-statement] Groq retornou ${res.status} (modelo ${GROQ_MODEL}):`, bodyText);
+    throw new ProviderError(`Groq API error (${res.status}) usando modelo "${GROQ_MODEL}": ${bodyText}`, RETRYABLE_STATUS.has(res.status));
+  }
+
+  const data = await res.json();
+  const text = data.choices?.[0]?.message?.content;
+  if (!text) {
+    console.error("[parse-statement] Groq não retornou texto. payload:", JSON.stringify(data));
+    throw new ProviderError("Resposta vazia da Groq", true);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    console.error("[parse-statement] Groq retornou JSON inválido:", text);
+    throw new ProviderError(`Groq retornou um JSON inválido: ${err instanceof Error ? err.message : String(err)}`, false);
+  }
 }
 
 async function callGeminiOnce(contents: unknown[], schema: unknown): Promise<unknown> {
@@ -319,31 +395,43 @@ function buildOpenAIInput(prompt: string, file?: FilePart): unknown[] {
 interface CallAIOptions {
   prompt: string;
   file?: FilePart;
+  groqSchema: unknown;
   geminiSchema: unknown;
   openaiSchema: unknown;
   schemaName: string;
 }
 
-// Orquestra os dois provedores: tenta o Gemini (com seu próprio retry) e,
-// só se ele esgotar as tentativas, cai pra OpenAI (com o retry dela). Se os
-// dois falharem, propaga uma mensagem combinada com o erro de cada um.
+// Orquestra os três provedores: tenta Groq (com seu retry próprio) primeiro;
+// se esgotar as tentativas (ou o arquivo for PDF, que a Groq não lê), cai
+// pra Gemini; se o Gemini também esgotar, cai pra OpenAI. Se os três
+// falharem, propaga uma mensagem combinada com o erro de cada um.
 async function callAI(opts: CallAIOptions): Promise<any> {
   try {
-    return await withRetry(() => callGeminiOnce(buildGeminiContents(opts.prompt, opts.file), opts.geminiSchema), "Gemini");
-  } catch (geminiErr) {
+    assertGroqSupportsFile(opts.file);
+    return await withRetry(() => callGroqOnce(buildGroqMessages(opts.prompt, opts.file), opts.groqSchema, opts.schemaName), "Groq");
+  } catch (groqErr) {
     console.error(
-      "[parse-statement] Gemini esgotou as tentativas — usando OpenAI como fallback:",
-      geminiErr instanceof Error ? geminiErr.message : geminiErr,
+      "[parse-statement] Groq esgotou as tentativas (ou não suporta o arquivo) — usando Gemini como fallback:",
+      groqErr instanceof Error ? groqErr.message : groqErr,
     );
     try {
-      return await withRetry(
-        () => callOpenAIOnce(buildOpenAIInput(opts.prompt, opts.file), opts.openaiSchema, opts.schemaName),
-        "OpenAI (fallback)",
+      return await withRetry(() => callGeminiOnce(buildGeminiContents(opts.prompt, opts.file), opts.geminiSchema), "Gemini (fallback)");
+    } catch (geminiErr) {
+      console.error(
+        "[parse-statement] Gemini esgotou as tentativas — usando OpenAI como fallback:",
+        geminiErr instanceof Error ? geminiErr.message : geminiErr,
       );
-    } catch (openaiErr) {
-      const geminiMsg = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
-      const openaiMsg = openaiErr instanceof Error ? openaiErr.message : String(openaiErr);
-      throw new Error(`Falha ao processar com IA — Gemini: ${geminiMsg} | OpenAI (fallback): ${openaiMsg}`);
+      try {
+        return await withRetry(
+          () => callOpenAIOnce(buildOpenAIInput(opts.prompt, opts.file), opts.openaiSchema, opts.schemaName),
+          "OpenAI (fallback)",
+        );
+      } catch (openaiErr) {
+        const groqMsg = groqErr instanceof Error ? groqErr.message : String(groqErr);
+        const geminiMsg = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
+        const openaiMsg = openaiErr instanceof Error ? openaiErr.message : String(openaiErr);
+        throw new Error(`Falha ao processar com IA — Groq: ${groqMsg} | Gemini (fallback): ${geminiMsg} | OpenAI (fallback): ${openaiMsg}`);
+      }
     }
   }
 }
@@ -422,6 +510,7 @@ Retorne todos os lançamentos encontrados, sem inventar nenhum que não esteja n
       const result = await callAI({
         prompt,
         file: { mimeType, data: contentBase64, filename },
+        groqSchema: EXTRACT_SCHEMA_OPENAI,
         geminiSchema: EXTRACT_SCHEMA,
         openaiSchema: EXTRACT_SCHEMA_OPENAI,
         schemaName: "extract_transactions",
@@ -449,6 +538,7 @@ Categorias válidas para "saida": ${SAIDA_CATEGORIES.join(", ")}.`;
 
       const result = await callAI({
         prompt,
+        groqSchema: REFINE_SCHEMA_OPENAI,
         geminiSchema: REFINE_SCHEMA,
         openaiSchema: REFINE_SCHEMA_OPENAI,
         schemaName: "refine_transactions",

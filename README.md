@@ -7,7 +7,7 @@
 [![Vite](https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3-38BDF8?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres_%7C_Auth_%7C_Edge_Functions-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com/)
-[![Google Gemini](https://img.shields.io/badge/IA-Google_Gemini-8E75B2?logo=googlegemini&logoColor=white)](https://ai.google.dev/)
+[![Groq](https://img.shields.io/badge/IA-Groq_%7C_Gemini_%7C_OpenAI-F55036?logo=groq&logoColor=white)](https://groq.com/)
 [![Deploy](https://img.shields.io/badge/deploy-vercel-black?logo=vercel&logoColor=white)](https://saas-contabilidade-igrejas.vercel.app)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
@@ -33,7 +33,7 @@
 
 O **Contabilidade Ministerial** é uma plataforma web para tesouraria de igrejas locais, construída em torno de três pilares: **simplicidade** de uso para tesoureiros não-técnicos, **auditabilidade total** de cada ação (nada é alterado ou excluído sem deixar rastro) e **automação via IA** para eliminar o trabalho manual de lançar extratos bancários linha a linha.
 
-O diferencial da plataforma é a **leitura e categorização automática de extratos bancários (PDF/OFX/CSV)** via [Google Gemini](https://ai.google.dev/), que identifica entradas (dízimos, ofertas) e saídas (manutenção, ação social, contas) e sugere a categoria contábil antes de qualquer lançamento ser confirmado — sempre com revisão humana no meio do caminho.
+O diferencial da plataforma é a **leitura e categorização automática de extratos bancários (PDF/OFX/CSV)** via IA — [Groq](https://groq.com/) como provedor primário, com fallback automático em cascata para [Google Gemini](https://ai.google.dev/) e [OpenAI](https://platform.openai.com/) —, que identifica entradas (dízimos, ofertas) e saídas (manutenção, ação social, contas) e sugere a categoria contábil antes de qualquer lançamento ser confirmado — sempre com revisão humana no meio do caminho.
 
 > [!NOTE]
 > Projeto em produção real, usado por uma igreja local. Todo o backend (banco de dados, autenticação, storage e as funções de IA) roda sobre o **free tier do Supabase**, sem custos de infraestrutura própria.
@@ -49,7 +49,7 @@ O diferencial da plataforma é a **leitura e categorização automática de extr
 | 💳 **Planos de Assinatura & Pagamento Pix** | 3 planos (Gratuito/Profissional/Premium) com limites de leituras de IA, exportações de PDF, subcongregações, formatos de importação e Modo Estrito de categorização. Checkout manual via Pix (QR Code + chave + comprovante por WhatsApp) com aprovação do Admin Master; o próprio Master edita nome, preço, benefícios, limites e dados bancários/Pix de cada plano em um painel dedicado na Governança. |
 | 📊 **Dashboard executivo** | KPIs de entradas/saídas com variação vs. período anterior, saldo em caixa, gráfico Entradas × Saídas e donut de saídas por categoria — tudo calculado a partir de lançamentos reais. |
 | 📑 **Livro Caixa** | Extrato completo por mês/ano, saldo de abertura/fechamento calculado em runtime, lançamento manual (criar/editar/excluir) e exportação em CSV/Excel real + prévia de relatório em PDF/Word. |
-| 🤖 **Importação inteligente com IA** | Upload de extrato (PDF, OFX, CSV ou imagem — formato liberado conforme o plano) processado pelo Gemini, que extrai e categoriza os lançamentos automaticamente; retry automático (backoff) em picos de indisponibilidade e fallback para a OpenAI (`gpt-4o`) caso o Gemini esgote as tentativas; chat em linguagem natural para refinar a categorização antes de salvar; Modo Estrito com regras de categorização salvas por igreja; detecção de duplicatas contra o Livro Caixa. |
+| 🤖 **Importação inteligente com IA** | Upload de extrato (PDF, OFX, CSV ou imagem — formato liberado conforme o plano) processado em cascata por 3 provedores de IA (Groq → Gemini → OpenAI), que extraem e categorizam os lançamentos automaticamente; retry automático (backoff) em picos de indisponibilidade, com fallback para o próximo provedor caso o anterior esgote as tentativas; chat em linguagem natural para refinar a categorização antes de salvar; Modo Estrito com regras de categorização salvas por igreja; detecção de duplicatas contra o Livro Caixa. |
 | 🔍 **Trilha de auditoria** | Log imutável (sem `DELETE`/`UPDATE` liberado) de todo acesso, criação, edição e exclusão de lançamentos — gerado automaticamente por *triggers* de banco, não por chamadas manuais do frontend. |
 | 👥 **Gestão de usuários** | Cadastro com senha definida pelo Admin, troca de papel/status com confirmação extra para promoções/rebaixamentos de Admin, geração de link de redefinição de senha, bloqueio em tempo real de contas desativadas (via Realtime). |
 | 📝 **Termos de Uso** | Aceite obrigatório e bloqueante no primeiro acesso de qualquer usuário, independente do papel, com registro do aceite no banco. |
@@ -73,8 +73,9 @@ flowchart LR
         E["Edge Functions\n(Deno)"]
     end
 
-    F["Google Gemini API\n(gemini-flash-latest)"]
-    G["OpenAI API\n(gpt-4o, fallback)"]
+    F["Groq API\n(llama-4-scout, primário)"]
+    G["Google Gemini API\n(gemini-flash-latest, fallback 1)"]
+    H["OpenAI API\n(gpt-4o, fallback 2)"]
 
     A -- "supabase-js" --> B
     A -- "supabase-js" --> C
@@ -82,7 +83,8 @@ flowchart LR
     A -- "QR Code Pix (plan-assets)" --> D
     E -- "service-role key" --> B
     E -- "extração + categorização (primário)" --> F
-    E -- "fallback se Gemini esgotar tentativas" --> G
+    E -- "fallback se Groq esgotar tentativas" --> G
+    E -- "fallback se Gemini esgotar tentativas" --> H
 ```
 
 | Camada | Tecnologia |
@@ -93,7 +95,7 @@ flowchart LR
 | **Backend / Banco** | [Supabase](https://supabase.com/) — PostgreSQL, Row Level Security, RPCs `SECURITY DEFINER`, Realtime |
 | **Autenticação** | Supabase Auth (e-mail/senha) |
 | **Funções server-side** | Supabase Edge Functions (Deno) — `parse-statement`, `invite-user`, `generate-reset-link` |
-| **Inteligência Artificial** | [Google Gemini API](https://ai.google.dev/) (alias `gemini-flash-latest`, primário) + [OpenAI API](https://platform.openai.com/) (`gpt-4o`, fallback automático) — leitura multimodal nativa (PDF/imagem/texto) e categorização contábil via saída estruturada (`responseSchema`/`json_schema`) |
+| **Inteligência Artificial** | Cascata de 3 provedores: [Groq API](https://groq.com/) (`meta-llama/llama-4-scout-17b-16e-instruct`, primário — texto/imagem, mais rápido/barato) → [Google Gemini API](https://ai.google.dev/) (alias `gemini-flash-latest`, fallback 1 — lê PDF nativamente) → [OpenAI API](https://platform.openai.com/) (`gpt-4o`, fallback 2) — categorização contábil via saída estruturada (`json_schema`/`responseSchema`) |
 | **Hospedagem** | [Vercel](https://vercel.com/) (deploy automático a cada push em `main`) |
 
 ---
@@ -122,7 +124,7 @@ flowchart LR
 │   │                      # (ver docs/database.md)
 │   └── functions/
 │       ├── _shared/       # Helper de CORS compartilhado entre as functions
-│       ├── parse-statement/       # Extração + categorização de extratos via Gemini (multimodal)
+│       ├── parse-statement/       # Extração + categorização de extratos (Groq → Gemini → OpenAI)
 │       ├── invite-user/           # Criação de usuário (Admin API)
 │       └── generate-reset-link/   # Geração de link de redefinição de senha
 ├── legacy-static/         # Protótipo estático original (referência histórica)
@@ -139,8 +141,9 @@ flowchart LR
 
 - [Node.js](https://nodejs.org/) **18 ou superior** (e `npm`)
 - Uma conta no [Supabase](https://supabase.com/) (free tier é suficiente)
-- Uma chave de API do [Google AI Studio](https://aistudio.google.com/) (Gemini) para a importação com IA
-- *(Opcional, recomendado)* Uma chave da [OpenAI](https://platform.openai.com/api-keys) com billing ativo — usada só como fallback automático se o Gemini esgotar as tentativas; sem ela, a importação com IA continua funcionando normalmente pelo Gemini, só sem rede de segurança em picos de indisponibilidade
+- Uma chave de API da [Groq Cloud](https://console.groq.com/keys) para a importação com IA (provedor primário)
+- Uma chave de API do [Google AI Studio](https://aistudio.google.com/) (Gemini) — fallback 1, também lê PDF nativamente (a Groq não lê)
+- *(Opcional, recomendado)* Uma chave da [OpenAI](https://platform.openai.com/api-keys) com billing ativo — fallback 2, usada só se Groq e Gemini esgotarem as tentativas; sem ela, a importação com IA continua funcionando normalmente pelos dois primeiros provedores, só sem a última rede de segurança em picos de indisponibilidade
 - [Supabase CLI](https://supabase.com/docs/guides/cli) — apenas se for aplicar migrations/deploy de Edge Functions localmente
 
 ---
@@ -176,8 +179,9 @@ flowchart LR
 4. **Configure os *secrets* das Edge Functions** (nunca no frontend):
 
    ```bash
-   supabase secrets set GEMINI_API_KEY=<sua-chave-gemini>
-   supabase secrets set OPENAI_API_KEY=<sua-chave-openai>  # opcional — fallback do parse-statement
+   supabase secrets set GROQ_API_KEY=<sua-chave-groq>       # primário
+   supabase secrets set GEMINI_API_KEY=<sua-chave-gemini>   # fallback 1
+   supabase secrets set OPENAI_API_KEY=<sua-chave-openai>   # opcional — fallback 2 do parse-statement
    ```
 
    > [!IMPORTANT]
@@ -219,7 +223,7 @@ flowchart LR
 
 - **RBAC reforçado no banco, não só na UI** — toda regra de permissão (quem pode ler/criar/editar/excluir) é uma *policy* de Row Level Security ou uma RPC `SECURITY DEFINER` no Postgres. Alterar `role` no cliente não concede nenhum acesso extra.
 - **Trilha de auditoria imutável** — `audit_logs` não tem policy de `UPDATE`/`DELETE`; todo lançamento, edição de usuário e login gera um registro automático via *trigger* de banco, com IP e User-Agent reais da requisição.
-- **Segredos nunca no frontend** — chaves sensíveis (`SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`) só existem no runtime das Edge Functions; o cliente só recebe a `anon key`, pensada para ser pública.
+- **Segredos nunca no frontend** — chaves sensíveis (`SUPABASE_SERVICE_ROLE_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`) só existem no runtime das Edge Functions; o cliente só recebe a `anon key`, pensada para ser pública.
 - **CORS restrito por allow-list** — as Edge Functions respondem apenas às origens conhecidas (domínio de produção + `localhost` de desenvolvimento), em vez de aceitar qualquer site.
 - **Política de senha** — mínimo de 8 caracteres, validado tanto no cliente quanto no servidor.
 - **Bloqueio em tempo real** — desativar um usuário encerra a sessão dele imediatamente em qualquer aba/navegador aberto, via Supabase Realtime.
