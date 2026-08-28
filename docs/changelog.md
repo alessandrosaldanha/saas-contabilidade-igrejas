@@ -1546,3 +1546,9 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
 - **`gpt-4o` em vez de um modelo "mini"** — como o fallback só roda raramente (Gemini já esgotou tentativas), prioriza fidelidade de leitura/OCR do extrato sobre custo por chamada.
 - **Testado o request/response da Responses API isoladamente** (fora do fluxo do app, via `curl` direto com a chave carregada de um arquivo temporário — nunca escrita literal no comando) antes de considerar a integração pronta: confirmou o formato de schema aceito e a extração de `output_text`, mas revelou que a conta OpenAI associada à chave está com **`insufficient_quota`** (sem billing/créditos configurados) — o código está correto e deployado, mas o fallback não vai funcionar de fato até o usuário configurar billing na conta OpenAI.
 - **Validado com:** `npx tsc --noEmit` sem erros; deploy via `supabase functions deploy parse-statement` confirmado (versão 17, `ACTIVE`).
+
+### [2026-08-27] Merge para main e release v1.13.0
+
+**O que foi feito:** commit `6bfcb8d` em `hmg` (fallback OpenAI `gpt-4o` no `parse-statement` quando o Gemini esgota tentativas + secret `OPENAI_API_KEY` + menções no README — entrada detalhada acima) enviado para `hmg`, merge `--no-ff` para `main` (`56715b1`), `npx tsc --noEmit`/`npm run build` revalidados direto em `main` pós-merge (sem conflitos, sem drift no working tree), tag `v1.13.0` e Release criada no GitHub.
+
+**Decisão técnica:** `MINOR` (v1.12.2 → v1.13.0), não `PATCH` — diferente das duas entradas anteriores (retries), esta adiciona uma capacidade nova (redundância entre dois provedores de IA), não é só correção/resiliência sobre o que já existia.
