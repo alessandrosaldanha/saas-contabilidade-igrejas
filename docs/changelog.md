@@ -1520,3 +1520,9 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
 **Decisão técnica:** backoff fixo e curto (1s × tentativa) em vez de exponencial mais agressivo — a Edge Function já roda sob o timeout padrão do Supabase; 3 tentativas com backoff curto cobrem picos de alguns segundos do Gemini sem arriscar a function estourar o tempo limite.
 
 **Validado com:** `npx tsc --noEmit` sem erros; deploy da function confirmado via `list_edge_functions` (status `ACTIVE`, versão 15).
+
+### [2026-08-27] Merge para main e release v1.12.2
+
+**O que foi feito:** commit `097699e` em `hmg` (retry com backoff no `parse-statement` para erros transitórios do Gemini + menção no README — entrada detalhada acima) enviado para `hmg`, merge `--no-ff` para `main` (`ece5375`), `npx tsc --noEmit`/`npm run build` revalidados direto em `main` pós-merge (sem conflitos, sem drift no working tree), tag `v1.12.2` e Release criada no GitHub.
+
+**Decisão técnica:** `PATCH` (v1.12.1 → v1.12.2), não `MINOR` — a mudança é resiliência sobre uma funcionalidade já existente (Importação com IA), sem nenhuma capacidade nova pro usuário final.
