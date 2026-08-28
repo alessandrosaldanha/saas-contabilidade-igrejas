@@ -1551,6 +1551,8 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
 
 **O que foi feito:** commit `6bfcb8d` em `hmg` (fallback OpenAI `gpt-4o` no `parse-statement` quando o Gemini esgota tentativas + secret `OPENAI_API_KEY` + menções no README — entrada detalhada acima) enviado para `hmg`, merge `--no-ff` para `main` (`56715b1`), `npx tsc --noEmit`/`npm run build` revalidados direto em `main` pós-merge (sem conflitos, sem drift no working tree), tag `v1.13.0` e Release criada no GitHub.
 
+**Decisão técnica:** `MINOR` (v1.12.2 → v1.13.0), não `PATCH` — diferente das duas entradas anteriores (retries), esta adiciona uma capacidade nova (redundância entre dois provedores de IA), não é só correção/resiliência sobre o que já existia.
+
 ### [2026-08-28] Groq como provedor primário no `parse-statement` (Gemini e OpenAI viram fallback em cascata)
 
 **O que foi pedido:** usuário queria a Groq Cloud como primeira opção de leitura do extrato na Importação, com o Gemini entrando como apoio caso ela falhe.
@@ -1569,4 +1571,10 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
 - **Nenhuma mudança de schema/prompt/taxonomia de categorias** — só a ordem/quantidade de provedores na cascata.
 - **Validado com:** `npx tsc --noEmit` e `npm run build` sem erros; deploy via `supabase functions deploy parse-statement` confirmado; `supabase secrets list` confirmou `GROQ_API_KEY` presente (valor mascarado, nunca exposto).
 
-**Decisão técnica:** `MINOR` (v1.12.2 → v1.13.0), não `PATCH` — diferente das duas entradas anteriores (retries), esta adiciona uma capacidade nova (redundância entre dois provedores de IA), não é só correção/resiliência sobre o que já existia.
+### [2026-08-28] Atualiza README (Groq como provedor primário) e merge para main e release v1.14.0
+
+**O que foi feito:**
+- `README.md` atualizado para refletir a cascata de 3 provedores: badge, seção "Sobre o projeto", tabela de funcionalidades, diagrama de arquitetura (Mermaid), tabela de stack, pré-requisitos e passo de configuração de *secrets* (`supabase secrets set GROQ_API_KEY=...`).
+- Commits `d16ca24` (Groq no `parse-statement`, entrada detalhada acima) e `a98e799` (README) em `hmg`, enviados para `hmg`, merge `--no-ff` para `main` (`f044bf7`), `npx tsc --noEmit`/`npm run build` revalidados direto em `main` pós-merge (sem conflitos), tag `v1.14.0` e Release criada no GitHub.
+
+**Decisão técnica:** `MINOR` (v1.13.0 → v1.14.0) — adiciona um provedor de IA novo à cascata (capacidade nova), não é correção.
