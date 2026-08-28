@@ -1505,3 +1505,18 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
 **O que foi feito:** commit `1f4079d` em `hmg` (correção do bug de z-index do header, aumento/realinhamento do carrossel do Hero e correção do preview gigante no Painel de Governança — três entradas detalhadas acima) enviado para `hmg`, merge `--no-ff` para `main` (`2bd53eb`), `npx tsc --noEmit`/`npm run build` revalidados direto em `main` pós-merge (sem conflitos, sem drift no working tree), tag `v1.12.1` e Release criada no GitHub.
 
 **Decisão técnica:** `PATCH` (v1.12.0 → v1.12.1), não `MINOR` — as três mudanças são correções de bugs/ajustes visuais sobre o que o v1.12.0 introduziu (carrossel do Hero, header/footer), sem nenhuma capacidade nova pro usuário final.
+
+### [2026-08-27] Investiga "IA não lê o arquivo" na Importação de Extrato e adiciona retry com backoff no `parse-statement`
+
+**O que foi pedido:** usuário reportou que a IA não estava lendo o arquivo enviado na tela de Importação de Extrato.
+
+**Investigação:** não havia nenhuma mudança recente em `parse-statement/index.ts` (última alteração em 26/07) nem em `StatementImport.tsx` que explicasse uma regressão. Consultados os logs reais da Edge Function via MCP do Supabase (`function_logs`): as 3 tentativas mais recentes do usuário (arquivos CSV, OFX e PDF, poucos minutos antes do reporte) falharam todas com o mesmo erro do Gemini — `503 UNAVAILABLE`, mensagem `"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."` — para o modelo `gemini-flash-latest`. Ou seja: o upload, o base64 e a chamada à function funcionaram normalmente; foi o próprio Google que recusou a geração por sobrecarga momentânea do modelo. O erro já era propagado corretamente como toast ("Falha ao processar extrato: …"), mas sem nenhuma tentativa de retry — qualquer pico de demanda do Gemini virava falha visível na hora, passando a impressão de "a IA não lê o arquivo".
+
+**O que foi feito (`supabase/functions/parse-statement/index.ts`):**
+- `callGemini` ganhou retry automático com backoff simples (1s, 2s) para status HTTP transitórios (`429` rate limit e `503` model overloaded) — até 3 tentativas antes de propagar o erro pro chamador. Erros de rede (`fetch` falhando) também entraram no mesmo retry.
+- Erros não retryable (4xx de validação de schema/prompt, por exemplo) continuam falhando na primeira tentativa — repetir não mudaria o resultado.
+- Deploy feito via MCP do Supabase (`deploy_edge_function`), function `parse-statement` foi para a versão 15.
+
+**Decisão técnica:** backoff fixo e curto (1s × tentativa) em vez de exponencial mais agressivo — a Edge Function já roda sob o timeout padrão do Supabase; 3 tentativas com backoff curto cobrem picos de alguns segundos do Gemini sem arriscar a function estourar o tempo limite.
+
+**Validado com:** `npx tsc --noEmit` sem erros; deploy da function confirmado via `list_edge_functions` (status `ACTIVE`, versão 15).
