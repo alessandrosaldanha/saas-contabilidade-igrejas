@@ -1,7 +1,8 @@
-// Edge Function: extrai e categoriza lançamentos de um extrato bancário via Gemini.
-// Roda aqui (nunca no frontend) porque precisa da GEMINI_API_KEY.
+// Edge Function: extrai e categoriza lançamentos de um extrato bancário via IA.
+// Roda aqui (nunca no frontend) porque precisa de GEMINI_API_KEY/OPENAI_API_KEY.
 // Deploy: supabase functions deploy parse-statement
-// Secret:  supabase secrets set GEMINI_API_KEY=...
+// Secrets: supabase secrets set GEMINI_API_KEY=...
+//          supabase secrets set OPENAI_API_KEY=...  (fallback, ver seção "Provedores de IA")
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
@@ -9,6 +10,12 @@ import { corsHeaders } from "../_shared/cors.ts";
 // aposenta modelos antigos para novas chaves de API (ex.: gemini-2.5-flash
 // parou de aceitar chaves novas pouco tempo depois do lançamento).
 const GEMINI_MODEL = "gemini-flash-latest";
+
+// Gemini é o provedor primário (mais barato, já testado em produção). O
+// modelo da OpenAI só entra em ação como fallback (ver callAI) — por isso
+// prioriza fidelidade de leitura sobre custo: "gpt-4o" em vez de um "mini",
+// já que é usado raramente (só quando o Gemini já esgotou as tentativas).
+const OPENAI_MODEL = "gpt-4o";
 
 // Espelha src/constants/accountingCategories.ts — runtime Deno separado, sem
 // bundler/import compartilhado com o frontend. Qualquer mudança na taxonomia
@@ -58,6 +65,27 @@ const REFINE_SCHEMA = {
     summary: { type: "string", description: "Resumo em português do que foi ajustado, 1-2 frases" },
   },
   required: ["transactions", "summary"],
+};
+
+// A OpenAI (Structured Outputs, modo "strict") exige `additionalProperties:
+// false` em todo objeto do schema — o Gemini não usa (nem aceita) esse campo,
+// por isso os schemas não são compartilhados 1:1 entre os dois provedores,
+// mesmo descrevendo o mesmo formato de dado.
+const TRANSACTION_ITEM_SCHEMA_OPENAI = { ...TRANSACTION_ITEM_SCHEMA, additionalProperties: false };
+const EXTRACT_SCHEMA_OPENAI = {
+  type: "object",
+  properties: { transactions: { type: "array", items: TRANSACTION_ITEM_SCHEMA_OPENAI } },
+  required: ["transactions"],
+  additionalProperties: false,
+};
+const REFINE_SCHEMA_OPENAI = {
+  type: "object",
+  properties: {
+    transactions: { type: "array", items: TRANSACTION_ITEM_SCHEMA_OPENAI },
+    summary: { type: "string", description: "Resumo em português do que foi ajustado, 1-2 frases" },
+  },
+  required: ["transactions", "summary"],
+  additionalProperties: false,
 };
 
 interface TransactionItem {
@@ -110,10 +138,14 @@ function applyStrictMode(items: TransactionItem[], rules: CategoryRule[]): Trans
   });
 }
 
-// Erros transitórios do Gemini (modelo sobrecarregado ou rate limit) valem
-// retry com backoff — um 4xx de validação (schema/prompt) nunca vale, pois
-// tentar de novo só repetiria o mesmo erro.
-const RETRYABLE_STATUS = new Set([429, 503]);
+// ─────────────────────────────────────────────────────────────────────────
+// Provedores de IA: Gemini é o primário; a OpenAI entra só como fallback
+// quando o Gemini esgota as tentativas (ex.: pico de demanda/rate limit do
+// Google). Cada provedor tem seu próprio retry com backoff — só depois de
+// esgotar os dois é que o erro sobe pro chamador (mensagem combinada).
+// ─────────────────────────────────────────────────────────────────────────
+
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 const MAX_ATTEMPTS = 3;
 const BASE_DELAY_MS = 1000;
 
@@ -121,71 +153,199 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function callGemini(contents: unknown[], schema: unknown) {
+// `retryable` distingue erro transitório (vale nova tentativa/trocar de
+// provedor) de erro de configuração/validação (chave ausente, schema/prompt
+// rejeitado) — repetir esse último só reproduziria a mesma falha.
+class ProviderError extends Error {
+  retryable: boolean;
+  constructor(message: string, retryable: boolean) {
+    super(message);
+    this.retryable = retryable;
+  }
+}
+
+async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      const retryable = err instanceof ProviderError ? err.retryable : true;
+      console.error(
+        `[parse-statement] ${label} falhou (tentativa ${attempt}/${MAX_ATTEMPTS}, retryable=${retryable}):`,
+        err instanceof Error ? err.message : err,
+      );
+      if (!retryable || attempt === MAX_ATTEMPTS) throw err;
+      // Backoff simples (1s, 2s, ...) — suficiente pra picos curtos de
+      // demanda/rate limit sem segurar a function por muito tempo.
+      await sleep(BASE_DELAY_MS * attempt);
+    }
+  }
+  throw lastErr;
+}
+
+async function callGeminiOnce(contents: unknown[], schema: unknown): Promise<unknown> {
   const apiKey = Deno.env.get("GEMINI_API_KEY");
   // Diagnóstico seguro: confirma que o secret foi carregado do ambiente, sem
   // nunca logar o valor real (nem parcial) — só presença/ausência e o modelo.
   console.log(`[parse-statement] GEMINI_API_KEY carregada: ${apiKey ? "sim" : "NÃO"} | modelo: ${GEMINI_MODEL}`);
-  if (!apiKey) throw new Error("GEMINI_API_KEY não configurada");
+  if (!apiKey) throw new ProviderError("GEMINI_API_KEY não configurada", false);
 
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    let res: Response;
-    try {
-      res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents,
-            generationConfig: { responseMimeType: "application/json", responseSchema: schema },
-          }),
-        },
-      );
-    } catch (err) {
-      console.error(`[parse-statement] falha de rede ao chamar Gemini (tentativa ${attempt}/${MAX_ATTEMPTS}):`, err);
-      if (attempt === MAX_ATTEMPTS) {
-        throw new Error(`Falha de rede ao chamar o Gemini: ${err instanceof Error ? err.message : String(err)}`);
-      }
-      await sleep(BASE_DELAY_MS * attempt);
-      continue;
-    }
-
-    if (!res.ok) {
-      const bodyText = await res.text();
-      const retryable = RETRYABLE_STATUS.has(res.status);
-      console.error(
-        `[parse-statement] Gemini retornou ${res.status} (modelo ${GEMINI_MODEL}, tentativa ${attempt}/${MAX_ATTEMPTS}, retryable=${retryable}):`,
-        bodyText,
-      );
-      if (retryable && attempt < MAX_ATTEMPTS) {
-        // Backoff simples (1s, 2s, ...) — suficiente pra picos curtos de
-        // demanda/rate limit do Gemini sem segurar a function por muito tempo.
-        await sleep(BASE_DELAY_MS * attempt);
-        continue;
-      }
-      throw new Error(`Gemini API error (${res.status}) usando modelo "${GEMINI_MODEL}": ${bodyText}`);
-    }
-
-    const data = await res.json();
-    const candidate = data.candidates?.[0];
-    const text = candidate?.content?.parts?.[0]?.text;
-    if (!text) {
-      console.error("[parse-statement] Gemini não retornou texto. finishReason:", candidate?.finishReason, "payload:", JSON.stringify(data));
-      const reason = candidate?.finishReason ? ` (finishReason: ${candidate.finishReason})` : "";
-      throw new Error(`Resposta vazia do Gemini${reason}`);
-    }
-
-    try {
-      return JSON.parse(text);
-    } catch (err) {
-      console.error("[parse-statement] Gemini retornou JSON inválido:", text);
-      throw new Error(`Gemini retornou um JSON inválido: ${err instanceof Error ? err.message : String(err)}`);
-    }
+  let res: Response;
+  try {
+    res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents,
+          generationConfig: { responseMimeType: "application/json", responseSchema: schema },
+        }),
+      },
+    );
+  } catch (err) {
+    throw new ProviderError(`Falha de rede ao chamar o Gemini: ${err instanceof Error ? err.message : String(err)}`, true);
   }
 
-  // Inalcançável: o loop sempre retorna ou lança antes de terminar as tentativas.
-  throw new Error("Falha ao chamar o Gemini após múltiplas tentativas");
+  if (!res.ok) {
+    const bodyText = await res.text();
+    console.error(`[parse-statement] Gemini retornou ${res.status} (modelo ${GEMINI_MODEL}):`, bodyText);
+    throw new ProviderError(`Gemini API error (${res.status}) usando modelo "${GEMINI_MODEL}": ${bodyText}`, RETRYABLE_STATUS.has(res.status));
+  }
+
+  const data = await res.json();
+  const candidate = data.candidates?.[0];
+  const text = candidate?.content?.parts?.[0]?.text;
+  if (!text) {
+    console.error("[parse-statement] Gemini não retornou texto. finishReason:", candidate?.finishReason, "payload:", JSON.stringify(data));
+    const reason = candidate?.finishReason ? ` (finishReason: ${candidate.finishReason})` : "";
+    throw new ProviderError(`Resposta vazia do Gemini${reason}`, true);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    console.error("[parse-statement] Gemini retornou JSON inválido:", text);
+    throw new ProviderError(`Gemini retornou um JSON inválido: ${err instanceof Error ? err.message : String(err)}`, false);
+  }
+}
+
+async function callOpenAIOnce(input: unknown[], schema: unknown, schemaName: string): Promise<unknown> {
+  const apiKey = Deno.env.get("OPENAI_API_KEY");
+  console.log(`[parse-statement] OPENAI_API_KEY carregada: ${apiKey ? "sim" : "NÃO"} | modelo: ${OPENAI_MODEL}`);
+  if (!apiKey) throw new ProviderError("OPENAI_API_KEY não configurada", false);
+
+  let res: Response;
+  try {
+    res = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        input,
+        text: { format: { type: "json_schema", name: schemaName, schema, strict: true } },
+      }),
+    });
+  } catch (err) {
+    throw new ProviderError(`Falha de rede ao chamar a OpenAI: ${err instanceof Error ? err.message : String(err)}`, true);
+  }
+
+  if (!res.ok) {
+    const bodyText = await res.text();
+    console.error(`[parse-statement] OpenAI retornou ${res.status} (modelo ${OPENAI_MODEL}):`, bodyText);
+    throw new ProviderError(`OpenAI API error (${res.status}) usando modelo "${OPENAI_MODEL}": ${bodyText}`, RETRYABLE_STATUS.has(res.status));
+  }
+
+  const data = await res.json();
+  // A Responses API não devolve um `output_text` pronto no JSON cru (isso é
+  // um helper só dos SDKs oficiais) — precisa achar a mensagem de saída e
+  // extrair o texto manualmente.
+  const message = (data.output ?? []).find((o: { type?: string }) => o.type === "message");
+  const textPart = (message?.content ?? []).find((c: { type?: string }) => c.type === "output_text");
+  const text = textPart?.text;
+  if (!text) {
+    console.error("[parse-statement] OpenAI não retornou texto. status:", data.status, "payload:", JSON.stringify(data));
+    throw new ProviderError(`Resposta vazia da OpenAI${data.status ? ` (status: ${data.status})` : ""}`, true);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    console.error("[parse-statement] OpenAI retornou JSON inválido:", text);
+    throw new ProviderError(`OpenAI retornou um JSON inválido: ${err instanceof Error ? err.message : String(err)}`, false);
+  }
+}
+
+interface FilePart {
+  mimeType: string;
+  data: string; // base64
+  filename?: string;
+}
+
+function buildGeminiContents(prompt: string, file?: FilePart): unknown[] {
+  const parts: unknown[] = [];
+  if (file) parts.push({ inlineData: { mimeType: file.mimeType, data: file.data } });
+  parts.push({ text: prompt });
+  return [{ role: "user", parts }];
+}
+
+function decodeBase64Utf8(b64: string): string {
+  const binary = atob(b64);
+  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  return new TextDecoder("utf-8").decode(bytes);
+}
+
+function buildOpenAIInput(prompt: string, file?: FilePart): unknown[] {
+  const content: unknown[] = [];
+  if (file) {
+    if (file.mimeType.startsWith("image/")) {
+      content.push({ type: "input_image", image_url: `data:${file.mimeType};base64,${file.data}` });
+    } else if (file.mimeType === "application/pdf") {
+      content.push({ type: "input_file", filename: file.filename ?? "extrato.pdf", file_data: `data:${file.mimeType};base64,${file.data}` });
+    } else {
+      // Texto puro (CSV/OFX caem aqui, com mimeType "text/plain") — decodifica
+      // e embute como texto no prompt, mais confiável do que `input_file`
+      // pra formatos que não são imagem/PDF.
+      const decoded = decodeBase64Utf8(file.data);
+      content.push({ type: "input_text", text: `Conteúdo do arquivo "${file.filename ?? "arquivo"}":\n\n${decoded}` });
+    }
+  }
+  content.push({ type: "input_text", text: prompt });
+  return [{ role: "user", content }];
+}
+
+interface CallAIOptions {
+  prompt: string;
+  file?: FilePart;
+  geminiSchema: unknown;
+  openaiSchema: unknown;
+  schemaName: string;
+}
+
+// Orquestra os dois provedores: tenta o Gemini (com seu próprio retry) e,
+// só se ele esgotar as tentativas, cai pra OpenAI (com o retry dela). Se os
+// dois falharem, propaga uma mensagem combinada com o erro de cada um.
+async function callAI(opts: CallAIOptions): Promise<any> {
+  try {
+    return await withRetry(() => callGeminiOnce(buildGeminiContents(opts.prompt, opts.file), opts.geminiSchema), "Gemini");
+  } catch (geminiErr) {
+    console.error(
+      "[parse-statement] Gemini esgotou as tentativas — usando OpenAI como fallback:",
+      geminiErr instanceof Error ? geminiErr.message : geminiErr,
+    );
+    try {
+      return await withRetry(
+        () => callOpenAIOnce(buildOpenAIInput(opts.prompt, opts.file), opts.openaiSchema, opts.schemaName),
+        "OpenAI (fallback)",
+      );
+    } catch (openaiErr) {
+      const geminiMsg = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
+      const openaiMsg = openaiErr instanceof Error ? openaiErr.message : String(openaiErr);
+      throw new Error(`Falha ao processar com IA — Gemini: ${geminiMsg} | OpenAI (fallback): ${openaiMsg}`);
+    }
+  }
 }
 
 Deno.serve(async (req) => {
@@ -259,10 +419,13 @@ Se for "saida", escolha a categoria mais específica dentre: ${SAIDA_CATEGORIES.
 Defina "confidence" como "alta" quando a categoria for óbvia pela descrição, "media" quando razoavelmente certo, "baixa" quando for um chute.
 Retorne todos os lançamentos encontrados, sem inventar nenhum que não esteja no extrato.`;
 
-      const result = await callGemini(
-        [{ role: "user", parts: [{ inlineData: { mimeType, data: contentBase64 } }, { text: prompt }] }],
-        EXTRACT_SCHEMA,
-      );
+      const result = await callAI({
+        prompt,
+        file: { mimeType, data: contentBase64, filename },
+        geminiSchema: EXTRACT_SCHEMA,
+        openaiSchema: EXTRACT_SCHEMA_OPENAI,
+        schemaName: "extract_transactions",
+      });
 
       const rules = await loadRulesIfStrict();
       if (applyMode === "strict") result.transactions = applyStrictMode(result.transactions ?? [], rules);
@@ -284,7 +447,12 @@ Aplique a instrução aos lançamentos (ex.: recategorizar, corrigir tipo, ajust
 Categorias válidas para "entrada": ${ENTRADA_CATEGORIES.join(", ")}.
 Categorias válidas para "saida": ${SAIDA_CATEGORIES.join(", ")}.`;
 
-      const result = await callGemini([{ role: "user", parts: [{ text: prompt }] }], REFINE_SCHEMA);
+      const result = await callAI({
+        prompt,
+        geminiSchema: REFINE_SCHEMA,
+        openaiSchema: REFINE_SCHEMA_OPENAI,
+        schemaName: "refine_transactions",
+      });
 
       const rules = await loadRulesIfStrict();
       if (applyMode === "strict") result.transactions = applyStrictMode(result.transactions ?? [], rules);
