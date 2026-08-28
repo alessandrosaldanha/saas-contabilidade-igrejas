@@ -1526,3 +1526,23 @@ Validado com `npx tsc --noEmit`, `npm run build` e `npm run lint` (sem erros nov
 **O que foi feito:** commit `097699e` em `hmg` (retry com backoff no `parse-statement` para erros transitórios do Gemini + menção no README — entrada detalhada acima) enviado para `hmg`, merge `--no-ff` para `main` (`ece5375`), `npx tsc --noEmit`/`npm run build` revalidados direto em `main` pós-merge (sem conflitos, sem drift no working tree), tag `v1.12.2` e Release criada no GitHub.
 
 **Decisão técnica:** `PATCH` (v1.12.1 → v1.12.2), não `MINOR` — a mudança é resiliência sobre uma funcionalidade já existente (Importação com IA), sem nenhuma capacidade nova pro usuário final.
+
+### [2026-08-27] Adiciona fallback OpenAI (`gpt-4o`) no `parse-statement` quando o Gemini esgota as tentativas
+
+**O que foi pedido:** usuário forneceu uma chave de API da OpenAI e pediu que ela fosse usada como apoio ao Gemini — se um provedor falhar, o outro assume automaticamente.
+
+> [!WARNING]
+> A chave da OpenAI foi colada em texto puro no chat pelo usuário — tratada como potencialmente exposta a partir daí. Configurada como *secret* da Edge Function via `supabase secrets set --env-file` (nunca no `.env` do frontend, que vai pro navegador/bundle); o arquivo temporário com a chave em texto puro foi apagado logo após o comando. Recomendado ao usuário revogar essa chave no painel da OpenAI e gerar uma nova assim que o fallback for validado em produção.
+
+**O que foi feito (`supabase/functions/parse-statement/index.ts`):**
+- Refatorado `callGemini` em `callGeminiOnce`/`callOpenAIOnce` (uma tentativa cada, lançando `ProviderError` com uma flag `retryable`) + `withRetry` genérico (mesma lógica de backoff de 1s/2s, 3 tentativas, reaproveitada pelos dois provedores) + `callAI`, que orquestra: tenta o Gemini inteiro (com seu retry); só se ele esgotar todas as tentativas, cai para a OpenAI (com o retry dela); se os dois falharem, propaga uma mensagem combinada com a causa de cada um.
+- **OpenAI via Responses API** (`POST /v1/responses`, modelo `gpt-4o`) com Structured Outputs (`text.format: {type:"json_schema", strict:true}`) — schemas próprios (`*_SCHEMA_OPENAI`) espelhando os do Gemini, mas com `additionalProperties: false` em todo objeto (exigência do modo `strict` da OpenAI, que o Gemini não usa).
+- Conversão do arquivo enviado por tipo: imagem → `input_image` (data URI base64); PDF → `input_file` (`file_data` em data URI); CSV/OFX (que chegam como `text/plain`) → decodificados de base64 para UTF-8 e embutidos como texto no prompt (`input_file` da Responses API é pensado pra PDF/imagem, não texto puro).
+- Extração manual do texto de resposta da Responses API (`data.output.find(type==="message").content.find(type==="output_text").text`) — o JSON cru da API não tem o atalho `output_text` que só os SDKs oficiais adicionam.
+- `RETRYABLE_STATUS` ampliado para `429, 500, 502, 503, 504` (antes só `429, 503`) — cobre também os códigos de erro transitório da OpenAI.
+
+**Decisões técnicas:**
+- **Gemini continua sendo o primário** em ambos os modos (`extract` e `refine`) — a OpenAI só entra se o Gemini esgotar as 3 tentativas. Não foi implementada alternância de "quem é o primário" (ex.: round-robin) — o pedido do usuário ("uma ajuda a outra") foi interpretado como redundância mútua, não como troca de qual API é chamada primeiro, já que o Gemini já é a escolha estabelecida por custo (free tier do Google AI Studio) e por já estar validado em produção.
+- **`gpt-4o` em vez de um modelo "mini"** — como o fallback só roda raramente (Gemini já esgotou tentativas), prioriza fidelidade de leitura/OCR do extrato sobre custo por chamada.
+- **Testado o request/response da Responses API isoladamente** (fora do fluxo do app, via `curl` direto com a chave carregada de um arquivo temporário — nunca escrita literal no comando) antes de considerar a integração pronta: confirmou o formato de schema aceito e a extração de `output_text`, mas revelou que a conta OpenAI associada à chave está com **`insufficient_quota`** (sem billing/créditos configurados) — o código está correto e deployado, mas o fallback não vai funcionar de fato até o usuário configurar billing na conta OpenAI.
+- **Validado com:** `npx tsc --noEmit` sem erros; deploy via `supabase functions deploy parse-statement` confirmado (versão 17, `ACTIVE`).

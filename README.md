@@ -49,7 +49,7 @@ O diferencial da plataforma é a **leitura e categorização automática de extr
 | 💳 **Planos de Assinatura & Pagamento Pix** | 3 planos (Gratuito/Profissional/Premium) com limites de leituras de IA, exportações de PDF, subcongregações, formatos de importação e Modo Estrito de categorização. Checkout manual via Pix (QR Code + chave + comprovante por WhatsApp) com aprovação do Admin Master; o próprio Master edita nome, preço, benefícios, limites e dados bancários/Pix de cada plano em um painel dedicado na Governança. |
 | 📊 **Dashboard executivo** | KPIs de entradas/saídas com variação vs. período anterior, saldo em caixa, gráfico Entradas × Saídas e donut de saídas por categoria — tudo calculado a partir de lançamentos reais. |
 | 📑 **Livro Caixa** | Extrato completo por mês/ano, saldo de abertura/fechamento calculado em runtime, lançamento manual (criar/editar/excluir) e exportação em CSV/Excel real + prévia de relatório em PDF/Word. |
-| 🤖 **Importação inteligente com IA** | Upload de extrato (PDF, OFX, CSV ou imagem — formato liberado conforme o plano) processado pelo Gemini, que extrai e categoriza os lançamentos automaticamente, com retry automático (backoff) em picos de indisponibilidade momentânea do modelo; chat em linguagem natural para refinar a categorização antes de salvar; Modo Estrito com regras de categorização salvas por igreja; detecção de duplicatas contra o Livro Caixa. |
+| 🤖 **Importação inteligente com IA** | Upload de extrato (PDF, OFX, CSV ou imagem — formato liberado conforme o plano) processado pelo Gemini, que extrai e categoriza os lançamentos automaticamente; retry automático (backoff) em picos de indisponibilidade e fallback para a OpenAI (`gpt-4o`) caso o Gemini esgote as tentativas; chat em linguagem natural para refinar a categorização antes de salvar; Modo Estrito com regras de categorização salvas por igreja; detecção de duplicatas contra o Livro Caixa. |
 | 🔍 **Trilha de auditoria** | Log imutável (sem `DELETE`/`UPDATE` liberado) de todo acesso, criação, edição e exclusão de lançamentos — gerado automaticamente por *triggers* de banco, não por chamadas manuais do frontend. |
 | 👥 **Gestão de usuários** | Cadastro com senha definida pelo Admin, troca de papel/status com confirmação extra para promoções/rebaixamentos de Admin, geração de link de redefinição de senha, bloqueio em tempo real de contas desativadas (via Realtime). |
 | 📝 **Termos de Uso** | Aceite obrigatório e bloqueante no primeiro acesso de qualquer usuário, independente do papel, com registro do aceite no banco. |
@@ -74,13 +74,15 @@ flowchart LR
     end
 
     F["Google Gemini API\n(gemini-flash-latest)"]
+    G["OpenAI API\n(gpt-4o, fallback)"]
 
     A -- "supabase-js" --> B
     A -- "supabase-js" --> C
     A -- "supabase.functions.invoke" --> E
     A -- "QR Code Pix (plan-assets)" --> D
     E -- "service-role key" --> B
-    E -- "extração + categorização" --> F
+    E -- "extração + categorização (primário)" --> F
+    E -- "fallback se Gemini esgotar tentativas" --> G
 ```
 
 | Camada | Tecnologia |
@@ -91,7 +93,7 @@ flowchart LR
 | **Backend / Banco** | [Supabase](https://supabase.com/) — PostgreSQL, Row Level Security, RPCs `SECURITY DEFINER`, Realtime |
 | **Autenticação** | Supabase Auth (e-mail/senha) |
 | **Funções server-side** | Supabase Edge Functions (Deno) — `parse-statement`, `invite-user`, `generate-reset-link` |
-| **Inteligência Artificial** | [Google Gemini API](https://ai.google.dev/) (alias `gemini-flash-latest`) — leitura multimodal nativa (PDF/imagem/texto) e categorização contábil via `responseSchema` estrito |
+| **Inteligência Artificial** | [Google Gemini API](https://ai.google.dev/) (alias `gemini-flash-latest`, primário) + [OpenAI API](https://platform.openai.com/) (`gpt-4o`, fallback automático) — leitura multimodal nativa (PDF/imagem/texto) e categorização contábil via saída estruturada (`responseSchema`/`json_schema`) |
 | **Hospedagem** | [Vercel](https://vercel.com/) (deploy automático a cada push em `main`) |
 
 ---
@@ -138,6 +140,7 @@ flowchart LR
 - [Node.js](https://nodejs.org/) **18 ou superior** (e `npm`)
 - Uma conta no [Supabase](https://supabase.com/) (free tier é suficiente)
 - Uma chave de API do [Google AI Studio](https://aistudio.google.com/) (Gemini) para a importação com IA
+- *(Opcional, recomendado)* Uma chave da [OpenAI](https://platform.openai.com/api-keys) com billing ativo — usada só como fallback automático se o Gemini esgotar as tentativas; sem ela, a importação com IA continua funcionando normalmente pelo Gemini, só sem rede de segurança em picos de indisponibilidade
 - [Supabase CLI](https://supabase.com/docs/guides/cli) — apenas se for aplicar migrations/deploy de Edge Functions localmente
 
 ---
@@ -174,6 +177,7 @@ flowchart LR
 
    ```bash
    supabase secrets set GEMINI_API_KEY=<sua-chave-gemini>
+   supabase secrets set OPENAI_API_KEY=<sua-chave-openai>  # opcional — fallback do parse-statement
    ```
 
    > [!IMPORTANT]
